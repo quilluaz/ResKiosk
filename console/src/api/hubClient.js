@@ -10,6 +10,7 @@ import axios from 'axios';
 const hubClient = axios.create({
     baseURL: '/', // Points to http://localhost:8000/ when served
     timeout: 5000,
+    withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
     }

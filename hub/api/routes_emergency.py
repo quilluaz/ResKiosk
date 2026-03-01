@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from hub.db.session import get_db
 from hub.db import schema
 from hub.models.api_models import EmergencyRequest, EmergencyResolveRequest, EmergencyStatusResponse
+from hub.core.auth import get_current_admin
+from hub.core.change_tracker import log_change
 import asyncio
 import json
 import logging
@@ -44,13 +46,16 @@ def _alert_to_dict(alert: schema.EmergencyAlert, db: Session) -> dict:
         "tier": alert.tier or 1,
         "alert_id_local": alert.alert_id_local,
         "acknowledged_at": alert.acknowledged_at,
+        "acknowledged_by": alert.acknowledged_by,
         "responding_at": alert.responding_at,
+        "responding_by": alert.responding_by,
         "dismissed_by_kiosk": alert.dismissed_by_kiosk,
         "dismissed_at": alert.dismissed_at,
         "resolution_notes": alert.resolution_notes,
         "resolved_by": alert.resolved_by,
         "resolved_at": alert.resolved_at,
         "retry_count": alert.retry_count,
+        "hub_id": alert.hub_id,
     }
 
 
@@ -142,14 +147,20 @@ def get_active_emergencies(db: Session = Depends(get_db)):
 
 
 @router.post("/emergency/{alert_id}/resolve")
-async def resolve_emergency(alert_id: int, payload: EmergencyResolveRequest, db: Session = Depends(get_db)):
+async def resolve_emergency(
+    alert_id: int, 
+    payload: EmergencyResolveRequest, 
+    db: Session = Depends(get_db), 
+    user: schema.User = Depends(get_current_admin)
+):
     alert = db.query(schema.EmergencyAlert).filter(schema.EmergencyAlert.id == alert_id).first()
     if alert:
         alert.status = "RESOLVED"
         alert.resolved = 1
         alert.resolved_at = int(time.time() * 1000)
         alert.resolution_notes = payload.resolution_notes
-        alert.resolved_by = payload.resolved_by
+        alert.resolved_by = user.email
+        log_change(db, "emergency_alert", alert.id, "upsert", _alert_to_dict(alert, db))
         db.commit()
         event = _alert_to_dict(alert, db)
         event["type"] = "EMERGENCY_RESOLVED"
@@ -159,11 +170,17 @@ async def resolve_emergency(alert_id: int, payload: EmergencyResolveRequest, db:
 
 
 @router.patch("/emergency/{alert_id}/acknowledge")
-async def acknowledge_emergency(alert_id: int, db: Session = Depends(get_db)):
+async def acknowledge_emergency(
+    alert_id: int, 
+    db: Session = Depends(get_db), 
+    user: schema.User = Depends(get_current_admin)
+):
     alert = db.query(schema.EmergencyAlert).filter(schema.EmergencyAlert.id == alert_id).first()
     if alert:
         alert.status = "ACKNOWLEDGED"
         alert.acknowledged_at = int(time.time() * 1000)
+        alert.acknowledged_by = user.email
+        log_change(db, "emergency_alert", alert.id, "upsert", _alert_to_dict(alert, db))
         db.commit()
         event = _alert_to_dict(alert, db)
         event["type"] = "EMERGENCY_ACKNOWLEDGED"
@@ -173,11 +190,17 @@ async def acknowledge_emergency(alert_id: int, db: Session = Depends(get_db)):
 
 
 @router.patch("/emergency/{alert_id}/responding")
-async def responding_emergency(alert_id: int, db: Session = Depends(get_db)):
+async def responding_emergency(
+    alert_id: int, 
+    db: Session = Depends(get_db), 
+    user: schema.User = Depends(get_current_admin)
+):
     alert = db.query(schema.EmergencyAlert).filter(schema.EmergencyAlert.id == alert_id).first()
     if alert:
         alert.status = "RESPONDING"
         alert.responding_at = int(time.time() * 1000)
+        alert.responding_by = user.email
+        log_change(db, "emergency_alert", alert.id, "upsert", _alert_to_dict(alert, db))
         db.commit()
         event = _alert_to_dict(alert, db)
         event["type"] = "EMERGENCY_RESPONDING"
@@ -193,6 +216,7 @@ async def dismiss_emergency(alert_id: int, db: Session = Depends(get_db)):
         alert.status = "DISMISSED"
         alert.dismissed_by_kiosk = 1
         alert.dismissed_at = int(time.time() * 1000)
+        log_change(db, "emergency_alert", alert.id, "upsert", _alert_to_dict(alert, db))
         db.commit()
         event = _alert_to_dict(alert, db)
         event["type"] = "EMERGENCY_DISMISSED"

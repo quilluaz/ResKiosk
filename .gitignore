@@ -26,3 +26,13 @@ kiosk/.gradle/
 packaging/hub_models/
 packaging/ollama_portable/
 
+# Test / verification scripts
+verify_*.py
+verify_*.txt
+test_out.txt
+hub_test_results.txt
+hub_b.db
+fix_*.py
+inspect_*.py
+implementation_plan*
+hub.log

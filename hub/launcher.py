@@ -194,7 +194,8 @@ def launch():
     from hub import main
     
     try:
-        uvicorn.run(main.app, host="127.0.0.1", port=8000, workers=1)
+        hub_port = int(os.environ.get("HUB_PORT", 8000))
+        uvicorn.run(main.app, host="0.0.0.0", port=hub_port, workers=1)
     finally:
         print("Shutting down...")
         if ollama_proc:

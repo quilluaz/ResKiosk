@@ -1,9 +1,11 @@
+import os
 import time
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, BackgroundTasks
 from sqlalchemy.orm import Session
 from hub.db.session import get_db
 from hub.db import schema
 from hub.core.network_manager import network_manager
+from hub.core.change_tracker import log_change
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -16,7 +18,7 @@ async def get_network_info(db: Session = Depends(get_db)):
     # Pull network config from NetworkConfig table
     config = db.query(schema.NetworkConfig).first()
     network_mode = config.network_mode if config else "router"
-    port = config.port if config else 8000
+    port = config.port if config else int(os.environ.get("HUB_PORT", 8000))
     final_ip = config.ip_override if (config and config.ip_override) else detected_ip
 
     # Hub name from Hub table
@@ -30,8 +32,9 @@ async def get_network_info(db: Session = Depends(get_db)):
     kiosk_ids = [k["kiosk_id"] for k in raw_list]
     kiosk_map = {}
     if kiosk_ids:
-        for kiosk in db.query(schema.Kiosk).filter(schema.Kiosk.kiosk_name.in_(kiosk_ids)).all():
-            kiosk_map[str(kiosk.kiosk_id)] = {
+        # Search by kiosk_id (UUID string) instead of name
+        for kiosk in db.query(schema.Kiosk).filter(schema.Kiosk.kiosk_id.in_(kiosk_ids)).all():
+            kiosk_map[kiosk.kiosk_id] = {
                 "kiosk_name": kiosk.kiosk_name or "",
             }
 
@@ -51,7 +54,7 @@ async def get_network_info(db: Session = Depends(get_db)):
         "ip": final_ip,
         "hub_ip": final_ip,
         "hub_id": hub_id,
-        "device_id": device_id,
+        "device_id": hub_id,
         "port": port,
         "network_mode": network_mode,
         "connected_kiosks": connected_count,
@@ -67,10 +70,25 @@ class KioskHeartbeat(BaseModel):
 
 
 @router.post("/register_kiosk")
-async def register_kiosk(heartbeat: KioskHeartbeat, request: Request):
+async def register_kiosk(heartbeat: KioskHeartbeat, request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     client_ip = request.client.host
     network_manager.register_heartbeat(heartbeat.kiosk_id, client_ip, heartbeat.status)
+    
+    # Offload change logging and DB commit to background task to prevent kiosk timeouts
+    background_tasks.add_task(_log_registration_change, db, heartbeat)
+
     return {"status": "ok"}
+
+def _log_registration_change(db: Session, heartbeat: KioskHeartbeat):
+    try:
+        log_change(db, "kiosk", heartbeat.kiosk_id, "upsert", {
+            "kiosk_id": heartbeat.kiosk_id,
+            "status": heartbeat.status,
+            "hub_id": heartbeat.center_id
+        })
+        db.commit()
+    except Exception as e:
+        print(f"[Network] Failed to log kiosk change: {e}")
 
 
 class KioskNameUpdate(BaseModel):
@@ -78,10 +96,15 @@ class KioskNameUpdate(BaseModel):
 
 
 @router.put("/network/kiosk/{kiosk_id}/name")
-def update_kiosk_name(kiosk_id: int, body: KioskNameUpdate, db: Session = Depends(get_db)):
+def update_kiosk_name(kiosk_id: str, body: KioskNameUpdate, db: Session = Depends(get_db)):
     kiosk = db.query(schema.Kiosk).filter(schema.Kiosk.kiosk_id == kiosk_id).first()
     if kiosk:
         kiosk.kiosk_name = body.kiosk_name
+        log_change(db, "kiosk", kiosk.kiosk_id, "upsert", {
+            "kiosk_id": kiosk.kiosk_id,
+            "kiosk_name": kiosk.kiosk_name,
+            "hub_id": kiosk.hub_id
+        })
         db.commit()
         return {"status": "ok", "kiosk_id": kiosk_id, "kiosk_name": body.kiosk_name}
     return {"status": "not_found", "kiosk_id": kiosk_id}

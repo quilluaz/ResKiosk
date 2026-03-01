@@ -2,7 +2,7 @@ import time
 import uuid
 import platform
 from sqlalchemy.orm import Session
-from hub.db.schema import SystemVersion, EvacInfo, KBArticle, Category, Hub
+from hub.db.schema import SystemVersion, EvacInfo, KBArticle, Category, Hub, User
 
 
 def _generate_device_id() -> str:
@@ -64,6 +64,27 @@ def seed_data(db: Session):
         )
         db.add(evac)
         print("Seeded EvacInfo.")
+
+    # 5. Ensure default admins exist
+    if db.query(User).count() == 0:
+        from hub.core.auth import hash_password
+        now = int(time.time())
+        defaults = [
+            ("admin1", "admin1@reskiosk.com", "reskiosk1"),
+            ("admin2", "admin2@reskiosk.com", "reskiosk2"),
+            ("admin3", "admin3@reskiosk.com", "reskiosk3"),
+        ]
+        for name, email, pwd in defaults:
+            db.add(User(
+                fname=name,
+                email=email,
+                password_hash=hash_password(pwd),
+                is_active=1,
+                role="admin",
+                created_at=now,
+                updated_at=now
+            ))
+        print("Seeded default admins.")
 
     # 3. Seed a welcome KB article if the table is empty
     if db.query(KBArticle).count() == 0:

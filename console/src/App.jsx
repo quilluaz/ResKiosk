@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Settings, Wifi, WifiOff, Terminal, Phone, MessageSquare, Moon, Sun, AlertTriangle, X } from 'lucide-react';
+import { Routes, Route, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
+import { LayoutDashboard, FileText, Settings, Wifi, WifiOff, Terminal, Phone, MessageSquare, Moon, Sun, AlertTriangle, X, LogOut, User as UserIcon } from 'lucide-react';
 import hubClient from './api/hubClient';
 import logoSvg from './assets/reskiosk-logo.svg';
 
@@ -13,37 +13,64 @@ import NetworkSetup from './pages/NetworkSetup';
 import LogsViewer from './pages/LogsViewer';
 import EmergencyCalls from './pages/EmergencyCalls';
 import HubMessages from './pages/HubMessages';
+import Login from './pages/Login';
 
 function App() {
+    const [user, setUser] = useState(null);
+    const [authLoading, setAuthLoading] = useState(true);
     const [emergencyMode, setEmergencyMode] = useState(false);
     const [activeAlertCount, setActiveAlertCount] = useState(0);
     const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
-    const [serialConnected, setSerialConnected] = useState(null); // null = unknown, true/false
+    const [serialConnected, setSerialConnected] = useState(null);
     const [serialDismissed, setSerialDismissed] = useState(false);
     const prevSerialConnected = useRef(null);
     const location = useLocation();
     const navigate = useNavigate();
 
+    // ── Auth Check ────────────────────────────────────────────────────────
+    const checkAuth = async () => {
+        try {
+            const res = await hubClient.get('/auth/me');
+            setUser(res.data.user);
+        } catch (e) {
+            setUser(null);
+        } finally {
+            setAuthLoading(false);
+        }
+    };
+
+    const handleLogout = async () => {
+        try {
+            await hubClient.post('/auth/logout');
+            setUser(null);
+            navigate('/login');
+        } catch (e) {
+            console.error("Logout failed", e);
+        }
+    };
+
+    useEffect(() => {
+        checkAuth();
+    }, []);
+
     // ── Serial / LoRa status polling ──────────────────────────────────────
     useEffect(() => {
+        if (!user) return;
         const checkSerial = async () => {
             try {
                 const res = await hubClient.get('/lora/status');
                 const connected = !!res.data.connected;
                 setSerialConnected(connected);
-                // Re-show modal on new disconnect (was connected, now disconnected)
                 if (prevSerialConnected.current === true && !connected) {
                     setSerialDismissed(false);
                 }
                 prevSerialConnected.current = connected;
-            } catch (e) {
-                // API unreachable — don't show serial modal (hub itself is down)
-            }
+            } catch (e) { }
         };
         checkSerial();
         const interval = setInterval(checkSerial, 5000);
         return () => clearInterval(interval);
-    }, []);
+    }, [user]);
 
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
@@ -61,8 +88,10 @@ function App() {
     };
 
     useEffect(() => {
+        if (!user) return;
         const checkStatus = async () => {
             try {
+                // Admin ping is protected, but we are logged in now
                 await hubClient.get('/admin/ping');
                 const snap = await hubClient.get('/kb/snapshot');
                 if (snap.data.structured_config && isTruthy(snap.data.structured_config.emergency_mode)) {
@@ -71,15 +100,16 @@ function App() {
                     setEmergencyMode(false);
                 }
             } catch (e) {
-                console.error("Status check failed", e);
+                if (e.response?.status === 401) setUser(null); // Session expired
             }
         };
         checkStatus();
         const interval = setInterval(checkStatus, 10000);
         return () => clearInterval(interval);
-    }, []);
+    }, [user]);
 
     useEffect(() => {
+        if (!user) return;
         const fetchAlerts = async () => {
             try {
                 const res = await hubClient.get('/emergency/active');
@@ -92,7 +122,7 @@ function App() {
         fetchAlerts();
         const interval = setInterval(fetchAlerts, 5000);
         return () => clearInterval(interval);
-    }, []);
+    }, [user]);
 
     const NavItem = ({ to, icon: Icon, label, highlight }) => {
         const isActive = location.pathname === to || (to !== '/' && location.pathname.startsWith(to));
@@ -107,6 +137,20 @@ function App() {
             </Link>
         );
     };
+
+    if (authLoading) {
+        return <div className="app-shell flex items-center justify-center">
+            <div className="text-muted">Loading ResKiosk...</div>
+        </div>;
+    }
+
+    if (!user && location.pathname !== '/login') {
+        return <Navigate to="/login" replace />;
+    }
+
+    if (location.pathname === '/login') {
+        return <Login onLoginSuccess={(u) => { setUser(u); navigate('/'); }} />;
+    }
 
     return (
         <div className="app-shell">
@@ -135,7 +179,6 @@ function App() {
 
                     <nav className="sidebar-nav">
                         <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
-
                         <NavItem to="/config" icon={Settings} label="Shelter Config" />
                         <NavItem to="/network" icon={Wifi} label="Network Setup" />
                         <NavItem to="/emergency" icon={Phone} label="Emergency Calls" />
@@ -143,10 +186,18 @@ function App() {
                         <NavItem to="/logs" icon={Terminal} label="Logs" highlight={false} />
                     </nav>
 
-                    <div style={{ padding: '0.75rem' }}>
-                        <button className="theme-toggle" onClick={() => setDarkMode(d => !d)}>
+                    <div className="mt-auto space-y-1 p-3">
+                        <div className="flex items-center gap-3 px-3 py-2 text-sm text-muted mb-2">
+                            <UserIcon size={16} />
+                            <span className="truncate">{user?.fname || user?.email}</span>
+                        </div>
+                        <button className="theme-toggle w-full" onClick={() => setDarkMode(d => !d)}>
                             {darkMode ? <Sun size={16} /> : <Moon size={16} />}
-                            <span>{darkMode ? 'Light Mode' : 'Night Mode'}</span>
+                            <span>{darkMode ? 'Light' : 'Night'}</span>
+                        </button>
+                        <button className="theme-toggle w-full text-danger" onClick={handleLogout}>
+                            <LogOut size={16} />
+                            <span>Logout</span>
                         </button>
                     </div>
                 </aside>
@@ -156,114 +207,45 @@ function App() {
                     <Routes>
                         <Route path="/" element={<Dashboard setEmergencyMode={setEmergencyMode} />} />
                         <Route path="/kb" element={<KBViewer />} />
-
                         <Route path="/faq/:id/edit" element={<FAQManager isNew={false} />} />
                         <Route path="/config" element={<ShelterConfig />} />
                         <Route path="/network" element={<NetworkSetup />} />
                         <Route path="/emergency" element={<EmergencyCalls />} />
                         <Route path="/messages" element={<HubMessages />} />
                         <Route path="/logs" element={<LogsViewer />} />
+                        <Route path="/login" element={<Navigate to="/" replace />} />
                     </Routes>
                 </main>
             </div>
 
             {/* Serial Disconnected Modal */}
             {serialConnected === false && !serialDismissed && (
-                <div style={{
-                    position: 'fixed',
-                    inset: 0,
-                    zIndex: 9999,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: 'rgba(0, 0, 0, 0.6)',
-                    backdropFilter: 'blur(4px)',
-                    animation: 'fadeIn 0.25s ease',
-                }}>
-                    <div style={{
-                        background: 'var(--bg-primary, #1a1a2e)',
-                        borderRadius: '16px',
-                        border: '1px solid var(--danger, #ef5350)',
-                        boxShadow: '0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(239,83,80,0.15)',
-                        maxWidth: '28rem',
-                        width: '90%',
-                        overflow: 'hidden',
-                        animation: 'slideUp 0.3s ease',
-                    }}>
-                        {/* Header */}
-                        <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '1rem 1.25rem',
-                            borderBottom: '1px solid var(--border, #333)',
-                            background: 'rgba(239, 83, 80, 0.08)',
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-                                <div style={{
-                                    width: 36, height: 36, borderRadius: '50%',
-                                    background: 'rgba(239, 83, 80, 0.15)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                }}>
-                                    <WifiOff size={18} style={{ color: 'var(--danger, #ef5350)' }} />
+                <div className="modal-overlay">
+                    <div className="modal-content max-w-md">
+                        <div className="modal-header border-danger/10 bg-danger/5">
+                            <div className="flex items-center gap-3">
+                                <div className="icon-circle bg-danger/10 text-danger">
+                                    <WifiOff size={18} />
                                 </div>
-                                <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--danger, #ef5350)' }}>
-                                    Serial Device Disconnected
-                                </h2>
+                                <h2 className="text-danger font-bold">Serial Device Disconnected</h2>
                             </div>
-                            <button
-                                onClick={() => setSerialDismissed(true)}
-                                style={{
-                                    background: 'transparent', border: 'none', cursor: 'pointer',
-                                    padding: '0.25rem', borderRadius: '6px', color: 'var(--text-muted, #999)',
-                                }}
-                            >
+                            <button onClick={() => setSerialDismissed(true)} className="text-muted hover:text-white">
                                 <X size={18} />
                             </button>
                         </div>
-
-                        {/* Body */}
-                        <div style={{ padding: '1.5rem 1.25rem' }}>
-                            <div style={{
-                                display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
-                                background: 'rgba(239, 83, 80, 0.06)',
-                                borderRadius: '10px', padding: '1rem',
-                                border: '1px solid rgba(239, 83, 80, 0.12)',
-                                marginBottom: '1.25rem',
-                            }}>
-                                <AlertTriangle size={20} style={{ color: '#ffa726', flexShrink: 0, marginTop: 2 }} />
-                                <div style={{ fontSize: '0.875rem', lineHeight: 1.6, color: 'var(--text, #e0e0e0)' }}>
-                                    <strong>No ESP+LoRa device is connected to this hub.</strong>
+                        <div className="p-6">
+                            <div className="alert-box bg-danger/5 border-danger/10 mb-4">
+                                <AlertTriangle size={20} className="text-warning flex-shrink-0" />
+                                <div className="text-sm">
+                                    <strong>No ESP+LoRa device is connected.</strong>
                                     <br />
-                                    LoRa messaging and inter-hub communication are unavailable until a serial device is connected.
+                                    Inter-hub communication is unavailable.
                                 </div>
                             </div>
-
-                            <div style={{
-                                display: 'flex', gap: '0.75rem', justifyContent: 'flex-end',
-                            }}>
-                                <button
-                                    onClick={() => setSerialDismissed(true)}
-                                    style={{
-                                        padding: '0.5rem 1rem', borderRadius: '8px',
-                                        border: '1px solid var(--border, #444)',
-                                        background: 'transparent', color: 'var(--text, #e0e0e0)',
-                                        cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500,
-                                    }}
-                                >
-                                    Dismiss
-                                </button>
-                                <button
-                                    onClick={() => { setSerialDismissed(true); navigate('/messages'); }}
-                                    style={{
-                                        padding: '0.5rem 1rem', borderRadius: '8px',
-                                        border: 'none',
-                                        background: 'var(--primary, #42a5f5)', color: '#fff',
-                                        cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600,
-                                        display: 'flex', alignItems: 'center', gap: '0.375rem',
-                                    }}
-                                >
-                                    <Wifi size={14} /> Go to Hub Messages
+                            <div className="flex justify-end gap-3">
+                                <button onClick={() => setSerialDismissed(true)} className="btn btn-muted btn-sm">Dismiss</button>
+                                <button onClick={() => { setSerialDismissed(true); navigate('/messages'); }} className="btn btn-primary btn-sm flex items-center gap-2">
+                                    <Wifi size={14} /> Hub Messages
                                 </button>
                             </div>
                         </div>

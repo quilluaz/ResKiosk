@@ -1,7 +1,7 @@
 import time
 import asyncio
 import logging
-import json
+import json as _json
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from hub.db.session import get_db
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # In-memory session store: maps session_id → list of {user, assistant} dicts
-session_history = {}
+# session_history = {} (Using Database persistence now)
 
 
 # Pipeline: Kiosk sends user text -> Hub receives -> if not English translate to EN (NLLB)
@@ -29,18 +29,43 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
     try:
         user_language = query.language or "en"
         raw_text = (query.transcript_english or query.transcript_original).strip()
-        logger.info(f"[Query] Incoming: lang={user_language} raw='{raw_text[:80]}' is_retry={query.is_retry} exclude_source_ids={query.exclude_source_ids}")
+        logger.info(f"[Query] Incoming: lang={user_language} session={query.session_id} raw='{raw_text[:80]}' is_retry={query.is_retry}")
+
 
         # Non-English: translate input to EN for search; after retrieval/LLM, translate answer back to user language (below)
         if user_language != "en":
             try:
-                text = translator.translate(raw_text, user_language, "en")
+                text = await asyncio.to_thread(translator.translate, raw_text, user_language, "en")
                 logger.info(f"[Query] Translated ({user_language}->en): '{text[:80]}'")
             except Exception as e:
                 logger.error(f"[Query] Inbound translation failed: {e}")
                 text = raw_text
         else:
             text = raw_text
+
+        history = []
+        if query.session_id:
+            # Load history from DB
+            try:
+                history_rows = db.query(schema.SessionHistory).filter(schema.SessionHistory.session_id == query.session_id).order_by(schema.SessionHistory.id.asc()).all()
+                history = [{"user": r.user_msg, "assistant": r.assistant_msg} for r in history_rows]
+                logger.info(f"[Query] Session: {query.session_id} | Hist: {len(history)} turns from DB")
+            except Exception as e:
+                logger.warning(f"[Query] Failed to load history: {e}")
+
+        # Contextual Resolve: If follow-up question (e.g. "When?"), resolve using session history
+        ctx_rewritten = False
+        if query.session_id and history and not query.is_retry:
+            try:
+                resolved_text = await asyncio.to_thread(query_rewriter.rewrite_contextual, text, history)
+                if resolved_text != text:
+                    logger.info(f"[Query] Contextual RESOLVED: '{text}' -> '{resolved_text}'")
+                    text = resolved_text
+                    ctx_rewritten = True
+                else:
+                    logger.info(f"[Query] Contextual NO CHANGE for: '{text}'")
+            except Exception as e:
+                logger.warning(f"[Query] Contextual rewrite failed: {e}")
 
         # Apply raw-language normalization as a fallback enrichment for non-English
         if user_language != "en":
@@ -82,7 +107,7 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
 
         # Track rewrite state for logging
         rewritten_text = text
-        rewrite_happened = False
+        rewrite_happened = ctx_rewritten
 
         # Query rewrite on low-confidence results
         if result["answer_type"] in ("NO_MATCH", "NEEDS_CLARIFICATION"):
@@ -101,7 +126,7 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                         query.exclude_source_ids,
                         query_language=query_lang,
                     )
-                    logger.info(f"[Query] Rewrite retry: '{text[:40]}' -> '{candidate[:40]}' -> {retry_result['answer_type']}")
+                    logger.info(f"[Query] Noise rewrite retry: '{text[:40]}' -> '{candidate[:40]}' -> {retry_result['answer_type']}")
                     result = retry_result
                     rewritten_text = candidate
                     rewrite_happened = True
@@ -115,12 +140,11 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
             history_str = ""
             # Do not use session history if this is a retry, as the LLM will see the disliked answer
             # and may lazily hallucinate and repeat the exact same response instead of using the new KB article.
-            if query.session_id and query.session_id in session_history and not query.is_retry:
-                history_str = json.dumps(session_history[query.session_id][-3:], ensure_ascii=False)
-            import json
-            article_json = json.dumps(result["article_data"], ensure_ascii=False)
+            if query.session_id and history and not query.is_retry:
+                history_str = _json.dumps(history[-3:], ensure_ascii=False)
+            article_json = _json.dumps(result["article_data"], ensure_ascii=False)
             try:
-                include_intro = bool(query.session_id) and (query.session_id not in session_history) and not query.is_retry
+                include_intro = bool(query.session_id) and (not history) and not query.is_retry
                 answer_text = await asyncio.to_thread(
                     formatter.format_response,
                     article_json,
@@ -144,7 +168,7 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
         answer_text_localized = None
         if user_language != "en" and answer_text:
             try:
-                translated = translator.translate(answer_text, "en", user_language)
+                translated = await asyncio.to_thread(translator.translate, answer_text, "en", user_language)
                 # If translation returns the same text, treat it as a no-op so the
                 # client does not mistake English for a localized answer.
                 if translated and translated.strip() != answer_text.strip():
@@ -158,7 +182,6 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
 
         query_log_id = None
         try:
-            import time as _time
             log_entry = schema.QueryLog(
                 kiosk_id=query.kiosk_id or "",
                 session_id=query.session_id,
@@ -176,19 +199,33 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                 rewrite_attempted=True if rewrite_happened else False,
                 rewritten_query=rewritten_text if rewrite_happened else None,
                 latency_ms=round(latency, 2),
-                created_at=int(_time.time()),
+                created_at=int(time.time()),
             )
             db.add(log_entry)
-            db.commit()
-            query_log_id = log_entry.id
+            # Will commit later with history
         except Exception as e:
-            logger.exception("[Query] DB log/commit failed")
+            logger.exception("[Query] DB log stage failed")
             db.rollback()
 
         if query.session_id:
-            if query.session_id not in session_history:
-                session_history[query.session_id] = []
-            session_history[query.session_id].append({"user": text, "assistant": answer_text})
+            try:
+                hist_entry = schema.SessionHistory(
+                    session_id=query.session_id,
+                    user_msg=text,
+                    assistant_msg=answer_text
+                )
+                db.add(hist_entry)
+            except Exception as e:
+                logger.error(f"[Query] Failed to stage history: {e}")
+
+        # Final commit for both log and history
+        try:
+            db.commit()
+            if query_log_id is None and 'log_entry' in locals():
+                query_log_id = log_entry.id
+        except Exception as e:
+            logger.error(f"[Query] Final commit failed: {e}")
+            db.rollback()
 
         return api_models.QueryResponse(
             answer_text_en=answer_text,
@@ -209,7 +246,7 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
             answer_text_en="I am here to answer questions about registration, food, medical help, sleeping areas, transportation, safety, and other services in this shelter. Please ask about one of these topics or see a volunteer for more help.",
             answer_text_localized=None,
             answer_type="NO_MATCH",
-            confidence=0.0,
+            confidence=0.4, # Set higher than 0 so Kiosk speaks it
             kb_version=getattr(query, "kb_version", 1),
             source_id=None,
             clarification_categories=None,
@@ -217,12 +254,15 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
 
 
 @router.delete("/query/session/{session_id}")
-async def end_session(session_id: str):
-    if session_id in session_history:
-        del session_history[session_id]
-        logger.info(f"Session {session_id} deleted.")
+async def end_session(session_id: str, db: Session = Depends(get_db)):
+    try:
+        db.query(schema.SessionHistory).filter(schema.SessionHistory.session_id == session_id).delete()
+        db.commit()
+        logger.info(f"Session {session_id} history deleted from DB.")
         return {"status": "success", "message": "Session ended."}
-    return {"status": "ok", "message": "Session not found."}
+    except Exception as e:
+        logger.error(f"Failed to end session: {e}")
+        return {"status": "error", "message": str(e)}
 
 
 @router.post("/feedback")

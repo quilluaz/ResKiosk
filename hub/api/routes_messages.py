@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from hub.db.session import get_db
 from hub.db import schema
+from hub.core.change_tracker import log_change
 from hub.models.api_models import (
     MessageCreate, MessageUpdate, MessageResponse,
     CategoryResponse, HubResponse,
@@ -110,6 +111,10 @@ def create_message(payload: MessageCreate, db: Session = Depends(get_db)):
     db.add(msg)
     db.commit()
     db.refresh(msg)
+    
+    log_change(db, "hub_message", msg.id, "upsert", _msg_to_response(msg, db))
+    db.commit()
+    
     return _msg_to_response(msg, db)
 
 
@@ -128,6 +133,10 @@ def update_message(message_id: int, payload: MessageUpdate, db: Session = Depend
 
     db.commit()
     db.refresh(msg)
+    
+    log_change(db, "hub_message", msg.id, "upsert", _msg_to_response(msg, db))
+    db.commit()
+    
     return _msg_to_response(msg, db)
 
 
@@ -137,5 +146,6 @@ def delete_message(message_id: int, db: Session = Depends(get_db)):
     if not msg:
         raise HTTPException(status_code=404, detail="Message not found")
     db.delete(msg)
+    log_change(db, "hub_message", msg.id, "delete", {"id": message_id})
     db.commit()
     return {"status": "deleted"}

@@ -3,7 +3,7 @@ import time
 import os
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-MODEL_NAME = os.environ.get("RESKIOSK_LLM_MODEL", "translategemma")
+MODEL_NAME = os.environ.get("RESKIOSK_LLM_MODEL", "gemma3:4b")
 TIMEOUT_SECONDS = 30  # First inference can be slow due to cold model load
 
 SYSTEM_PROMPT = """You are a helpful information assistant for an evacuation/shelter center.

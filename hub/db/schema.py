@@ -177,11 +177,32 @@ class User(Base):
     """Admin users who can log in and manage the system."""
     __tablename__ = "user"
 
-    user_id  = Column(Integer, primary_key=True, autoincrement=True)
-    fname    = Column(Text)
-    mname    = Column(Text)
-    lname    = Column(Text)
-    password = Column(Text)  # Should be hashed
+    user_id       = Column(Integer, primary_key=True, autoincrement=True)
+    fname         = Column(Text)
+    mname         = Column(Text)
+    lname         = Column(Text)
+    email         = Column(Text, unique=True, nullable=False)
+    password_hash = Column(Text, nullable=False)
+    is_active     = Column(Integer, default=1)
+    role          = Column(Text, default='admin')
+    hub_id        = Column(Integer, ForeignKey("hub.hub_id"))
+    created_at    = Column(Integer)  # Unix timestamp
+    updated_at    = Column(Integer)  # Unix timestamp
+    last_login_at = Column(Integer)  # Unix timestamp
+
+
+class AdminSession(Base):
+    """Active administrator login sessions."""
+    __tablename__ = "admin_sessions"
+
+    id           = Column(Integer, primary_key=True, autoincrement=True)
+    user_id      = Column(Integer, ForeignKey("user.user_id"), nullable=False)
+    token_hash   = Column(Text, unique=True, nullable=False)
+    expires_at   = Column(Integer, nullable=False)  # Unix timestamp
+    created_at   = Column(Integer, nullable=False)  # Unix timestamp
+    last_seen_at = Column(Integer)  # Unix timestamp
+    client_ip    = Column(Text)
+    user_agent   = Column(Text)
 
 
 
@@ -189,8 +210,8 @@ class Kiosk(Base):
     """Physical kiosk/tablet devices registered under a hub."""
     __tablename__ = "kiosk"
 
-    kiosk_id   = Column(Integer, primary_key=True, autoincrement=True)
-    hub_id     = Column(Integer, ForeignKey("hub.hub_id"), nullable=False)
+    kiosk_id   = Column(String, primary_key=True)
+    hub_id     = Column(Integer, ForeignKey("hub.hub_id"), nullable=True)
     kiosk_name = Column(Text)
     location   = Column(Text)
     status     = Column(Text)   # 'online', 'offline', 'maintenance'
@@ -223,7 +244,9 @@ class EmergencyAlert(Base):
     tier             = Column(Integer, default=1)      # 1 = immediate, 2 = confirmed
     alert_id_local   = Column(Text, nullable=True)     # kiosk UUID for dedup
     acknowledged_at  = Column(Integer, nullable=True)  # Unix ms
+    acknowledged_by  = Column(Text, nullable=True)
     responding_at    = Column(Integer, nullable=True)  # Unix ms
+    responding_by    = Column(Text, nullable=True)
     dismissed_by_kiosk = Column(Integer, default=0)
     dismissed_at     = Column(Integer, nullable=True)
     resolution_notes = Column(Text, nullable=True)
@@ -257,10 +280,55 @@ class KioskRegistry(Base):
     last_seen  = Column(DateTime, default=datetime.utcnow)
 
 
-class StructuredConfig(Base):
+class StructuredConfig(Base) :
     """Key-value configuration store for hub settings."""
     __tablename__ = "structured_config"
 
     key        = Column(String, primary_key=True)
     value      = Column(Text)
     updated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class HubPeer(Base):
+    """Tracks neighboring hubs in the federation."""
+    __tablename__ = "hub_peers"
+
+    peer_hub_id = Column(String, primary_key=True)
+    peer_name   = Column(Text)
+    base_url    = Column(Text)
+    status      = Column(Text, default="offline")
+    last_seen   = Column(Integer)  # Unix timestamp
+    last_sync_at = Column(Integer) # Unix timestamp
+    auth_shared_key = Column(Text, nullable=True)
+
+
+class FederationCursor(Base):
+    """Tracks the last synced change index for each peer."""
+    __tablename__ = "federation_cursor"
+
+    peer_hub_id    = Column(String, primary_key=True)
+    last_change_id = Column(Integer, default=0)
+    last_synced_ts = Column(Integer) # Unix timestamp
+
+
+class ChangeLog(Base):
+    """Exportable log of local data mutations."""
+    __tablename__ = "change_log"
+
+    id             = Column(Integer, primary_key=True, autoincrement=True)
+    entity_type    = Column(Text, nullable=False) # 'emergency_alert', 'kiosk', 'hub_message'
+    entity_key     = Column(Text, nullable=False) # e.g. alert.id
+    op             = Column(Text, nullable=False) # 'upsert', 'delete'
+    payload_json   = Column(Text)
+    source_hub_id  = Column(Text)
+    changed_at     = Column(Integer) # Unix timestamp
+
+
+class SessionHistory(Base):
+    """Persists conversation history across hub restarts to support follow-up questions."""
+    __tablename__ = "session_history"
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(String, index=True)
+    user_msg = Column(Text)
+    assistant_msg = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)

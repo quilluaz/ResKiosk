@@ -61,3 +61,73 @@ def maybe_rewrite(query: str, intent: str, score: float) -> str:
         return rewritten
     except Exception:
         return query
+
+CONTEXT_SYSTEM_PROMPT = """You are a conversational query resolver for an evacuation center.
+Your job is to take a user's follow-up question and the recent conversation history, and rewrite it into a single standalone question that contains all necessary context.
+
+Rules:
+1. If the question is already standalone (e.g. "Where is the medical station?"), return it unchanged.
+2. If the question is a follow-up (e.g. "When?", "Where?", "Can you tell me more?"), resolve pronouns and missing context using the history.
+3. Output the standalone question ONLY. No explanations.
+4. Keep it short and natural."""
+
+def rewrite_contextual(query: str, history: list) -> str:
+    """
+    Rewrites a short follow-up query into a standalone query using session history.
+    """
+    if not query or not history:
+        return query
+    
+    lowered = query.lower()
+    # List of common topics that should usually be standalone
+    standalone_topics = ["medical", "food", "sleeping", "registration", "wash", "toilet", "water", "shower"]
+    if any(topic in lowered for topic in standalone_topics) and len(query.split()) >= 2:
+        print(f"[Rewriter] Standalone topic detected: '{query}'. Skipping rewrite.")
+        return query
+
+    # Only rewrite if the query is very short or likely a follow-up (e.g. "When?", "Where is it?")
+    # Generally, if it has more than 5 words and contains a topic, it's likely standalone
+    if len(query.split()) > 5:
+        # Check for pronouns or connecting words that imply follow-up
+        cues = ["it", "they", "there", "that", "them", "then", "when", "how about", "what about", "and", "where"]
+        if not any(cue in lowered.split() for cue in cues):
+            print(f"[Rewriter] Query looks standalone: '{query}'. Skipping rewrite.")
+            return query
+
+    # Format history for the prompt (limit to last 2 turns)
+    context_str = ""
+    for turn in history[-2:]:
+        context_str += f"User: {turn.get('user', '')}\nAssistant: {turn.get('assistant', '')}\n"
+
+    payload = {
+        "model": MODEL_NAME,
+        "messages": [
+            {"role": "system", "content": CONTEXT_SYSTEM_PROMPT},
+            {"role": "user", "content": f"History:\n{context_str}\n\nFollow-up: {query}\n\nStandalone Question:"}
+        ],
+        "stream": False,
+        "options": {"temperature": 0.1, "num_predict": 50},
+    }
+
+    try:
+        print(f"[Rewriter] Resolving follow-up: '{query}' with {len(history)} turns of history.")
+        response = requests.post(
+            f"{OLLAMA_URL}/api/chat",
+            json=payload,
+            timeout=10 # Contextual rewrite should be fast
+        )
+        response.raise_for_status()
+        result = response.json()
+        rewritten = result.get("message", {}).get("content", "").strip()
+        
+        # Strip quotes if the LLM added them
+        rewritten = rewritten.strip('"').strip("'")
+        
+        if rewritten and len(rewritten.split()) < 20:
+            print(f"[Rewriter] RESOLVED: '{query}' -> '{rewritten}'")
+            return rewritten
+        print(f"[Rewriter] Result too long or empty, ignoring: '{rewritten}'")
+        return query
+    except Exception as e:
+        print(f"[Rewriter] Contextual resolve FAILED: {e}")
+        return query

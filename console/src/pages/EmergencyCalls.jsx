@@ -14,6 +14,7 @@ function EmergencyCalls() {
     const [sseDisconnected, setSseDisconnected] = useState(false);
     const [showDismissed, setShowDismissed] = useState(false);
     const [showResolved, setShowResolved] = useState(false);
+    const [localHubId, setLocalHubId] = useState(null);
     const playedAlertIdsRef = useRef(new Set());
 
     const [historyFilters, setHistoryFilters] = useState({
@@ -42,7 +43,7 @@ function EmergencyCalls() {
         playedAlertIdsRef.current.add(alertId);
         if (muted) return;
         const audio = new Audio('/console/emergencycallalert.mp3');
-        audio.play().catch(() => {});
+        audio.play().catch(() => { });
     }, [muted]);
 
     const fetchHistory = useCallback(async () => {
@@ -63,6 +64,7 @@ function EmergencyCalls() {
         try {
             const res = await hubClient.get('/network/info');
             setKiosks(res.data.kiosks_list || []);
+            setLocalHubId(res.data.hub_id);
         } catch (e) {
             console.error(e);
         }
@@ -78,7 +80,7 @@ function EmergencyCalls() {
         load();
     }, [load]);
 
-    // SSE for new alerts (auto-reconnect with backoff)
+    // SSE for new alerts
     useEffect(() => {
         let evtSource;
         let retry = 1000;
@@ -106,7 +108,7 @@ function EmergencyCalls() {
                     ) {
                         setAlerts(prev => prev.map(a => a.id === data.id ? data : a));
                     }
-                } catch (err) {}
+                } catch (err) { }
             };
             evtSource.onerror = () => {
                 setSseDisconnected(true);
@@ -123,7 +125,7 @@ function EmergencyCalls() {
             stopped = true;
             if (evtSource) evtSource.close();
         };
-    }, [fetchActive]);
+    }, [fetchActive, playNewAlertSound]);
 
     const acknowledgeAlert = async (alertId) => {
         try {
@@ -143,12 +145,8 @@ function EmergencyCalls() {
 
     const resolveAlert = async (alertId) => {
         try {
-            const notes = window.prompt('Resolution notes (optional):', '');
-            const resolvedBy = window.prompt('Resolved by (name):', '');
-            await hubClient.post(`/emergency/${alertId}/resolve`, {
-                resolution_notes: notes || null,
-                resolved_by: resolvedBy || null,
-            });
+            // No window.prompt here as per Phase 2 backend capturer
+            await hubClient.post(`/emergency/${alertId}/resolve`, { resolution_notes: null });
             setAlerts(prev => prev.filter(a => a.id !== alertId));
         } catch (e) {
             alert('Failed to mark resolved');
@@ -258,18 +256,9 @@ function EmergencyCalls() {
     const exportHistoryCsv = () => {
         if (!historyAlerts.length) return;
         const headers = [
-            'id',
-            'kiosk',
-            'tier',
-            'timestamp',
-            'language',
-            'transcript',
-            'responding_at',
-            'resolved_at',
-            'response_time',
-            'resolution_time',
-            'resolved_by',
-            'resolution_notes'
+            'id', 'kiosk', 'tier', 'timestamp', 'language', 'transcript',
+            'hub_id', 'acknowledged_by', 'responding_at', 'responding_by',
+            'resolved_at', 'resolved_by', 'response_time', 'resolution_time', 'resolution_notes'
         ];
         const rows = historyAlerts.map(a => {
             const responseTime = formatDuration(a.timestamp, a.responding_at);
@@ -281,11 +270,14 @@ function EmergencyCalls() {
                 a.timestamp ? new Date(a.timestamp).toISOString() : '',
                 a.language || 'en',
                 (a.transcript || '').replace(/\n/g, ' '),
+                a.hub_id || 'Local',
+                a.acknowledged_by || '',
                 a.responding_at ? new Date(a.responding_at).toISOString() : '',
+                a.responding_by || '',
                 a.resolved_at ? new Date(a.resolved_at).toISOString() : '',
+                a.resolved_by || '',
                 responseTime,
                 resolutionTime,
-                a.resolved_by || '',
                 (a.resolution_notes || '').replace(/\n/g, ' ')
             ];
         });
@@ -339,6 +331,7 @@ function EmergencyCalls() {
     return (
         <div className="space-y-6">
             <h1 className="page-title">Emergency Calls</h1>
+
             {sseDisconnected && (
                 <div className="card" style={{ background: 'rgba(110, 82, 15, 0.35)', color: '#ffe082', border: '1px solid rgba(255, 224, 130, 0.25)' }}>
                     Live alert feed disconnected — reconnecting.
@@ -351,177 +344,146 @@ function EmergencyCalls() {
             )}
 
             <div className="flex gap-2">
-                <button className={`btn btn-sm ${tab === 'active' ? '' : 'btn-muted'}`} onClick={() => setTab('active')}>
-                    Active
-                </button>
-                <button className={`btn btn-sm ${tab === 'history' ? '' : 'btn-muted'}`} onClick={() => { setTab('history'); fetchHistory(); }}>
-                    History
-                </button>
-                <button className="btn btn-sm" onClick={() => setMuted(m => !m)}>
-                    {muted ? 'Unmute' : 'Mute'}
-                </button>
+                <button className={`btn btn-sm ${tab === 'active' ? '' : 'btn-muted'}`} onClick={() => setTab('active')}>Active</button>
+                <button className={`btn btn-sm ${tab === 'history' ? '' : 'btn-muted'}`} onClick={() => { setTab('history'); fetchHistory(); }}>History</button>
+                <button className="btn btn-sm" onClick={() => setMuted(m => !m)}>{muted ? 'Unmute' : 'Mute'}</button>
             </div>
 
             {tab === 'active' && (
-            <div className="card">
-                <h3 className="section-title">Active Emergency Alerts ({visibleAlerts.length})</h3>
-                {visibleAlerts.length === 0 ? (
-                    <p className="text-muted">No alerts for the selected filter.</p>
-                ) : (
-                    <div className="space-y-4">
-                        {visibleAlerts.map((a) => (
-                            <div
-                                key={a.id}
-                                className="p-4 rounded border"
-                                style={getAlertCardStyle(a)}
-                            >
-                                <div className="flex justify-between items-start gap-4">
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <div className="font-semibold text-lg" style={{ color: '#ffd9d9' }}>
-                                                {a.kiosk_name || a.kiosk_location || 'Unknown kiosk'}
+                <div className="card">
+                    <h3 className="section-title">Active Emergency Alerts ({visibleAlerts.length})</h3>
+                    {visibleAlerts.length === 0 ? (
+                        <p className="text-muted p-4">No active emergency calls.</p>
+                    ) : (
+                        <div className="space-y-4">
+                            {visibleAlerts.map((a) => (
+                                <div key={a.id} className="p-4 rounded border" style={getAlertCardStyle(a)}>
+                                    <div className="flex justify-between items-start gap-4">
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <div className="font-semibold text-lg" style={{ color: '#ffd9d9' }}>
+                                                    {a.kiosk_name || a.kiosk_location || 'Unknown kiosk'}
+                                                </div>
+                                                <span className="badge" style={getTierChipStyle(a.tier)}>
+                                                    {(a.tier || 1) === 1 ? 'CRITICAL' : 'CONFIRMED'}
+                                                </span>
+                                                <span className="badge" style={getStatusChipStyle(a.status)}>
+                                                    {a.status || 'ACTIVE'}
+                                                </span>
+                                                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                                                    Hub: {a.hub_id === String(localHubId) ? 'Local' : (a.hub_id || 'Local')}
+                                                </span>
                                             </div>
-                                            <span className="badge" style={getTierChipStyle(a.tier)}>
-                                                {(a.tier || 1) === 1 ? 'CRITICAL' : 'CONFIRMED'}
-                                            </span>
-                                            <span className="badge" style={getStatusChipStyle(a.status)}>
-                                                {a.status || 'ACTIVE'}
-                                            </span>
-                                        </div>
-                                        <div className="text-xs mt-1" style={{ color: '#9aa0a6' }}>
-                                            Kiosk ID: {a.kiosk_id || 'unknown'}
-                                            {a.kiosk_location ? ` | Location: ${a.kiosk_location}` : ''}
-                                        </div>
-                                        <div className="text-sm mt-1" style={{ color: '#bfbfbf' }}>
-                                            {new Date(a.timestamp).toLocaleString()} | {formatTimeAgo(a.timestamp)}
-                                        </div>
-                                        <div className="text-xs mt-1" style={{ color: '#9aa0a6' }}>
-                                            Tier: {a.tier || 1} | Lang: {a.language || 'en'}
+                                            <div className="text-xs mt-1" style={{ color: '#9aa0a6' }}>
+                                                ID: {a.id} | Kiosk ID: {a.kiosk_id || 'unknown'} {a.kiosk_location ? `| Location: ${a.kiosk_location}` : ''}
+                                            </div>
+                                            <div className="text-sm mt-1" style={{ color: '#bfbfbf' }}>
+                                                {new Date(a.timestamp).toLocaleString()} | {formatTimeAgo(a.timestamp)} | Lang: {a.language || 'en'}
+                                            </div>
+
+                                            {a.transcript && (
+                                                <p className="mt-2 p-2 rounded bg-black/20 text-sm italic" style={{ color: '#f0f0f0' }}>"{a.transcript}"</p>
+                                            )}
+
+                                            <div className="mt-2 text-xs flex gap-4" style={{ color: '#9aa0a6' }}>
+                                                {a.acknowledged_by && <div>Ack By: {a.acknowledged_by}</div>}
+                                                {a.responding_by && <div>Resp By: {a.responding_by}</div>}
+                                            </div>
+
+                                            {a.dismissed_by_kiosk === 1 && (
+                                                <div className="text-xs mt-2 italic" style={{ color: '#ffb4b4' }}>User dismissed at kiosk.</div>
+                                            )}
                                         </div>
 
-                                        {a.transcript && (
-                                            <p className="mt-2" style={{ color: '#f0f0f0' }}>{a.transcript}</p>
-                                        )}
-                                        {a.dismissed_by_kiosk === 1 && (
-                                            <div className="text-xs mt-2" style={{ color: '#9aa0a6' }}>User dismissed at kiosk.</div>
-                                        )}
-                                    </div>
-                                    <div className="flex flex-col gap-2">
-                                        {a.status === 'ACTIVE' && (
-                                            <button style={btnPrimary} onClick={() => acknowledgeAlert(a.id)}>
-                                                Acknowledge Alert
-                                            </button>
-                                        )}
-                                        {a.status === 'ACKNOWLEDGED' && (
-                                            <>
-                                                <button style={btnPrimary} onClick={() => respondingAlert(a.id)}>
-                                                    Mark Responding
-                                                </button>
-                                                <button style={btnSecondary} onClick={() => resolveAlert(a.id)}>
-                                                    Resolve Alert
-                                                </button>
-                                            </>
-                                        )}
-                                        {a.status === 'RESPONDING' && (
-                                            <button style={btnSuccess} onClick={() => resolveAlert(a.id)}>
-                                                Resolve Alert
-                                            </button>
-                                        )}
-                                        {a.status === 'DISMISSED' && (
-                                            <button style={btnSecondary} onClick={() => resolveAlert(a.id)}>
-                                                Resolve Dismissed Alert
-                                            </button>
-                                        )}
+                                        <div className="flex flex-col gap-2">
+                                            {a.status === 'ACTIVE' && (
+                                                <button style={btnPrimary} onClick={() => acknowledgeAlert(a.id)}>Acknowledge Alert</button>
+                                            )}
+                                            {a.status === 'ACKNOWLEDGED' && (
+                                                <>
+                                                    <button style={btnPrimary} onClick={() => respondingAlert(a.id)}>Mark Responding</button>
+                                                    <button style={btnSecondary} onClick={() => resolveAlert(a.id)}>Resolve Alert</button>
+                                                </>
+                                            )}
+                                            {a.status === 'RESPONDING' && (
+                                                <button style={btnSuccess} onClick={() => resolveAlert(a.id)}>Resolve Alert</button>
+                                            )}
+                                            {a.status === 'DISMISSED' && (
+                                                <button style={btnSecondary} onClick={() => resolveAlert(a.id)}>Resolve Dismissed Alert</button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
+                    )}
+
+                    <div className="flex flex-wrap gap-2 mt-6 pt-4 border-t border-white/5">
+                        <button className={`btn btn-sm ${showDismissed ? '' : 'btn-muted'}`} onClick={() => setShowDismissed(v => !v)}>
+                            {showDismissed ? 'Hide Dismissed' : 'Show Dismissed'}
+                        </button>
+                        <button className={`btn btn-sm ${showResolved ? '' : 'btn-muted'}`} onClick={() => setShowResolved(v => !v)}>
+                            {showResolved ? 'Hide Resolved' : 'Show Resolved'}
+                        </button>
                     </div>
-                )}
-                <div className="flex flex-wrap gap-2 mt-4">
-                    <button
-                        className={`btn btn-sm ${!showDismissed ? '' : 'btn-muted'}`}
-                        onClick={() => setShowDismissed(v => !v)}
-                    >
-                        {showDismissed ? 'Hide Dismissed' : 'Show Dismissed'}
-                    </button>
-                    <button
-                        className={`btn btn-sm ${!showResolved ? '' : 'btn-muted'}`}
-                        onClick={() => setShowResolved(v => !v)}
-                    >
-                        {showResolved ? 'Hide Resolved' : 'Show Resolved'}
-                    </button>
                 </div>
-            </div>
             )}
 
             {tab === 'history' && (
-            <div className="card">
-                <h3 className="section-title">Alert History</h3>
-                <div
-                    className="mb-4"
-                    style={{
-                        display: 'grid',
-                        gridTemplateColumns: '2fr 1fr 2fr 2fr auto auto',
-                        gap: 10,
-                        alignItems: 'center',
-                    }}
-                >
-                    <input className="input" placeholder="Kiosk ID" value={historyFilters.kiosk_id} onChange={e => setHistoryFilters({ ...historyFilters, kiosk_id: e.target.value })} />
-                    <input className="input" placeholder="Tier" value={historyFilters.tier} onChange={e => setHistoryFilters({ ...historyFilters, tier: e.target.value })} />
-                    <input className="input" placeholder="From (ISO date)" value={historyFilters.from} onChange={e => setHistoryFilters({ ...historyFilters, from: e.target.value })} />
-                    <input className="input" placeholder="To (ISO date)" value={historyFilters.to} onChange={e => setHistoryFilters({ ...historyFilters, to: e.target.value })} />
-                    <button className="btn btn-sm" style={{ minWidth: 88 }} onClick={fetchHistory}>Apply</button>
-                    <button className="btn btn-sm" style={{ minWidth: 110 }} onClick={exportHistoryCsv}>Export CSV</button>
-                </div>
-                {historyAlerts.length === 0 ? (
-                    <p className="text-muted">No resolved alerts.</p>
-                ) : (
-                    <div style={{ overflow: 'auto', border: '1px solid var(--line)', borderRadius: 10 }}>
-                        <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                <div className="card">
+                    <h3 className="section-title">Alert History</h3>
+                    <div className="mb-4 grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+                        <input className="input" placeholder="Kiosk ID" value={historyFilters.kiosk_id} onChange={e => setHistoryFilters({ ...historyFilters, kiosk_id: e.target.value })} />
+                        <input className="input" placeholder="Tier" value={historyFilters.tier} onChange={e => setHistoryFilters({ ...historyFilters, tier: e.target.value })} />
+                        <input className="input" placeholder="From (ISO)" value={historyFilters.from} onChange={e => setHistoryFilters({ ...historyFilters, from: e.target.value })} />
+                        <input className="input" placeholder="To (ISO)" value={historyFilters.to} onChange={e => setHistoryFilters({ ...historyFilters, to: e.target.value })} />
+                        <button className="btn btn-sm" onClick={fetchHistory}>Apply</button>
+                        <button className="btn btn-sm" onClick={exportHistoryCsv}>Export CSV</button>
+                    </div>
+
+                    <div style={{ overflow: 'auto' }}>
+                        <table style={{ minWidth: '100%' }}>
                             <thead>
                                 <tr>
-                                    <th style={{ textAlign: 'left', padding: '12px 10px' }}>Kiosk</th>
-                                    <th style={{ textAlign: 'left', padding: '12px 10px' }}>Tier</th>
-                                    <th style={{ textAlign: 'left', padding: '12px 10px' }}>Time</th>
-                                    <th style={{ textAlign: 'left', padding: '12px 10px' }}>Language</th>
-                                    <th style={{ textAlign: 'left', padding: '12px 10px' }}>Transcript</th>
-                                    <th style={{ textAlign: 'left', padding: '12px 10px' }}>Response Time</th>
-                                    <th style={{ textAlign: 'left', padding: '12px 10px' }}>Resolution Time</th>
-                                    <th style={{ textAlign: 'left', padding: '12px 10px' }}>Resolved By</th>
-                                    <th style={{ textAlign: 'left', padding: '12px 10px' }}>Notes</th>
+                                    <th>Kiosk</th>
+                                    <th>Hub</th>
+                                    <th>Time</th>
+                                    <th>Lang</th>
+                                    <th>Transcript</th>
+                                    <th>Ack By</th>
+                                    <th>Resp By</th>
+                                    <th>Res By</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {historyAlerts.map((a) => (
-                                    <tr key={a.id}>
-                                        <td style={{ padding: '12px 10px', verticalAlign: 'top' }}>{a.kiosk_name || a.kiosk_location || a.kiosk_id}</td>
-                                        <td style={{ padding: '12px 10px', verticalAlign: 'top' }}>{a.tier || 1}</td>
-                                        <td style={{ padding: '12px 10px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>{new Date(a.timestamp).toLocaleString()}</td>
-                                        <td style={{ padding: '12px 10px', verticalAlign: 'top' }}>{a.language || 'en'}</td>
-                                        <td style={{ padding: '12px 10px', verticalAlign: 'top', maxWidth: 340 }}>{(a.transcript || '').slice(0, 120)}</td>
-                                        <td style={{ padding: '12px 10px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>{formatDuration(a.timestamp, a.responding_at)}</td>
-                                        <td style={{ padding: '12px 10px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>{formatDuration(a.timestamp, a.resolved_at)}</td>
-                                        <td style={{ padding: '12px 10px', verticalAlign: 'top' }}>{a.resolved_by || '-'}</td>
-                                        <td style={{ padding: '12px 10px', verticalAlign: 'top', maxWidth: 260 }}>{a.resolution_notes || '-'}</td>
-                                    </tr>
-                                ))}
+                                {historyAlerts.length === 0 ? (
+                                    <tr><td colSpan="8" className="empty-state">No history matching filters.</td></tr>
+                                ) : (
+                                    historyAlerts.map((a) => (
+                                        <tr key={a.id}>
+                                            <td className="text-sm">{a.kiosk_name || a.kiosk_id}</td>
+                                            <td className="text-xs text-muted font-mono">{a.hub_id || 'Local'}</td>
+                                            <td className="text-xs whitespace-nowrap">{new Date(a.timestamp).toLocaleString()}</td>
+                                            <td className="text-xs uppercase">{a.language || 'en'}</td>
+                                            <td className="text-xs italic truncate max-w-[150px]">{a.transcript}</td>
+                                            <td className="text-xs">{a.acknowledged_by || '—'}</td>
+                                            <td className="text-xs">{a.responding_by || '—'}</td>
+                                            <td className="text-xs">{a.resolved_by || '—'}</td>
+                                        </tr>
+                                    ))
+                                )}
                             </tbody>
                         </table>
                     </div>
-                )}
-            </div>
+                </div>
             )}
 
-            {/* Connected Kiosks with editable name */}
-            <div className="card">
+            <div className="card mt-8">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="section-title" style={{ border: 'none', margin: 0, padding: 0 }}>
-                        Connected Kiosks ({kiosks.length})
+                        Registered Kiosks ({kiosks.length})
                     </h3>
-                    <button className="btn btn-sm" onClick={load}>
-                        <RefreshCw size={14} /> Refresh
-                    </button>
+                    <button className="btn btn-sm" onClick={fetchNetwork}><RefreshCw size={14} /> Refresh</button>
                 </div>
                 <div style={{ overflow: 'auto' }}>
                     <table>
@@ -530,15 +492,12 @@ function EmergencyCalls() {
                                 <th>Kiosk ID</th>
                                 <th>Kiosk Name</th>
                                 <th>IP Address</th>
-                                <th>Last Seen</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
                         <tbody>
                             {kiosks.length === 0 ? (
-                                <tr>
-                                    <td colSpan="5" className="empty-state">No kiosks connected yet.</td>
-                                </tr>
+                                <tr><td colSpan="4" className="empty-state">No kiosks connected yet.</td></tr>
                             ) : (
                                 kiosks.map((k) => (
                                     <tr key={k.kiosk_id}>
@@ -547,7 +506,6 @@ function EmergencyCalls() {
                                             {editingKiosk === k.kiosk_id ? (
                                                 <input
                                                     className="input"
-                                                    style={{ width: '100%', minWidth: 120 }}
                                                     value={editName}
                                                     onChange={(e) => setEditName(e.target.value)}
                                                     onBlur={() => saveKioskName(k.kiosk_id)}
@@ -564,19 +522,15 @@ function EmergencyCalls() {
                                                         setEditingKiosk(k.kiosk_id);
                                                         setEditName(k.kiosk_name || k.kiosk_id);
                                                     }}
-                                                    title="Click to edit"
                                                 >
-                                                    {k.kiosk_name || k.kiosk_id}
+                                                    {k.kiosk_name || k.kiosk_id} (click to edit)
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="font-mono text-sm">{k.ip || '—'}</td>
-                                        <td className="text-sm text-muted">
-                                            {k.last_seen ? new Date(k.last_seen + 'Z').toLocaleTimeString() : '—'}
-                                        </td>
+                                        <td className="font-mono text-xs">{k.ip || '—'}</td>
                                         <td>
                                             <span className={`status-dot ${k.status === 'online' ? 'online' : 'offline'}`}></span>
-                                            <span className="text-sm ml-1">{k.status || 'online'}</span>
+                                            <span className="text-xs ml-1">{k.status || 'online'}</span>
                                         </td>
                                     </tr>
                                 ))

@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from hub.api import routes_system, routes_kb, routes_admin, routes_query, routes_network, routes_emergency, routes_messages, routes_lora
+from hub.api import routes_system, routes_kb, routes_admin, routes_query, routes_network, routes_emergency, routes_messages, routes_lora, routes_auth, routes_config, routes_federation
 from hub.db.init_db import init_db
 
 app = FastAPI(title="ResKiosk Hub", version="0.2")
@@ -23,6 +23,13 @@ def on_startup():
     _embed_missing_articles()
     _prewarm_models()
     _lora_auto_connect()
+    _start_federation()
+
+def _start_federation():
+    from hub.core.discovery import discovery_service
+    from hub.core.federation_worker import federation_worker
+    discovery_service.start()
+    federation_worker.start()
 
 
 def _embed_missing_articles():
@@ -145,6 +152,9 @@ app.include_router(routes_query.router)
 app.include_router(routes_emergency.router)
 app.include_router(routes_messages.router)
 app.include_router(routes_lora.router)
+app.include_router(routes_auth.router)
+app.include_router(routes_config.router)
+app.include_router(routes_federation.router)
 
 # Serve console/dist as static files
 base = get_base_path()

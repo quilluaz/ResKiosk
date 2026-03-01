@@ -1,10 +1,14 @@
-from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect, Depends
 from fastapi.responses import JSONResponse
 import asyncio
 import os
 import signal
 import subprocess
+import time
 from pathlib import Path
+from sqlalchemy.orm import Session
+from hub.db.session import get_db
+from hub.db import schema
 from hub.core.network_manager import network_manager
 from hub.core.logger_stream import stream_handler
 
@@ -62,7 +66,7 @@ async def health_check():
     return {"status": "ok"}
 
 @router.get("/admin/ping")
-async def admin_ping(request: Request):
+async def admin_ping(request: Request, db: Session = Depends(get_db)):
     """
     Lightweight liveness check. Also registers the kiosk via X-Kiosk-ID header.
     Per spec: every kiosk request includes X-Kiosk-ID header so the hub can
@@ -72,6 +76,28 @@ async def admin_ping(request: Request):
     if kiosk_id:
         client_ip = request.client.host if request.client else "unknown"
         network_manager.register_heartbeat(kiosk_id, client_ip, "online")
+        
+        # Auto-register/Discovery: Persist to Kiosk table if not exists
+        try:
+            kiosk = db.query(schema.Kiosk).filter(schema.Kiosk.kiosk_id == kiosk_id).first()
+            if not kiosk:
+                kiosk = schema.Kiosk(
+                    kiosk_id=kiosk_id,
+                    status="online",
+                    last_seen=int(time.time()),
+                    created_at=int(time.time())
+                )
+                db.add(kiosk)
+                db.commit()
+                print(f"[Discovery] Auto-registered Kiosk: {kiosk_id}")
+            else:
+                kiosk.last_seen = int(time.time())
+                kiosk.status = "online"
+                db.commit()
+        except Exception as e:
+            print(f"[Discovery] Failed to persist kiosk heartbeat: {e}")
+            db.rollback()
+
         print(f"[Heartbeat] Kiosk '{kiosk_id}' from {client_ip}")
     return {"status": "ok", "hub_version": "1.0"}
 

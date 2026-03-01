@@ -5,27 +5,64 @@ import { Copy, RefreshCw } from 'lucide-react';
 
 function NetworkSetup() {
     const [netInfo, setNetInfo] = useState({ ip: '...', port: 8000 });
+    const [config, setConfig] = useState({ network_mode: 'router', ip_override: '', port: 8000 });
+    const [peers, setPeers] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
 
     const fetchInfo = async () => {
         try {
-            setLoading(true);
             const res = await hubClient.get('/network/info');
             setNetInfo(res.data);
         } catch (e) {
             console.error(e);
-        } finally {
-            setLoading(false);
         }
     };
 
+    const fetchConfig = async () => {
+        try {
+            const res = await hubClient.get('/network/config');
+            setConfig(res.data);
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const fetchPeers = async () => {
+        try {
+            const res = await hubClient.get('/federation/peers');
+            setPeers(res.data.peers || []);
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const loadData = async () => {
+        setLoading(true);
+        await Promise.all([fetchInfo(), fetchConfig(), fetchPeers()]);
+        setLoading(false);
+    };
+
     useEffect(() => {
-        fetchInfo();
-        const interval = setInterval(fetchInfo, 10000);
-        return () => clearInterval(interval);
+        loadData();
     }, []);
 
+    const handleSave = async () => {
+        try {
+            setSaving(true);
+            await hubClient.put('/network/config', config);
+            alert('Network settings saved successfully');
+            fetchInfo();
+        } catch (e) {
+            alert('Failed to save settings: ' + (e.response?.data?.detail || e.message));
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const hubUrl = `http://${netInfo.ip}:${netInfo.port}`;
+
+    if (loading) return <div className="p-8 text-muted">Loading network settings...</div>;
 
     return (
         <div className="space-y-6">
@@ -63,27 +100,99 @@ function NetworkSetup() {
 
                 <div className="form-group">
                     <label>Network Mode</label>
-                    <select className="input" style={{ maxWidth: '24rem' }}>
-                        <option>Using existing Wi-Fi (Recommended)</option>
-                        <option>Hub Hosting Hotspot (Standalone)</option>
+                    <select
+                        className="input"
+                        style={{ maxWidth: '24rem' }}
+                        value={config.network_mode}
+                        onChange={(e) => setConfig({ ...config, network_mode: e.target.value })}
+                    >
+                        <option value="router">Using existing Wi-Fi (Recommended)</option>
+                        <option value="hotspot">Hub Hosting Hotspot (Standalone)</option>
                     </select>
                 </div>
 
                 <div className="form-group">
                     <label>Static IP Override (Optional)</label>
-                    <input className="input" style={{ maxWidth: '24rem' }} placeholder="e.g. 192.168.1.100" />
+                    <input
+                        className="input"
+                        style={{ maxWidth: '24rem' }}
+                        placeholder="e.g. 192.168.1.100"
+                        value={config.ip_override}
+                        onChange={(e) => setConfig({ ...config, ip_override: e.target.value })}
+                    />
                     <p className="form-hint">Leave empty to use automatic detection.</p>
                 </div>
 
                 <div className="form-group">
-                    <label>Firewall Status</label>
-                    <div className="flex items-center gap-2">
-                        <span className="status-dot warning"></span>
-                        <span className="text-sm">Unknown (check manually)</span>
-                    </div>
+                    <label>Server Port</label>
+                    <input
+                        type="number"
+                        className="input"
+                        style={{ maxWidth: '24rem' }}
+                        placeholder="8000"
+                        value={config.port}
+                        onChange={(e) => setConfig({ ...config, port: parseInt(e.target.value) || 8000 })}
+                    />
                 </div>
 
-                <button className="btn btn-primary">Save Network Settings</button>
+                <button
+                    className="btn btn-primary"
+                    onClick={handleSave}
+                    disabled={saving}
+                >
+                    {saving ? 'Saving...' : 'Save Network Settings'}
+                </button>
+            </div>
+
+            {/* Federation Hub Peers */}
+            <div className="card">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="section-title" style={{ border: 'none', margin: 0, padding: 0 }}>
+                        Federated Hub Peers ({peers.length})
+                    </h3>
+                    <button className="btn btn-sm" onClick={fetchPeers}>
+                        <RefreshCw size={14} /> Refresh
+                    </button>
+                </div>
+                <div style={{ overflow: 'auto' }}>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Hub ID</th>
+                                <th>Hub Name</th>
+                                <th>Base URL</th>
+                                <th>Last Sync</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {peers.length === 0 ? (
+                                <tr>
+                                    <td colSpan="5" className="empty-state">
+                                        No other hubs discovered on the network.
+                                    </td>
+                                </tr>
+                            ) : (
+                                peers.map((peer) => (
+                                    <tr key={peer.peer_hub_id}>
+                                        <td style={{ fontWeight: 500 }}>{peer.peer_hub_id}</td>
+                                        <td>{peer.peer_name}</td>
+                                        <td className="font-mono text-sm">{peer.base_url}</td>
+                                        <td className="text-sm text-muted">
+                                            {peer.last_sync_at ? new Date(peer.last_sync_at * 1000).toLocaleTimeString() : 'Never'}
+                                        </td>
+                                        <td>
+                                            <span className="flex items-center gap-2">
+                                                <span className={`status-dot ${peer.status === 'online' ? 'online' : 'offline'}`}></span>
+                                                <span className="text-sm">{peer.status}</span>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             {/* Connected Kiosks */}
