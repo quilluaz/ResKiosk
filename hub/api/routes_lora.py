@@ -45,6 +45,10 @@ class AutoConnectRequest(BaseModel):
     enabled: bool
 
 
+class EncryptionKeyRequest(BaseModel):
+    key: Optional[str] = None  # hex string; omit to auto-generate
+
+
 # ── REST endpoints ─────────────────────────────────────────────────────────
 
 @router.get("/status")
@@ -203,6 +207,71 @@ def lora_auto_connect(req: AutoConnectRequest, db: Session = Depends(get_db)):
         mgr.disable_auto_reconnect()
 
     return {"ok": True, "auto_connect": req.enabled}
+
+
+# ── Encryption key management ──────────────────────────────────────────────
+
+@router.get("/encryption")
+def lora_encryption_status(db: Session = Depends(get_db)):
+    """Return whether LoRa encryption is enabled and a masked key preview."""
+    row = db.query(schema.StructuredConfig).filter(
+        schema.StructuredConfig.key == "lora_encryption_key"
+    ).first()
+    if row and row.value:
+        masked = row.value[:6] + "..." + row.value[-4:]
+        return {"enabled": True, "key_preview": masked, "key_length": len(row.value), "key_source": "database"}
+
+    # Fallback: environment/.env key via manager helper
+    mgr = get_lora_manager()
+    env_key = mgr._get_encryption_key()
+    if env_key:
+        masked = env_key[:6] + "..." + env_key[-4:]
+        return {"enabled": True, "key_preview": masked, "key_length": len(env_key), "key_source": "environment"}
+
+    return {"enabled": False, "key_preview": None, "key_length": 0, "key_source": None}
+
+
+@router.post("/encryption")
+def lora_encryption_set(req: EncryptionKeyRequest, db: Session = Depends(get_db)):
+    """Set or generate a new LoRa encryption key. All hubs must share the same key."""
+    from hub.core.crypto import generate_key, CRYPTO_AVAILABLE
+    if not CRYPTO_AVAILABLE:
+        return {"ok": False, "error": "cryptography package is not installed on this hub"}
+
+    key_hex = req.key if req.key else generate_key()
+
+    try:
+        bytes.fromhex(key_hex)
+    except ValueError:
+        return {"ok": False, "error": "Key must be a valid hex string"}
+    if len(bytes.fromhex(key_hex)) != 32:
+        return {"ok": False, "error": "Key must be exactly 32 bytes (64 hex characters)"}
+
+    row = db.query(schema.StructuredConfig).filter(
+        schema.StructuredConfig.key == "lora_encryption_key"
+    ).first()
+    if row:
+        row.value = key_hex
+    else:
+        row = schema.StructuredConfig(key="lora_encryption_key", value=key_hex)
+        db.add(row)
+    db.commit()
+
+    logger.info("LoRa encryption key updated")
+    return {"ok": True, "key": key_hex}
+
+
+@router.delete("/encryption")
+def lora_encryption_disable(db: Session = Depends(get_db)):
+    """Remove the encryption key, disabling LoRa message encryption."""
+    row = db.query(schema.StructuredConfig).filter(
+        schema.StructuredConfig.key == "lora_encryption_key"
+    ).first()
+    if row:
+        db.delete(row)
+        db.commit()
+        logger.info("LoRa encryption disabled (key removed)")
+    return {"ok": True, "enabled": False}
 
 
 # ── WebSocket for real-time serial monitor ─────────────────────────────────

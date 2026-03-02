@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import hubClient from '../api/hubClient';
 import {
     Send, Trash2, Eye, X, Radio, MessageSquare,
     Wifi, WifiOff, Usb, Bluetooth, RefreshCw, TerminalSquare, ArrowUp, ArrowDown,
-    AlertTriangle, AlertOctagon, Info, CheckCircle, RotateCcw
+    AlertTriangle, AlertOctagon, Info, CheckCircle, RotateCcw,
+    Lock, Unlock, Copy, KeyRound
 } from 'lucide-react';
 
 const PRIORITY_COLORS = {
@@ -817,9 +818,25 @@ function LoraMonitorTab({ hubs }) {
     });
     const [sendingLora, setSendingLora] = useState(false);
 
+    // Encryption state
+    const [encStatus, setEncStatus] = useState(null);
+    const [encKeyInput, setEncKeyInput] = useState('');
+    const [encBusy, setEncBusy] = useState(false);
+    const [encRevealedKey, setEncRevealedKey] = useState(null);
+    const [encCopied, setEncCopied] = useState(false);
+
     const terminalRef = useRef(null);
     const bottomRef = useRef(null);
     const wsRef = useRef(null);
+
+    const fetchEncryption = useCallback(async () => {
+        try {
+            const res = await hubClient.get('/lora/encryption');
+            setEncStatus(res.data);
+        } catch (e) {
+            console.error('Encryption status error', e);
+        }
+    }, []);
 
     const fetchStatus = useCallback(async () => {
         try {
@@ -849,9 +866,70 @@ function LoraMonitorTab({ hubs }) {
 
     useEffect(() => {
         fetchStatus();
+        fetchEncryption();
         const interval = setInterval(fetchStatus, 5000);
         return () => clearInterval(interval);
-    }, [fetchStatus]);
+    }, [fetchStatus, fetchEncryption]);
+
+    const handleGenerateKey = async () => {
+        setEncBusy(true);
+        setEncRevealedKey(null);
+        try {
+            const res = await hubClient.post('/lora/encryption', {});
+            if (res.data.ok) {
+                setEncRevealedKey(res.data.key);
+                setEncCopied(false);
+                fetchEncryption();
+            } else {
+                alert('Failed: ' + (res.data.error || 'Unknown error'));
+            }
+        } catch {
+            alert('Failed to generate encryption key.');
+        } finally {
+            setEncBusy(false);
+        }
+    };
+
+    const handleSetKey = async () => {
+        if (!encKeyInput.trim()) return;
+        setEncBusy(true);
+        try {
+            const res = await hubClient.post('/lora/encryption', { key: encKeyInput.trim() });
+            if (res.data.ok) {
+                setEncKeyInput('');
+                setEncRevealedKey(null);
+                fetchEncryption();
+            } else {
+                alert('Failed: ' + (res.data.error || 'Unknown error'));
+            }
+        } catch {
+            alert('Failed to set encryption key.');
+        } finally {
+            setEncBusy(false);
+        }
+    };
+
+    const handleDisableEncryption = async () => {
+        if (!confirm('Disable LoRa encryption? Messages will be sent in plaintext.')) return;
+        setEncBusy(true);
+        try {
+            await hubClient.delete('/lora/encryption');
+            setEncRevealedKey(null);
+            fetchEncryption();
+        } catch {
+            alert('Failed to disable encryption.');
+        } finally {
+            setEncBusy(false);
+        }
+    };
+
+    const handleCopyKey = () => {
+        if (encRevealedKey) {
+            navigator.clipboard.writeText(encRevealedKey);
+            setEncCopied(true);
+            setTimeout(() => setEncCopied(false), 2000);
+        }
+    };
 
     // WebSocket for real-time serial monitor
     useEffect(() => {
@@ -977,6 +1055,16 @@ function LoraMonitorTab({ hubs }) {
         return '#cccccc';
     };
 
+    const txSecurityState = useMemo(() => {
+        for (let i = logs.length - 1; i >= 0; i -= 1) {
+            const line = logs[i] || '';
+            if (!line.includes('[TX]')) continue;
+            if (line.includes('"type":"enc"')) return 'encrypted';
+            if (line.includes('"type":"msg"')) return 'plaintext';
+        }
+        return 'unknown';
+    }, [logs]);
+
     return (
         <div className="space-y-4" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 14rem)' }}>
             {/* Connection Bar */}
@@ -1090,6 +1178,159 @@ function LoraMonitorTab({ hubs }) {
                     </div>
                 )}
             </div>
+
+            {/* Encryption Card */}
+            {encStatus && (
+                <div className="card" style={{ padding: '0.75rem 1.25rem', flexShrink: 0 }}>
+                    <div className="flex items-center justify-between" style={{ marginBottom: encRevealedKey ? '0.75rem' : 0 }}>
+                        <div className="flex items-center gap-3">
+                            {encStatus.enabled ? (
+                                <Lock size={15} style={{ color: 'var(--success)' }} />
+                            ) : (
+                                <Unlock size={15} style={{ color: 'var(--text-muted)' }} />
+                            )}
+                            <span className="font-semibold text-sm">
+                                Encryption {encStatus.enabled ? 'Enabled' : 'Disabled'}
+                            </span>
+                            {encStatus.enabled && (
+                                <span className="badge" style={{
+                                    background: 'rgba(76,175,80,0.12)',
+                                    color: 'var(--success)',
+                                    fontSize: '0.7rem',
+                                    gap: '0.25rem',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                }}>
+                                    <KeyRound size={11} />
+                                    AES-256-GCM
+                                </span>
+                            )}
+                            {encStatus.enabled && encStatus.key_preview && (
+                                <span className="font-mono text-xs text-muted">{encStatus.key_preview}</span>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {encStatus.enabled ? (
+                                <button
+                                    className="btn btn-sm"
+                                    style={{ color: 'var(--danger)', fontSize: '0.75rem' }}
+                                    disabled={encBusy}
+                                    onClick={handleDisableEncryption}
+                                >
+                                    <Unlock size={13} /> Disable
+                                </button>
+                            ) : null}
+                            <button
+                                className="btn btn-sm"
+                                style={{
+                                    background: 'var(--primary)',
+                                    color: '#fff',
+                                    border: 'none',
+                                    fontSize: '0.75rem',
+                                }}
+                                disabled={encBusy}
+                                onClick={handleGenerateKey}
+                            >
+                                <KeyRound size={13} />
+                                {encStatus.enabled ? 'Regenerate Key' : 'Generate Key'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {txSecurityState !== 'unknown' && (
+                        <div style={{
+                            marginTop: '0.625rem',
+                            marginBottom: '0.375rem',
+                            padding: '0.5rem 0.75rem',
+                            borderRadius: 'var(--radius)',
+                            border: txSecurityState === 'encrypted'
+                                ? '1px solid rgba(76,175,80,0.35)'
+                                : '1px solid rgba(239,83,80,0.45)',
+                            background: txSecurityState === 'encrypted'
+                                ? 'rgba(76,175,80,0.08)'
+                                : 'rgba(239,83,80,0.08)',
+                            color: txSecurityState === 'encrypted' ? 'var(--success)' : 'var(--danger)',
+                            fontSize: '0.8rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                        }}>
+                            {txSecurityState === 'encrypted' ? <Lock size={14} /> : <Unlock size={14} />}
+                            Last outbound TX detected as <strong>{txSecurityState === 'encrypted' ? 'ENCRYPTED' : 'PLAINTEXT'}</strong>.
+                            {txSecurityState === 'plaintext' && encStatus.enabled && (
+                                <span style={{ opacity: 0.9 }}>
+                                    Encryption is enabled in UI but runtime is still sending plaintext. Restart hub and verify crypto install.
+                                </span>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Revealed key after generation */}
+                    {encRevealedKey && (
+                        <div style={{
+                            background: 'rgba(76,175,80,0.08)',
+                            border: '1px solid rgba(76,175,80,0.3)',
+                            borderRadius: 'var(--radius)',
+                            padding: '0.625rem 0.875rem',
+                            marginBottom: '0.5rem',
+                        }}>
+                            <div style={{
+                                fontSize: '0.7rem', fontWeight: 600, color: 'var(--success)',
+                                textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem',
+                            }}>
+                                Copy this key to all other hubs
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <code style={{
+                                    flex: 1,
+                                    fontSize: '0.75rem',
+                                    fontFamily: "'Menlo','Consolas',monospace",
+                                    background: 'var(--bg-secondary)',
+                                    padding: '0.375rem 0.625rem',
+                                    borderRadius: '4px',
+                                    wordBreak: 'break-all',
+                                    userSelect: 'all',
+                                }}>
+                                    {encRevealedKey}
+                                </code>
+                                <button
+                                    className="btn btn-sm"
+                                    onClick={handleCopyKey}
+                                    style={{
+                                        flexShrink: 0,
+                                        background: encCopied ? 'var(--success)' : 'var(--bg-secondary)',
+                                        color: encCopied ? '#fff' : 'var(--text)',
+                                        border: 'none',
+                                    }}
+                                >
+                                    {encCopied ? <><CheckCircle size={13} /> Copied</> : <><Copy size={13} /> Copy</>}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Paste key from another hub */}
+                    {!encStatus.enabled && !encRevealedKey && (
+                        <div className="flex items-center gap-2" style={{ marginTop: '0.625rem' }}>
+                            <input
+                                className="input"
+                                placeholder="Paste encryption key from another hub..."
+                                value={encKeyInput}
+                                onChange={e => setEncKeyInput(e.target.value)}
+                                style={{ flex: 1, fontSize: '0.8rem', fontFamily: "'Menlo','Consolas',monospace" }}
+                            />
+                            <button
+                                className="btn btn-sm btn-primary"
+                                disabled={encBusy || !encKeyInput.trim()}
+                                onClick={handleSetKey}
+                                style={{ flexShrink: 0 }}
+                            >
+                                <Lock size={13} /> Set Key
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Serial Monitor Terminal */}
             <div style={{

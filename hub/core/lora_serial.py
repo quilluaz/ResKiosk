@@ -9,6 +9,7 @@ import json
 import threading
 import time
 import logging
+from pathlib import Path
 from collections import deque
 from typing import Optional, Dict, Any, List
 
@@ -168,13 +169,81 @@ class LoRaSerialManager:
         logger.info("LoRa: disconnected")
         return {"ok": True}
 
+    # ── Encryption helpers ─────────────────────────────────────────────────
+
+    @staticmethod
+    def _get_encryption_key() -> Optional[str]:
+        """Read the LoRa encryption key from StructuredConfig, env, or local .env file."""
+        # First try database (preferred - allows per-hub configuration)
+        try:
+            from hub.db.session import SessionLocal
+            from hub.db import schema
+            db = SessionLocal()
+            try:
+                row = db.query(schema.StructuredConfig).filter(
+                    schema.StructuredConfig.key == "lora_encryption_key"
+                ).first()
+                if row and row.value:
+                    return row.value
+            finally:
+                db.close()
+        except Exception as e:
+            logger.debug(f"Could not read encryption key from database: {e}")
+        
+        # Fallback to environment variable
+        import os
+        env_key = os.environ.get("LORA_ENCRYPTION_KEY")
+        if env_key:
+            logger.debug("Using encryption key from environment variable")
+            return env_key.strip()
+
+        # Last fallback: parse workspace/root .env (for launches that don't export env vars)
+        try:
+            repo_root = Path(__file__).resolve().parents[2]
+            env_path = repo_root / ".env"
+            if env_path.exists():
+                for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+                    line = raw_line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    key, value = line.split("=", 1)
+                    if key.strip() == "LORA_ENCRYPTION_KEY":
+                        # Strip inline comment and optional quotes
+                        cleaned = value.split("#", 1)[0].strip().strip('"').strip("'")
+                        if cleaned:
+                            logger.debug("Using encryption key from .env file")
+                            return cleaned
+        except Exception as e:
+            logger.debug(f"Could not read encryption key from .env: {e}")
+
+        return None
+
     # ── Sending ────────────────────────────────────────────────────────────
 
     def send_message(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         if not self.connected or not self._serial or not self._serial.is_open:
             return {"ok": False, "error": "Not connected to any device"}
 
-        line = json.dumps(payload, separators=(",", ":")) + "\n"
+        enc_key = self._get_encryption_key()
+        if enc_key:
+            try:
+                from hub.core.crypto import encrypt_payload
+                wire_payload = encrypt_payload(payload, enc_key)
+                self._log("[SYS] Encrypting outbound message")
+            except Exception as e:
+                logger.error(f"Encryption failed; blocking plaintext send: {e}")
+                self._log(f"[ERR] Encryption failed: {e}")
+                return {
+                    "ok": False,
+                    "error": (
+                        "Encryption failed; message blocked to prevent plaintext transmission. "
+                        "Verify cryptography is installed and key is valid."
+                    ),
+                }
+        else:
+            wire_payload = payload
+
+        line = json.dumps(wire_payload, separators=(",", ":")) + "\n"
         try:
             self._serial.write(line.encode("utf-8"))
             self._serial.flush()
@@ -242,6 +311,7 @@ class LoRaSerialManager:
 
         The ESP prefixes incoming data with [RX] and echoes sent data
         with [TX USB] / [TX]. We only process [RX]-prefixed lines.
+        Encrypted envelopes (type=="enc") are decrypted before processing.
         """
         prefix = line.split("{")[0].strip().upper()
         if prefix.startswith("[TX"):
@@ -256,6 +326,22 @@ class LoRaSerialManager:
             data = json.loads(json_str)
         except (json.JSONDecodeError, ValueError):
             return
+
+        # Decrypt if this is an encrypted envelope
+        from hub.core.crypto import is_encrypted
+        if is_encrypted(data):
+            enc_key = self._get_encryption_key()
+            if not enc_key:
+                self._log("[ERR] Received encrypted message but no decryption key configured")
+                logger.warning("Encrypted LoRa message received but no key is set")
+                return
+            from hub.core.crypto import decrypt_payload
+            data = decrypt_payload(data, enc_key)
+            if data is None:
+                self._log("[ERR] Failed to decrypt incoming message (bad key or corrupted)")
+                logger.error("LoRa message decryption failed")
+                return
+            self._log("[SYS] Decrypted incoming message")
 
         msg_type = data.get("type")
         if msg_type == "msg":
