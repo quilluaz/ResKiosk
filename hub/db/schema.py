@@ -155,7 +155,7 @@ class HubMessage(Base):
     subject        = Column(Text)
     content        = Column(Text)
     priority       = Column(Text)  # 'normal', 'urgent', 'emergency'
-    status         = Column(Text)  # 'pending', 'read', 'published', 'rejected'
+    status         = Column(Text)  # 'pending', 'delivered', 'read', 'published', 'rejected'
     sent_at        = Column(Integer)  # Unix timestamp
     received_at    = Column(Integer)  # Unix timestamp
     published_at   = Column(Integer)  # Unix timestamp

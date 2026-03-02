@@ -15,6 +15,7 @@ const PRIORITY_COLORS = {
 
 const STATUS_COLORS = {
     pending: { bg: 'var(--warning)', color: '#fff' },
+    delivered: { bg: '#26a69a', color: '#fff' },
     read: { bg: 'var(--primary)', color: '#fff' },
     published: { bg: 'var(--success)', color: '#fff' },
     rejected: { bg: 'var(--danger)', color: '#fff' },
@@ -73,24 +74,12 @@ function IncomingLoraModal({ message, onClose, onViewDetails, thisHubDeviceId })
     const handleAcknowledge = async () => {
         setAckStatus('sending');
         try {
-            const payload = {
-                target_hub_id: message.source_hub_id || null,
-                subject: `ACK: ${message.subject || '(no subject)'}`,
-                content: `Message "${message.subject || '(no subject)'}" has been received and acknowledged by ${thisHubDeviceId || 'unknown'}.`,
-                priority: 'normal',
-            };
-            const res = await hubClient.post('/lora/send', payload);
+            const res = await hubClient.post('/lora/send_ack', {
+                message_id: message.id,
+            });
             if (res.data.ok) {
                 setAckStatus('sent');
-                // Update message status to "read"
-                if (message.id) {
-                    try {
-                        await hubClient.put(`/messages/${message.id}`, { status: 'read' });
-                        window.__hubMessagesReload?.();
-                    } catch {
-                        // Status update failed but ack was sent
-                    }
-                }
+                window.__hubMessagesReload?.();
             } else {
                 setAckStatus('error');
             }
@@ -474,6 +463,7 @@ function MessagesTab({ messages, categories, hubs, loading, loraConnected, thisH
                     >
                         <option value="all">All Status</option>
                         <option value="pending">Pending</option>
+                        <option value="delivered">Delivered</option>
                         <option value="read">Read</option>
                         <option value="published">Published</option>
                         <option value="rejected">Rejected</option>
@@ -754,7 +744,7 @@ function MessagesTab({ messages, categories, hubs, loading, loraConnected, thisH
                                         Change Status
                                     </label>
                                     <div className="flex gap-2 flex-wrap">
-                                        {['pending', 'read', 'published', 'rejected'].map(s => {
+                                        {['pending', 'delivered', 'read', 'published', 'rejected'].map(s => {
                                             const st = STATUS_COLORS[s];
                                             const isCurrent = viewMsg.status === s;
                                             return (
@@ -1758,6 +1748,9 @@ function HubMessages() {
                             source_hub_name: data.source_hub_name,
                             from_device_id: data.from_device_id,
                         });
+                    } else if (data.event === 'message_delivered') {
+                        // ACK received — refresh message list to show updated status
+                        loadAll();
                     } else if (data.event === 'no_usb_device') {
                         setNoUsbAlert(data.message || 'No USB serial device detected. Please plug in your Relay module.');
                     }

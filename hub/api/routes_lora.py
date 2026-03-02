@@ -136,6 +136,48 @@ def lora_send(req: SendRequest, db: Session = Depends(get_db)):
     return result
 
 
+class SendAckRequest(BaseModel):
+    message_id: int  # The received message's DB ID
+
+
+@router.post("/send_ack")
+def lora_send_ack(req: SendAckRequest, db: Session = Depends(get_db)):
+    """Send a lightweight ACK signal back to the sender — no new message row created."""
+    mgr = get_lora_manager()
+
+    # Look up the received message
+    msg = db.query(schema.HubMessage).filter(schema.HubMessage.id == req.message_id).first()
+    if not msg:
+        return {"ok": False, "error": "Message not found"}
+
+    # ALWAYS mark the local received message as "read" (operator acknowledged it)
+    if msg.status == "pending":
+        msg.status = "read"
+        if not msg.received_at:
+            msg.received_at = int(time.time())
+        db.commit()
+
+    this_hub = db.query(schema.Hub).first()
+    source_device_id = this_hub.device_id if this_hub else None
+
+    # Build lightweight ACK payload (type="ack" so the remote hub doesn't store it)
+    payload = {
+        "type": "ack",
+        "from": source_device_id,
+        "ack_subject": msg.subject or "",
+        "ack_content": msg.content or "",
+        "ack_msg_id": msg.id,
+    }
+
+    lora_result = mgr.send_message(payload)
+
+    return {
+        "ok": True,
+        "ack_sent": lora_result.get("ok", False),
+        "lora_error": lora_result.get("error") if not lora_result.get("ok") else None,
+    }
+
+
 class AutoConnectRequest(BaseModel):
     enabled: bool
 

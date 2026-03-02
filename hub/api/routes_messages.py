@@ -64,7 +64,15 @@ def list_messages(
     if priority:
         q = q.filter(schema.HubMessage.priority == priority)
     messages = q.limit(200).all()
-    return {"messages": [_msg_to_response(m, db) for m in messages]}
+
+    # Include this hub's ID so the console can distinguish sent vs received
+    this_hub = db.query(schema.Hub).first()
+    this_hub_id = this_hub.hub_id if this_hub else None
+
+    return {
+        "messages": [_msg_to_response(m, db) for m in messages],
+        "this_hub_id": this_hub_id,
+    }
 
 
 @router.get("/messages/categories")
@@ -121,7 +129,7 @@ def update_message(message_id: int, payload: MessageUpdate, db: Session = Depend
 
     if payload.status:
         msg.status = payload.status
-        if payload.status == "read" and not msg.received_at:
+        if payload.status in ("read", "delivered") and not msg.received_at:
             msg.received_at = int(time.time())
         if payload.status == "published" and not msg.published_at:
             msg.published_at = int(time.time())
