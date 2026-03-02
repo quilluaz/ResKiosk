@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,7 +48,10 @@ fun HubScreen(viewModel: KioskViewModel, onBack: () -> Unit) {
 
     // Load saved URL from prefs on first composition
     var savedUrl by remember { mutableStateOf(viewModel.getHubUrl()) }
-    val isConnected = savedUrl.isNotBlank()
+    val hubReachable by viewModel.hubReachable.collectAsState()
+    val hubUrlValidationError by viewModel.hubUrlValidationError.collectAsState()
+    val hasSavedUrl = savedUrl.isNotBlank()
+    val isConnected = hasSavedUrl && hubReachable
 
     // Mode for the connection picker (when disconnected or changing)
     var connectionMode by remember { mutableStateOf(HubConnectionMode.NONE) }
@@ -59,9 +63,11 @@ fun HubScreen(viewModel: KioskViewModel, onBack: () -> Unit) {
     // QR Scanner launcher
     val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         result.contents?.let { scannedUrl ->
-            viewModel.saveHubUrl(scannedUrl)
-            savedUrl = scannedUrl
-            connectionMode = HubConnectionMode.NONE
+            if (viewModel.saveHubUrl(scannedUrl)) {
+                savedUrl = viewModel.getHubUrl()
+                connectionMode = HubConnectionMode.NONE
+                viewModel.refreshHubConnectionStatus()
+            }
         }
     }
 
@@ -121,19 +127,9 @@ fun HubScreen(viewModel: KioskViewModel, onBack: () -> Unit) {
         Column(
             modifier = Modifier.fillMaxWidth().weight(1f),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.Top
         ) {
-
-        // Subtitle: show when disconnected
-        if (!isConnected && connectionMode == HubConnectionMode.NONE) {
-            Text(
-                "Connect this kiosk to a ResKiosk Hub.",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-            Spacer(Modifier.height(24.dp))
-        }
+        Spacer(Modifier.height(24.dp))
 
         if (isConnected && connectionMode == HubConnectionMode.NONE) {
             // ─── Connected state ───
@@ -162,9 +158,11 @@ fun HubScreen(viewModel: KioskViewModel, onBack: () -> Unit) {
                 OutlinedButton(
                     onClick = {
                         isRefreshing = true
-                        lastRefreshTime = System.currentTimeMillis()
-                        savedUrl = viewModel.getHubUrl()
-                        isRefreshing = false
+                        viewModel.refreshHubConnectionStatus { _ ->
+                            lastRefreshTime = System.currentTimeMillis()
+                            savedUrl = viewModel.getHubUrl()
+                            isRefreshing = false
+                        }
                     },
                     modifier = Modifier.weight(1f).height(48.dp),
                     shape = RoundedCornerShape(12.dp),
@@ -192,11 +190,82 @@ fun HubScreen(viewModel: KioskViewModel, onBack: () -> Unit) {
                 }
             }
         } else if (!isConnected && connectionMode == HubConnectionMode.NONE) {
-            // ─── Disconnected: Show Picker ───
-            ConnectionPicker(
-                onQr = { launchQrScan() },
-                onManual = { connectionMode = HubConnectionMode.MANUAL }
-            )
+            if (hasSavedUrl) {
+                // ─── Saved URL but not reachable ───
+                DisconnectedCard(
+                    title = if (hubUrlValidationError != null) "Invalid URL" else "Not reachable"
+                )
+
+                Spacer(Modifier.height(16.dp))
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(0.9f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    DetailRow("IP Address", savedUrl.replace("http://", "").replace("https://", ""))
+                    DetailRow(
+                        "Status",
+                        if (isRefreshing) "Refreshing..." else if (hubUrlValidationError != null) "Invalid URL" else "Not reachable"
+                    )
+                    DetailRow("Last Seen", SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date(lastRefreshTime)))
+                }
+                if (hubUrlValidationError != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = hubUrlValidationError ?: "",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.fillMaxWidth(0.9f),
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                Spacer(Modifier.height(24.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(0.9f),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            isRefreshing = true
+                            viewModel.refreshHubConnectionStatus { _ ->
+                                lastRefreshTime = System.currentTimeMillis()
+                                savedUrl = viewModel.getHubUrl()
+                                isRefreshing = false
+                            }
+                        },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE8610A)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE8610A))
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Refresh", maxLines = 1)
+                    }
+
+                    Button(
+                        onClick = {
+                            viewModel.disconnectHub()
+                            savedUrl = ""
+                        },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE8610A))
+                    ) {
+                        Icon(Icons.Default.ExitToApp, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Disconnect", maxLines = 1)
+                    }
+                }
+            } else {
+                // ─── Disconnected: Show Picker ───
+                ConnectionPicker(
+                    onQr = { launchQrScan() },
+                    onManual = { connectionMode = HubConnectionMode.MANUAL }
+                )
+            }
         }
 
         // ─── Manual URL entry (Main Screen) ───
@@ -207,15 +276,20 @@ fun HubScreen(viewModel: KioskViewModel, onBack: () -> Unit) {
         ) {
             ManualUrlEntry(
                 initialUrl = savedUrl,
+                validationError = hubUrlValidationError,
                 onSave = { url ->
-                    viewModel.saveHubUrl(url)
-                    savedUrl = url
-                    connectionMode = HubConnectionMode.NONE
-                    focusManager.clearFocus()
+                    if (viewModel.saveHubUrl(url)) {
+                        savedUrl = viewModel.getHubUrl()
+                        connectionMode = HubConnectionMode.NONE
+                        focusManager.clearFocus()
+                        viewModel.refreshHubConnectionStatus()
+                    }
                 },
                 onCancel = {
+                    viewModel.clearHubUrlValidationError()
                     connectionMode = HubConnectionMode.NONE
-                }
+                },
+                onEdit = { viewModel.clearHubUrlValidationError() }
             )
         }
     }
@@ -247,7 +321,7 @@ private fun ConnectedCard() {
     Card(
         modifier = Modifier.fillMaxWidth(0.9f),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFEEF2FF))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
     ) {
         Row(
             modifier = Modifier
@@ -268,6 +342,37 @@ private fun ConnectedCard() {
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF4CAF50)
+            )
+        }
+    }
+}
+
+@Composable
+private fun DisconnectedCard(title: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(0.9f),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                Icons.Default.Warning,
+                contentDescription = null,
+                tint = Color(0xFFE8610A),
+                modifier = Modifier.size(28.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
     }
@@ -318,8 +423,10 @@ private fun ConnectionPicker(onQr: () -> Unit, onManual: () -> Unit) {
 @Composable
 private fun ManualUrlEntry(
     initialUrl: String,
+    validationError: String?,
     onSave: (String) -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    onEdit: () -> Unit,
 ) {
     var urlText by remember { mutableStateOf(initialUrl) }
 
@@ -331,7 +438,10 @@ private fun ManualUrlEntry(
         Text("Hub URL", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         OutlinedTextField(
             value = urlText,
-            onValueChange = { urlText = it },
+            onValueChange = {
+                urlText = it
+                onEdit()
+            },
             modifier = Modifier.fillMaxWidth(),
             label = { Text("e.g. http://192.168.1.x:8000") },
             singleLine = true,
@@ -344,6 +454,15 @@ private fun ManualUrlEntry(
             ),
             shape = RoundedCornerShape(12.dp)
         )
+        if (!validationError.isNullOrBlank()) {
+            Text(
+                text = validationError,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)

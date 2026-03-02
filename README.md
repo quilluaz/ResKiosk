@@ -25,7 +25,22 @@ Cloud integration is currently disabled. The system runs fully offline-first and
 
 ## Hub connection
 
-The Hub is started from **TO RUN** (`start_hub.vbs`) on the laptop. In the app, set **Hub URL** (e.g. `http://<Hub-IP>:8000`) under **Hub Connection**; you can copy the URL from the Hub’s admin console at **http://localhost:8000** → Network Setup.
+The Hub is started from **TO RUN** (`start_hub.vbs`) on the laptop. In the app, set **Hub URL** under **Hub Connection**; you can copy it from `http://localhost:8000` -> Network Setup.
+
+Hub URL handling in kiosk:
+- accepts `host:port` or full URL
+- auto-prefixes `http://` when missing
+- defaults to port `8000` when omitted
+- validates and rejects malformed host entries
+- probes `GET /admin/ping`, then falls back to `GET /health`
+
+## Dashboard Emergency Mode
+
+Emergency Mode is controlled from Dashboard (not Shelter Config).
+
+- **Activate** opens a confirmation modal.
+- On activation, hub publishes mode state to kiosks via `GET /admin/ping` polling.
+- Kiosks show a 5-second emergency overlay, play a one-time local alarm, then keep animated top/bottom emergency banners until deactivated.
 
 ## Dependencies
 This project requires the following dependencies in `app/build.gradle.kts`:
@@ -70,3 +85,4 @@ Extract inside assets:
 Ensure `AndroidManifest.xml` has:
 - `<uses-permission android:name="android.permission.INTERNET" />` (For Hub comms)
 - `<uses-permission android:name="android.permission.RECORD_AUDIO" />`
+

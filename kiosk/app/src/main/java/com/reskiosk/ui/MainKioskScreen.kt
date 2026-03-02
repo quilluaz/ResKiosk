@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -21,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,6 +30,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -38,7 +43,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.ThumbDown
 import androidx.compose.material.icons.outlined.ThumbUp
@@ -71,15 +78,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -175,6 +185,7 @@ fun MainKioskScreen(viewModel: KioskViewModel = viewModel()) {
                     Text("Grant Permission")
                 }
             }
+
         }
         return
     }
@@ -197,8 +208,8 @@ private fun MainScreenBody(
     val sessionId by viewModel.sessionId.collectAsState()
     val chatMode by viewModel.chatMode.collectAsState()
     val emergencyCooldownActive by viewModel.emergencyCooldownActive.collectAsState()
-    val loadingTitle by viewModel.loadingTitle.collectAsState()
-    val loadingSubtitle by viewModel.loadingSubtitle.collectAsState()
+    val emergencyModeActive by viewModel.emergencyModeActive.collectAsState()
+    val emergencyModeOverlayVisible by viewModel.emergencyModeOverlayVisible.collectAsState()
 
     val isLoadingOverlay = uiState is KioskState.Transcribing || uiState is KioskState.Processing
     val isListeningBusy = uiState is KioskState.Listening || uiState is KioskState.PreparingToListen
@@ -211,132 +222,178 @@ private fun MainScreenBody(
         uiState is KioskState.EmergencyConfirmation ||
         uiState is KioskState.EmergencyCancelWindow ||
         uiState is KioskState.EmergencyCancelled
+    val emergencyBannerInset = if (emergencyModeActive && !emergencyModeOverlayVisible) 44.dp else 0.dp
 
     Box(modifier = Modifier.fillMaxSize()) {
-        when (currentScreen) {
-            PAGE_MAIN -> MainPage(
-                viewModel = viewModel,
-                showEndSessionDialog = showEndSessionDialog,
-                onShowDialogChange = { showEndSessionDialog = it },
-                onNavigateToHub = { currentScreen = PAGE_HUB }
-            )
-            PAGE_LANGUAGE -> LanguageScreen(viewModel = viewModel, onBack = { currentScreen = PAGE_MAIN })
-            PAGE_HUB -> HubScreen(viewModel = viewModel, onBack = { currentScreen = PAGE_MAIN })
-            PAGE_SETTINGS -> SettingsScreen(
-                onBack = { currentScreen = PAGE_MAIN },
-                onOpenSetup = onOpenSetup
-            )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = emergencyBannerInset, bottom = emergencyBannerInset)
+        ) {
+            when (currentScreen) {
+                PAGE_MAIN -> MainPage(
+                    viewModel = viewModel,
+                    showEndSessionDialog = showEndSessionDialog,
+                    onShowDialogChange = { showEndSessionDialog = it },
+                    onNavigateToHub = { currentScreen = PAGE_HUB }
+                )
+                PAGE_LANGUAGE -> LanguageScreen(viewModel = viewModel, onBack = { currentScreen = PAGE_MAIN })
+                PAGE_HUB -> HubScreen(viewModel = viewModel, onBack = { currentScreen = PAGE_MAIN })
+                PAGE_SETTINGS -> SettingsScreen(
+                    viewModel = viewModel,
+                    onBack = { currentScreen = PAGE_MAIN },
+                    onOpenSetup = onOpenSetup
+                )
+            }
         }
 
         if (currentScreen == PAGE_MAIN) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                    .padding(
+                        start = 14.dp,
+                        end = 14.dp,
+                        top = 10.dp + emergencyBannerInset,
+                        bottom = 10.dp
+                    ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box {
-                        IconButton(onClick = { showMenu = true }, enabled = !isLoadingOverlay) {
-                            Icon(
-                                imageVector = Icons.Default.Menu,
-                                contentDescription = "Menu",
-                                modifier = Modifier.size(32.dp),
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box {
+                            IconButton(onClick = { showMenu = true }, enabled = !isLoadingOverlay) {
+                                Icon(
+                                    imageVector = Icons.Default.Menu,
+                                    contentDescription = "Menu",
+                                    modifier = Modifier.size(28.dp),
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Language") },
+                                    onClick = {
+                                        currentScreen = PAGE_LANGUAGE
+                                        showMenu = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Hub Connection") },
+                                    onClick = {
+                                        currentScreen = PAGE_HUB
+                                        showMenu = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Settings") },
+                                    onClick = {
+                                        currentScreen = PAGE_SETTINGS
+                                        showMenu = false
+                                    }
+                                )
+                            }
                         }
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
+                        Spacer(Modifier.width(6.dp))
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant
                         ) {
-                            DropdownMenuItem(
-                                text = { Text("Language") },
-                                onClick = {
-                                    currentScreen = PAGE_LANGUAGE
-                                    showMenu = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Hub Connection") },
-                                onClick = {
-                                    currentScreen = PAGE_HUB
-                                    showMenu = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Settings") },
-                                onClick = {
-                                    currentScreen = PAGE_SETTINGS
-                                    showMenu = false
-                                }
+                            Text(
+                                text = selectedLang.uppercase(),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = selectedLang.uppercase(),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                }
+
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
                     if (sessionId != null && !isEmergencyState) {
-                        Spacer(Modifier.width(14.dp))
                         ChatModeToggle(
                             mode = chatMode,
-                            language = selectedLang,
                             enabled = !isLoadingOverlay && !isListeningBusy,
-                            onSelectMode = { viewModel.setChatMode(it) }
+                            onSelectMode = {
+                                viewModel.setChatMode(it)
+                                if (it == ChatMode.TEXT_ONLY && isListeningBusy) {
+                                    viewModel.stopListening()
+                                }
+                            }
                         )
                     }
                 }
 
-                if (sessionId != null) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(
-                            onClick = { if (!emergencyCooldownActive) showSosConfirmDialog = true },
-                            enabled = !isLoadingOverlay && !isEmergencyState && !emergencyCooldownActive,
-                            modifier = Modifier
-                                .size(42.dp)
-                                .border(
-                                    width = 1.dp,
-                                    color = if (emergencyCooldownActive) Color(0xFFBDBDBD) else Color(0xFFB71C1C),
-                                    shape = CircleShape
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.CenterEnd
+                ) {
+                    if (sessionId != null) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(width = 44.dp, height = 26.dp)
+                                    .clip(RoundedCornerShape(13.dp))
+                                    .background(if (emergencyCooldownActive) Color(0xFFBDBDBD) else Color(0xFFB71C1C))
+                                    .clickable(
+                                        enabled = !isLoadingOverlay && !isEmergencyState && !emergencyCooldownActive
+                                    ) {
+                                        showSosConfirmDialog = true
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "SOS",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
                                 )
-                        ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_sos),
-                                contentDescription = "SOS",
-                                tint = if (emergencyCooldownActive) Color(0xFFBDBDBD) else Color(0xFFB71C1C),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        IconButton(
-                            onClick = { showEndSessionDialog = true },
-                            enabled = !isLoadingOverlay,
-                            modifier = Modifier
-                                .size(42.dp)
-                                .border(1.dp, Color(0xFFE8610A), CircleShape)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "End Session",
-                                modifier = Modifier.size(20.dp),
-                                tint = Color(0xFFE8610A)
-                            )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(26.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (isLoadingOverlay) {
+                                            Color(0xFFE8610A).copy(alpha = 0.35f)
+                                        } else {
+                                            Color(0xFFE8610A).copy(alpha = 0.8f)
+                                        }
+                                    )
+                                    .clickable(enabled = !isLoadingOverlay) { showEndSessionDialog = true },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "End Session",
+                                    modifier = Modifier.size(14.dp),
+                                    tint = Color(0xFFFFB56F)
+                                )
+                            }
                         }
                     }
                 }
             }
+
         }
 
-        if (currentScreen == PAGE_MAIN && isLoadingOverlay) {
-            LoadingOverlay(
-                title = if (loadingTitle.isBlank()) EmergencyStrings.get("asking_hub_title_1", selectedLang) else loadingTitle,
-                subtitle = if (loadingSubtitle.isBlank()) EmergencyStrings.get("asking_hub_subtitle", selectedLang) else loadingSubtitle
-            )
+        if (emergencyModeActive && !emergencyModeOverlayVisible) {
+            EmergencyModeBanners()
+        }
+        if (emergencyModeOverlayVisible) {
+            EmergencyModeActivationOverlay()
         }
     }
 
@@ -355,48 +412,57 @@ private fun MainScreenBody(
 @Composable
 private fun ChatModeToggle(
     mode: ChatMode,
-    language: String,
     enabled: Boolean,
     onSelectMode: (ChatMode) -> Unit
 ) {
     Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = Color(0xFFEFEFEF)
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(3.dp)
+            modifier = Modifier.padding(2.dp)
         ) {
             val voiceSelected = mode == ChatMode.VOICE_ONLY
-            val textSelected = mode == ChatMode.TEXT_VOICE
-            Text(
-                text = EmergencyStrings.get("mode_voice_only", language),
+            val textSelected = mode == ChatMode.TEXT_ONLY
+            Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
+                    .size(30.dp)
+                    .clip(CircleShape)
                     .background(if (voiceSelected) Color(0xFFE8610A) else Color.Transparent)
                     .clickable(enabled = enabled) { onSelectMode(ChatMode.VOICE_ONLY) }
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                color = if (voiceSelected) Color.White else Color(0xFF555555),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = EmergencyStrings.get("mode_text_voice", language),
+                    .padding(6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Mic,
+                    contentDescription = "Voice mode",
+                    tint = if (voiceSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
+                    .size(30.dp)
+                    .clip(CircleShape)
                     .background(if (textSelected) Color(0xFFE8610A) else Color.Transparent)
-                    .clickable(enabled = enabled) { onSelectMode(ChatMode.TEXT_VOICE) }
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                color = if (textSelected) Color.White else Color(0xFF555555),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold
-            )
+                    .clickable(enabled = enabled) { onSelectMode(ChatMode.TEXT_ONLY) }
+                    .padding(6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Keyboard,
+                    contentDescription = "Text mode",
+                    tint = if (textSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun LoadingOverlay(
+private fun ChatStreamLoadingOverlay(
     title: String,
     subtitle: String
 ) {
@@ -429,6 +495,85 @@ private fun LoadingOverlay(
                 textAlign = TextAlign.Center
             )
         }
+    }
+}
+
+@Composable
+private fun EmergencyModeActivationOverlay() {
+    val blocker = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.72f))
+            .clickable(interactionSource = blocker, indication = null) {},
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            color = Color(0xFFB71C1C),
+            shape = RoundedCornerShape(18.dp),
+            modifier = Modifier
+                .fillMaxWidth(0.86f)
+                .padding(20.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 22.dp, vertical = 26.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Emergency Mode Active",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "Please follow staff instructions.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White.copy(alpha = 0.95f),
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmergencyModeBanners() {
+    Column(modifier = Modifier.fillMaxSize()) {
+        EmergencyModeBannerStrip()
+        Spacer(modifier = Modifier.weight(1f))
+        EmergencyModeBannerStrip()
+    }
+}
+
+@Composable
+private fun EmergencyModeBannerStrip() {
+    val pulse = rememberInfiniteTransition(label = "emergency_banner_pulse")
+    val alpha by pulse.animateFloat(
+        initialValue = 0.72f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "emergency_banner_alpha"
+    )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(44.dp)
+            .background(Color(0xFFB71C1C).copy(alpha = alpha)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "Emergency Mode Active - Follow staff instructions.",
+            color = Color.White,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 12.dp)
+        )
     }
 }
 
@@ -629,17 +774,19 @@ private fun MainPage(
     val selectedLang by viewModel.selectedLanguage.collectAsState()
     val chatMode by viewModel.chatMode.collectAsState()
     val voiceLevels by viewModel.voiceLevels.collectAsState()
+    val hubReachable by viewModel.hubReachable.collectAsState()
+    val loadingTitle by viewModel.loadingTitle.collectAsState()
+    val loadingSubtitle by viewModel.loadingSubtitle.collectAsState()
 
     var showNoHubDialog by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableStateOf<String?>(null) }
-    var showTextComposer by remember { mutableStateOf(false) }
     var typedInput by remember { mutableStateOf("") }
 
     if (sessionId == null) {
         StartSessionHero(
             selectedLang = selectedLang,
             onStart = {
-                if (viewModel.getHubUrl().isBlank()) {
+                if (viewModel.getHubUrl().isBlank() || !hubReachable) {
                     showNoHubDialog = true
                 } else {
                     viewModel.startSession()
@@ -734,10 +881,10 @@ private fun MainPage(
                 selectedLang = selectedLang,
                 chatMode = chatMode,
                 voiceLevels = voiceLevels,
+                loadingTitle = if (loadingTitle.isBlank()) EmergencyStrings.get("asking_hub_title_1", selectedLang) else loadingTitle,
+                loadingSubtitle = if (loadingSubtitle.isBlank()) EmergencyStrings.get("asking_hub_subtitle", selectedLang) else loadingSubtitle,
                 selectedCategory = selectedCategory,
                 onSelectedCategoryChange = { selectedCategory = it },
-                showTextComposer = showTextComposer,
-                onShowTextComposerChange = { showTextComposer = it },
                 typedInput = typedInput,
                 onTypedInputChange = { typedInput = it }
             )
@@ -771,8 +918,8 @@ private fun MainPage(
     if (showNoHubDialog) {
         AlertDialog(
             onDismissRequest = { showNoHubDialog = false },
-            title = { Text("Kiosk is not connected") },
-            text = { Text("Connect to a ResKiosk hub to get started") },
+            title = { Text("No Hub Connected") },
+            text = { Text("Connect this kiosk to a ResKiosk hub to start a session.") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -801,14 +948,14 @@ private fun StartSessionHero(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 28.dp),
+            .padding(start = 28.dp, end = 28.dp, bottom = 10.dp)
+            .offset(y = (-10).dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
+        Image(
             painter = painterResource(id = R.drawable.reskiosk_2d_logo),
             contentDescription = "ResKiosk",
-            tint = Color.Unspecified,
             modifier = Modifier
                 .fillMaxWidth(0.62f)
                 .height(110.dp)
@@ -822,10 +969,18 @@ private fun StartSessionHero(
         )
         Spacer(Modifier.height(10.dp))
         Text(
-            text = EmergencyStrings.get("start_subtitle", selectedLang),
+            text = EmergencyStrings.get("start_subtitle_line_1", selectedLang),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            maxLines = 1
+        )
+        Text(
+            text = EmergencyStrings.get("start_subtitle_line_2", selectedLang),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            maxLines = 1
         )
         Spacer(Modifier.height(32.dp))
         Button(
@@ -1043,23 +1198,26 @@ private fun NormalActiveSessionContent(
     selectedLang: String,
     chatMode: ChatMode,
     voiceLevels: List<Float>,
+    loadingTitle: String,
+    loadingSubtitle: String,
     selectedCategory: String?,
     onSelectedCategoryChange: (String?) -> Unit,
-    showTextComposer: Boolean,
-    onShowTextComposerChange: (Boolean) -> Unit,
     typedInput: String,
     onTypedInputChange: (String) -> Unit
 ) {
-    val isVoiceOnly = chatMode == ChatMode.VOICE_ONLY
+    val isVoiceMode = chatMode == ChatMode.VOICE_ONLY
+    val isLoadingOverlay = uiState is KioskState.Transcribing || uiState is KioskState.Processing
     val isListening = uiState is KioskState.Listening || uiState is KioskState.PreparingToListen
     val isPreparing = uiState is KioskState.PreparingToListen
-    val visibleMessages = if (isVoiceOnly) chatHistory.filter { !it.isUser } else chatHistory
+    val visibleMessages = if (isVoiceMode) chatHistory.filter { !it.isUser } else chatHistory
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
+    val density = LocalDensity.current
+    val isKeyboardVisible = WindowInsets.ime.getBottom(density) > 0
 
     val listState = rememberLazyListState()
     LaunchedEffect(visibleMessages.size, transcript.length, isListening, uiState, chatMode) {
-        val showLive = !isVoiceOnly && transcript.isNotBlank() && uiState is KioskState.Listening
+        val showLive = isVoiceMode && transcript.isNotBlank() && uiState is KioskState.Listening
         val totalItems = visibleMessages.size + if (showLive) 1 else 0
         if (totalItems > 0) listState.animateScrollToItem(totalItems - 1)
     }
@@ -1068,16 +1226,14 @@ private fun NormalActiveSessionContent(
         if (uiState !is KioskState.Clarification) onSelectedCategoryChange(null)
     }
 
-    LaunchedEffect(chatMode) {
+    LaunchedEffect(chatMode, isListening) {
         if (chatMode == ChatMode.VOICE_ONLY) {
-            onShowTextComposerChange(false)
             onTypedInputChange("")
             keyboardController?.hide()
-        }
-    }
-
-    LaunchedEffect(showTextComposer) {
-        if (showTextComposer) {
+        } else if (isListening) {
+            viewModel.stopListening()
+        } else {
+            delay(120L)
             focusRequester.requestFocus()
             keyboardController?.show()
         }
@@ -1086,15 +1242,15 @@ private fun NormalActiveSessionContent(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 70.dp, bottom = 16.dp)
+            .padding(top = 60.dp, bottom = 16.dp)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.9f)
                 .fillMaxHeight(0.47f)
                 .align(Alignment.TopCenter)
-                .background(Color(0xFFF9F9F9), RoundedCornerShape(16.dp))
-                .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
                 .padding(12.dp)
         ) {
             if (visibleMessages.isEmpty() && transcript.isBlank()) {
@@ -1125,13 +1281,13 @@ private fun NormalActiveSessionContent(
                             }
                         }
                         else -> Text(
-                            text = if (isVoiceOnly) {
+                            text = if (isVoiceMode) {
                                 EmergencyStrings.get("voice_only_hint", selectedLang)
                             } else {
-                                EmergencyStrings.get("text_voice_hint", selectedLang)
+                                EmergencyStrings.get("text_only_hint", selectedLang)
                             },
                             style = MaterialTheme.typography.bodyLarge,
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
                         )
                     }
@@ -1148,11 +1304,13 @@ private fun NormalActiveSessionContent(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = if (msg.isUser) Arrangement.End else Arrangement.Start
                         ) {
+                            val userBubbleColor = MaterialTheme.colorScheme.surfaceVariant
+                            val assistantBubbleColor = MaterialTheme.colorScheme.primaryContainer
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth(0.82f)
                                     .background(
-                                        if (msg.isUser) Color(0xFFE8E8E8) else Color(0xFFFFF3EC),
+                                        if (msg.isUser) userBubbleColor else assistantBubbleColor,
                                         RoundedCornerShape(12.dp)
                                     )
                                     .padding(14.dp)
@@ -1160,7 +1318,10 @@ private fun NormalActiveSessionContent(
                                 Text(
                                     text = msg.text,
                                     style = MaterialTheme.typography.bodyLarge,
-                                    color = if (msg.isUser) Color.Black else Color(0xFFE8610A)
+                                    color = if (msg.isUser)
+                                        MaterialTheme.colorScheme.onSurface
+                                    else
+                                        MaterialTheme.colorScheme.onPrimaryContainer
                                 )
                             }
                         }
@@ -1202,7 +1363,7 @@ private fun NormalActiveSessionContent(
                         }
                     }
 
-                    if (!isVoiceOnly && transcript.isNotBlank() && uiState is KioskState.Listening) {
+                    if (isVoiceMode && transcript.isNotBlank() && uiState is KioskState.Listening) {
                         item {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                                 Box(
@@ -1249,9 +1410,16 @@ private fun NormalActiveSessionContent(
                     }
                 }
             }
+
+            if (isLoadingOverlay) {
+                ChatStreamLoadingOverlay(
+                    title = loadingTitle,
+                    subtitle = loadingSubtitle
+                )
+            }
         }
 
-        if (isVoiceOnly && isListening && !isPreparing) {
+        if (isVoiceMode && isListening && !isPreparing) {
             Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.34f)))
         }
 
@@ -1259,89 +1427,105 @@ private fun NormalActiveSessionContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = 24.dp),
+                .imePadding()
+                .padding(start = 20.dp, top = 0.dp, end = 20.dp, bottom = if (!isVoiceMode && isKeyboardVisible) 12.dp else 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (!isVoiceOnly) {
-                if (showTextComposer) {
-                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedTextField(
-                            value = typedInput,
-                            onValueChange = onTypedInputChange,
-                            modifier = Modifier.weight(1f).focusRequester(focusRequester),
-                            singleLine = true,
-                            placeholder = { Text(EmergencyStrings.get("input_placeholder", selectedLang)) },
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                            keyboardActions = KeyboardActions(onSend = {
-                                val query = typedInput.trim()
-                                if (query.isNotBlank()) {
-                                    viewModel.submitTypedQuery(query)
-                                    onTypedInputChange("")
-                                    onShowTextComposerChange(false)
-                                    keyboardController?.hide()
-                                }
-                            })
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Button(
-                            onClick = {
-                                val query = typedInput.trim()
-                                if (query.isNotBlank()) {
-                                    viewModel.submitTypedQuery(query)
-                                    onTypedInputChange("")
-                                    onShowTextComposerChange(false)
-                                    keyboardController?.hide()
-                                }
-                            },
-                            modifier = Modifier.height(56.dp)
-                        ) {
-                            Text(EmergencyStrings.get("send", selectedLang))
-                        }
-                    }
-                    Spacer(Modifier.height(10.dp))
-                }
-                OutlinedButton(
-                    onClick = { onShowTextComposerChange(!showTextComposer) },
-                    modifier = Modifier.fillMaxWidth(0.82f).height(48.dp)
+            if (!isVoiceMode) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(EmergencyStrings.get("keyboard_open", selectedLang))
+                    OutlinedTextField(
+                        value = typedInput,
+                        onValueChange = onTypedInputChange,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(58.dp)
+                            .focusRequester(focusRequester)
+                            .onFocusChanged { if (it.isFocused) keyboardController?.show() },
+                        singleLine = true,
+                        enabled = !isLoadingOverlay,
+                        placeholder = { Text(EmergencyStrings.get("input_placeholder", selectedLang)) },
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                        keyboardActions = KeyboardActions(onSend = {
+                            val query = typedInput.trim()
+                            if (query.isNotBlank()) {
+                                viewModel.submitTypedQuery(query)
+                                onTypedInputChange("")
+                            }
+                        }),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFFE8610A),
+                            unfocusedBorderColor = Color(0xFFE8610A).copy(alpha = 0.72f),
+                            focusedContainerColor = Color(0xFF17171B),
+                            unfocusedContainerColor = Color(0xFF17171B),
+                            cursorColor = Color(0xFFE8610A),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedPlaceholderColor = Color(0xFF9A9AA0),
+                            unfocusedPlaceholderColor = Color(0xFF9A9AA0)
+                        ),
+                        textStyle = MaterialTheme.typography.bodyLarge
+                    )
+                    Button(
+                        onClick = {
+                            val query = typedInput.trim()
+                            if (query.isNotBlank()) {
+                                viewModel.submitTypedQuery(query)
+                                onTypedInputChange("")
+                            }
+                        },
+                        enabled = !isLoadingOverlay,
+                        modifier = Modifier
+                            .height(58.dp)
+                            .width(104.dp),
+                        shape = RoundedCornerShape(28.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE8610A))
+                    ) {
+                        Text(EmergencyStrings.get("send", selectedLang))
+                    }
                 }
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(if (isKeyboardVisible) 8.dp else 14.dp))
             }
 
             Box(contentAlignment = Alignment.Center) {
-                androidx.compose.animation.AnimatedVisibility(visible = isVoiceOnly && isListening && !isPreparing) {
+                androidx.compose.animation.AnimatedVisibility(visible = isVoiceMode && isListening && !isPreparing) {
                     VoiceWaveBars(levels = voiceLevels, modifier = Modifier.size(230.dp), color = Color(0xFFE8610A))
                 }
-                androidx.compose.animation.AnimatedVisibility(visible = !isVoiceOnly && isListening && !isPreparing) {
+                androidx.compose.animation.AnimatedVisibility(visible = isVoiceMode && isListening && !isPreparing) {
                     SonarWave(modifier = Modifier.size(220.dp))
                 }
-                Button(
-                    onClick = {
-                        if (isListening) viewModel.stopListening() else viewModel.startListening()
-                    },
-                    modifier = Modifier.size(if (isVoiceOnly) 132.dp else 104.dp),
-                    shape = CircleShape,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE8610A)),
-                    contentPadding = PaddingValues(6.dp)
-                ) {
-                    if (isPreparing) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(36.dp),
-                            color = Color.White,
-                            strokeWidth = 3.dp
-                        )
-                    } else {
-                        Text(
-                            text = if (uiState is KioskState.Listening) {
-                                EmergencyStrings.get("listening", selectedLang)
-                            } else {
-                                "Tap to\nSpeak"
-                            },
-                            style = MaterialTheme.typography.labelMedium,
-                            textAlign = TextAlign.Center,
-                            color = Color.White
-                        )
+                if (isVoiceMode) {
+                    Button(
+                        onClick = {
+                            if (isListening) viewModel.stopListening() else viewModel.startListening()
+                        },
+                        modifier = Modifier.size(132.dp),
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE8610A)),
+                        contentPadding = PaddingValues(6.dp)
+                    ) {
+                        if (isPreparing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(36.dp),
+                                color = Color.White,
+                                strokeWidth = 3.dp
+                            )
+                        } else {
+                            Text(
+                                text = if (uiState is KioskState.Listening) {
+                                    EmergencyStrings.get("listening", selectedLang)
+                                } else {
+                                    "Tap to\nSpeak"
+                                },
+                                style = MaterialTheme.typography.labelMedium,
+                                textAlign = TextAlign.Center,
+                                color = Color.White
+                            )
+                        }
                     }
                 }
             }
@@ -1356,12 +1540,20 @@ private fun VoiceWaveBars(
     modifier: Modifier = Modifier,
     color: Color = Color(0xFFE8610A)
 ) {
+    val smoothedLevels = levels.mapIndexed { index, value ->
+        val animated by animateFloatAsState(
+            targetValue = value.coerceIn(0f, 1f),
+            animationSpec = tween(durationMillis = 90, easing = FastOutSlowInEasing),
+            label = "voice_bar_$index"
+        )
+        animated
+    }
     Canvas(modifier = modifier) {
-        if (levels.isEmpty()) return@Canvas
+        if (smoothedLevels.isEmpty()) return@Canvas
         val gap = 6f
-        val count = levels.size
+        val count = smoothedLevels.size
         val barWidth = ((size.width - gap * (count - 1)) / count).coerceAtLeast(3f)
-        levels.forEachIndexed { index, value ->
+        smoothedLevels.forEachIndexed { index, value ->
             val clamped = value.coerceIn(0f, 1f)
             val minHeight = size.height * 0.14f
             val barHeight = minHeight + ((size.height - minHeight) * clamped)

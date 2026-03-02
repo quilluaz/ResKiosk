@@ -19,14 +19,13 @@ function Dashboard({ setEmergencyMode }) {
     const loadData = async () => {
         setLoading(true);
         try {
-            const [snapRes, netRes, faqRes] = await Promise.all([
+            const [snapRes, netRes, emergencyRes] = await Promise.all([
                 hubClient.get('/kb/snapshot'),
                 hubClient.get('/network/info').catch(() => ({ data: {} })),
-                hubClient.get('/admin/faq-tracker').catch(() => ({ data: [] }))
+                hubClient.get('/admin/emergency_mode').catch(() => ({ data: { active: false } }))
             ]);
             const snap = snapRes.data;
             const articles = snap.articles || [];
-            const config = snap.structured_config || {};
 
             setStats({
                 kb_version: snap.kb_version,
@@ -56,13 +55,11 @@ function Dashboard({ setEmergencyMode }) {
         }
     };
 
-    const toggleEmergency = async () => {
+    const setEmergency = async (active) => {
         try {
-            const newValue = !isEmergency;
-            const status = newValue ? 'active' : 'inactive';
-            await hubClient.put('/admin/evac', { emergency_mode: status });
-            setIsEmergency(newValue);
-            setEmergencyMode(newValue);
+            await hubClient.post('/admin/emergency_mode', { active });
+            setIsEmergency(active);
+            setEmergencyMode(active);
         } catch (e) {
             alert("Failed to toggle emergency mode");
         }
@@ -158,14 +155,56 @@ function Dashboard({ setEmergencyMode }) {
                         </h3>
                         <p className="text-sm text-muted">Activates header banners on all kiosks.</p>
                     </div>
-                    <button
-                        onClick={toggleEmergency}
-                        className={`btn ${isEmergency ? 'btn-danger' : ''}`}
-                    >
-                        {isEmergency ? 'DEACTIVATE' : 'ACTIVATE'}
-                    </button>
-                </div>
+                      <button
+                          onClick={() => {
+                              if (isEmergency) {
+                                  setEmergency(false);
+                              } else {
+                                  setShowActivateModal(true);
+                              }
+                          }}
+                          className={`btn ${isEmergency ? '' : 'btn-danger'}`}
+                          style={isEmergency
+                            ? { backgroundColor: '#E8610A', borderColor: '#E8610A', color: '#fff' }
+                            : { backgroundColor: '#b71c1c', borderColor: '#b71c1c', color: '#fff' }}
+                      >
+                          {isEmergency ? 'DEACTIVATE' : 'ACTIVATE'}
+                      </button>
+                  </div>
             </div>
+
+            {showActivateModal && (
+                <div className="modal-overlay" style={{ zIndex: 1300 }}>
+                    <div className="modal-content" style={{ maxWidth: '560px' }}>
+                        <div className="modal-header">
+                            <h2 className="modal-title">Are you sure you want to activate emergency mode?</h2>
+                        </div>
+                        <div className="modal-body">
+                            <p className="text-sm text-muted" style={{ marginBottom: '1rem' }}>
+                                Doing so will alert all kiosks and play the emergency alarm. Continue?
+                            </p>
+                            <div className="flex gap-2 justify-end">
+                                <button
+                                    className="btn"
+                                    onClick={() => setShowActivateModal(false)}
+                                >
+                                    Go Back
+                                </button>
+                                <button
+                                    className="btn btn-danger"
+                                    style={{ backgroundColor: '#b71c1c', borderColor: '#b71c1c', color: '#fff' }}
+                                    onClick={async () => {
+                                        setShowActivateModal(false);
+                                        await setEmergency(true);
+                                    }}
+                                >
+                                    Activate
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <KBViewer />
         </div>

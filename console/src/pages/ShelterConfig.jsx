@@ -8,7 +8,6 @@ const SECTION_LABELS = {
     medical_station: 'Medical & Well-being',
     registration_steps: 'Intake & Registration',
     announcements: 'Public Communication',
-    emergency_mode: 'Emergency Mode',
 };
 
 function ShelterConfig() {
@@ -25,21 +24,10 @@ function ShelterConfig() {
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [emergencyMode, setEmergencyMode] = useState(false);
     const [freshness, setFreshness] = useState(null);
     const [freshnessModalOpen, setFreshnessModalOpen] = useState(false);
     const [selectedExpired, setSelectedExpired] = useState([]);
     const [confirmingFreshness, setConfirmingFreshness] = useState(false);
-
-    const isTruthy = (v) => {
-        if (v === true) return true;
-        if (typeof v === 'string') {
-            const s = v.trim().toLowerCase();
-            return s === 'true' || s === '1' || s === 'yes';
-        }
-        if (typeof v === 'number') return v === 1;
-        return false;
-    };
 
     const getAdminIdentity = () =>
         localStorage.getItem('reskiosk_admin_email')
@@ -71,7 +59,6 @@ function ShelterConfig() {
         try {
             const res = await hubClient.get('/admin/evac');
             const data = res.data;
-            setEmergencyMode(isTruthy(data.emergency_mode));
             if (data.metadata) {
                 try {
                     const parsed = JSON.parse(data.metadata);
@@ -115,7 +102,6 @@ function ShelterConfig() {
                 medical_station,
                 registration_steps,
                 announcements,
-                emergency_mode: emergencyMode ? "true" : "false",
                 metadata: JSON.stringify({ subFields })
             };
 
@@ -341,24 +327,6 @@ function ShelterConfig() {
                     <Save size={16} />
                     {saving ? 'Saving...' : 'Save & Publish'}
                 </button>
-            </div>
-
-            {/* Emergency Mode Section */}
-            <div className="config-section">
-                <span className="config-section-title">Emergency Mode</span>
-                <div className="form-group mt-4">
-                    <label className="text-main font-normal">Enable Emergency Mode Banner</label>
-                    <div className="checkbox-row" style={{ marginTop: '0.5rem' }}>
-                        <input
-                            type="checkbox"
-                            checked={emergencyMode}
-                            onChange={e => setEmergencyMode(e.target.checked)}
-                            id="emergency_mode"
-                        />
-                        <label htmlFor="emergency_mode">Emergency mode active</label>
-                    </div>
-                </div>
-                <p className="form-hint">When enabled, the console shows an Emergency Mode banner.</p>
             </div>
 
             {/* Food Schedule Section */}

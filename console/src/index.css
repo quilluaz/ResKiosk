@@ -3,11 +3,12 @@
   --primary-hover: #D35400;
   --primary-light: #FFF4EC;
   --accent: #F5A35A;
-  --bg-color: #F5F5F0;
-  --surface: #ffffff;
+  --bg-color: #F8F9FA;
+  --surface: rgba(255, 255, 255, 0.35);
+  --glass-border: rgba(255, 255, 255, 0.6);
   --text-main: #1C1C1E;
   --text-muted: #757575;
-  --border: #E8E8E3;
+  --border: rgba(232, 232, 227, 0.4);
   --danger: #D32F2F;
   --danger-light: #FFEBEE;
   --success: #388E3C;
@@ -26,11 +27,12 @@
   --primary-hover: #F07B2A;
   --primary-light: #3a2a1a;
   --accent: #F5A35A;
-  --bg-color: #1f1f1f;
-  --surface: #252525;
+  --bg-color: #121212;
+  --surface: rgba(255, 255, 255, 0.04);
+  --glass-border: rgba(255, 255, 255, 0.12);
   --text-main: #ffffff;
   --text-muted: #a0a0a0;
-  --border: #3a3a3a;
+  --border: rgba(80, 80, 80, 0.2);
   --danger: #EF5350;
   --danger-light: #3a1a1a;
   --success: #66BB6A;
@@ -62,8 +64,10 @@
   gap: 0.75rem;
   padding: 0.625rem 0.75rem;
   border-radius: 6px;
-  background: transparent;
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
   color: var(--text-muted);
   cursor: pointer;
   font-size: 0.8125rem;
@@ -106,6 +110,28 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-color);
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(232, 97, 10, 0.35) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(245, 163, 90, 0.3) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(2, 136, 209, 0.25) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(56, 142, 60, 0.2) 0px, transparent 50%);
+  background-attachment: fixed;
+  background-size: 100% 100%;
+}
+
+@keyframes gradientBg {
+  0% { background-position: 0% 0%; }
+  50% { background-position: 100% 100%; }
+  100% { background-position: 0% 0%; }
+}
+
+[data-theme="dark"] body {
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(232, 97, 10, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(245, 163, 90, 0.12) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(66, 165, 245, 0.1) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(102, 187, 106, 0.08) 0px, transparent 50%);
 }
 
 /* Focus Ring Accessibility */
@@ -130,7 +156,7 @@ body {
 .main-content {
   flex: 1;
   overflow: auto;
-  background: var(--bg-color);
+  background: transparent;
   padding: 2rem 2.5rem;
 }
 
@@ -139,7 +165,10 @@ body {
   width: 260px;
   min-width: 260px;
   background: var(--surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-right: 1px solid var(--border);
+  border-right-color: var(--glass-border);
   display: flex;
   flex-direction: column;
 }
@@ -199,7 +228,9 @@ body {
 }
 
 .nav-item:hover {
-  background: var(--bg-color);
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   color: var(--text-main);
 }
 
@@ -217,7 +248,9 @@ body {
 /* ─── Cards ─── */
 .card {
   background: var(--surface);
-  border: 1px solid var(--border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   padding: 1.25rem 1.5rem;
   box-shadow: var(--shadow-sm);
@@ -269,8 +302,10 @@ body {
   font-weight: 500;
   font-size: 0.875rem;
   cursor: pointer;
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-border);
   background: var(--surface);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   color: var(--text-main);
   transition: all 0.15s ease;
   white-space: nowrap;
@@ -283,30 +318,36 @@ body {
 }
 
 .btn-primary {
-  background: var(--primary);
+  background: rgba(232, 97, 10, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   color: white;
-  border-color: var(--primary);
+  border-color: rgba(232, 97, 10, 0.8);
 }
 
 .btn-primary:hover {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
+  background: rgba(211, 84, 0, 0.8);
+  border-color: rgba(211, 84, 0, 1);
 }
 
 .btn-danger {
-  background: var(--danger);
+  background: rgba(211, 47, 47, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   color: white;
-  border-color: var(--danger);
+  border-color: rgba(211, 47, 47, 0.8);
 }
 
 .btn-danger:hover {
-  background: #C62828;
+  background: rgba(198, 40, 40, 0.8);
 }
 
 .btn-success {
-  background: var(--success);
+  background: rgba(56, 142, 60, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   color: white;
-  border-color: var(--success);
+  border-color: rgba(56, 142, 60, 0.8);
 }
 
 .btn-sm {
@@ -331,12 +372,14 @@ select.input {
   display: block;
   width: 100%;
   padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-border);
   border-radius: 6px;
   font-size: 0.875rem;
   font-family: inherit;
   color: var(--text-main);
   background: var(--surface);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   transition: border-color 0.15s ease;
 }
 
@@ -476,28 +519,37 @@ label {
 
 /* ─── Emergency Banner ─── */
 .banner-emergency {
-  background: var(--danger);
+  background: rgba(211, 47, 47, 0.25);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 82, 82, 0.5);
+  box-shadow: 0 4px 20px rgba(211, 47, 47, 0.2);
   color: white;
   width: 100%;
-  padding: 0.625rem 1rem;
+  padding: 0.875rem 1rem;
   text-align: center;
   font-weight: 700;
   font-size: 0.875rem;
   letter-spacing: 0.05em;
-  animation: pulse 2s infinite;
+  animation: pulse-border 2s ease-in-out infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
-@keyframes pulse {
+@keyframes pulse-border {
   0% {
-    opacity: 1;
+    border-bottom-color: rgba(255, 82, 82, 0.3);
+    box-shadow: 0 4px 15px rgba(211, 47, 47, 0.1);
   }
-
   50% {
-    opacity: 0.85;
+    border-bottom-color: rgba(255, 82, 82, 0.8);
+    box-shadow: 0 4px 25px rgba(211, 47, 47, 0.4);
   }
-
   100% {
-    opacity: 1;
+    border-bottom-color: rgba(255, 82, 82, 0.3);
+    box-shadow: 0 4px 15px rgba(211, 47, 47, 0.1);
   }
 }
 
@@ -535,7 +587,9 @@ th {
 }
 
 tr:hover td {
-  background: rgba(0, 0, 0, 0.015);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 /* ─── Page Header ─── */
@@ -858,7 +912,9 @@ tr:hover td {
 /* Config field styling */
 .config-section {
   background: var(--surface);
-  border: 1px solid var(--border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   padding: 1.5rem;
   margin-bottom: 2rem;
@@ -891,7 +947,9 @@ tr:hover td {
 
 /* Hub URL highlight card */
 .hub-url-card {
-  background: var(--primary-light);
+  background: rgba(232, 97, 10, 0.1); /* Translucent primary */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--accent);
   border-radius: var(--radius);
   padding: 1.25rem 1.5rem;
@@ -909,9 +967,11 @@ tr:hover td {
   align-items: center;
   gap: 0.75rem;
   background: var(--surface);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   padding: 0.75rem 1rem;
   border-radius: 6px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-border);
 }
 
 .hub-url-display code {
@@ -924,12 +984,14 @@ tr:hover td {
 
 /* Emergency toggle card */
 .emergency-card {
-  border-left: 4px solid var(--border);
+  border-left: 4px solid var(--glass-border);
 }
 
 .emergency-card.active {
   border-left-color: var(--danger);
-  background: var(--danger-light);
+  background: rgba(211, 47, 47, 0.15);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 /* QR card */
@@ -972,6 +1034,9 @@ tr:hover td {
 
 .modal-content {
   background: var(--surface);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--glass-border);
   border-radius: 12px;
   width: 90%;
   max-width: 520px;
