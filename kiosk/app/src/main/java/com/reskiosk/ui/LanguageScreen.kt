@@ -56,8 +56,9 @@ fun LanguageScreen(viewModel: KioskViewModel, onBack: () -> Unit) {
             Column(
                 modifier = Modifier.fillMaxWidth().weight(1f),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                verticalArrangement = Arrangement.Top
             ) {
+                Spacer(Modifier.height(24.dp))
                 Text(
                     "Select the language you will speak in.",
                     style = MaterialTheme.typography.bodyLarge,
@@ -65,7 +66,7 @@ fun LanguageScreen(viewModel: KioskViewModel, onBack: () -> Unit) {
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(24.dp))
 
                 // ─── Vertical pill list ───
                 Column(
@@ -84,7 +85,7 @@ fun LanguageScreen(viewModel: KioskViewModel, onBack: () -> Unit) {
                                 )
                                 .border(
                                     width = if (isSelected) 2.dp else 1.dp,
-                                    color = if (isSelected) Color(0xFFE8610A) else Color(0xFFCCCCCC),
+                                    color = if (isSelected) Color(0xFFE8610A) else MaterialTheme.colorScheme.outline,
                                     shape = RoundedCornerShape(50)
                                 )
                                 .clickable(enabled = !isChangingLanguage) {

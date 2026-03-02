@@ -20,8 +20,11 @@ Behavior:
 - Centered logo (`reskiosk_2d_logo`).
 - Localized title/subtitle from `EmergencyStrings`:
   - `start_title`
-  - `start_subtitle`
+  - `start_subtitle_line_1`
+  - `start_subtitle_line_2`
   - `start_button`
+- Subtitle is rendered as two explicit one-line rows.
+- Hero container is offset slightly upward (`~10dp`) for better visual balance.
 - Starts a session only if hub URL is configured.
 - If hub is not configured, user gets a connection prompt dialog.
 
@@ -121,6 +124,34 @@ String keys:
 - `sos_hold_instruction`
 - `sos_hold_button`
 - `cancel_button`
+
+## Dashboard Emergency Mode Broadcast
+
+Kiosk also listens for dashboard-wide emergency mode activation via `GET /admin/ping` (5-second poll).
+
+Behavior when `emergency_mode_active=true` with a new `emergency_mode_activated_at`:
+- Show full-screen emergency overlay for 5 seconds.
+- Play local bundled alarm once (`res/raw/emergencycallalert.mp3`).
+- After overlay timeout, keep animated top and bottom emergency banners visible.
+
+Behavior when deactivated:
+- Overlay and banners are removed immediately.
+
+Replay protection:
+- Last seen activation timestamp is stored in prefs (`last_seen_emergency_mode_activated_at`) to avoid replaying the alarm on every poll.
+
+## Hub URL Reliability Rules
+
+Hub URL is normalized before save/probe:
+- Trims whitespace.
+- Adds `http://` when scheme is missing.
+- Defaults port to `8000` if omitted.
+- Rejects invalid host strings.
+
+Reachability probing:
+- Tries `GET /admin/ping` first.
+- Falls back to `GET /health`.
+- If `ping` fails but `health` succeeds, kiosk also sends `POST /register_kiosk` heartbeat to keep hub-side kiosk presence accurate.
 
 ## Emergency UI Screens
 

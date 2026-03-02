@@ -50,26 +50,12 @@ function App() {
         localStorage.setItem('theme', darkMode ? 'dark' : 'light');
     }, [darkMode]);
 
-    const isTruthy = (v) => {
-        if (v === true) return true;
-        if (typeof v === 'string') {
-            const s = v.trim().toLowerCase();
-            return s === 'true' || s === '1' || s === 'yes';
-        }
-        if (typeof v === 'number') return v === 1;
-        return false;
-    };
-
     useEffect(() => {
         const checkStatus = async () => {
             try {
                 await hubClient.get('/admin/ping');
-                const snap = await hubClient.get('/kb/snapshot');
-                if (snap.data.structured_config && isTruthy(snap.data.structured_config.emergency_mode)) {
-                    setEmergencyMode(true);
-                } else {
-                    setEmergencyMode(false);
-                }
+                const emergency = await hubClient.get('/admin/emergency_mode');
+                setEmergencyMode(!!emergency.data?.active);
             } catch (e) {
                 console.error("Status check failed", e);
             }

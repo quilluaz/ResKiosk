@@ -15,14 +15,17 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.reskiosk.ModelConstants
+import com.reskiosk.viewmodel.KioskViewModel
 import java.io.File
 
 @Composable
 fun SettingsScreen(
+    viewModel: KioskViewModel,
     onBack: () -> Unit,
     onOpenSetup: () -> Unit
 ) {
     val context = LocalContext.current
+    val darkModeEnabled by viewModel.darkModeEnabled.collectAsState()
     val modelsDir = File(context.filesDir, ModelConstants.MODELS_BASE_DIR)
     val requiredDirs = remember {
         listOf(
@@ -54,6 +57,47 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface
             )
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        Text(
+            "Appearance",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 8.dp)
+        )
+        Spacer(Modifier.height(8.dp))
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        "Dark Mode",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        "Use a darker theme for low-light environments.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = darkModeEnabled,
+                    onCheckedChange = { viewModel.setDarkModeEnabled(it) }
+                )
+            }
         }
 
         Spacer(Modifier.height(24.dp))

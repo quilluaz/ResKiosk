@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Header
 from sqlalchemy.orm import Session
 from hub.db.session import get_db
@@ -19,7 +20,6 @@ FRESHNESS_SECTIONS = [
     "medical_station",
     "registration_steps",
     "announcements",
-    "emergency_mode",
 ]
 
 
@@ -46,6 +46,29 @@ def _safe_json_dict(raw: str | None) -> dict:
 def _get_actor(x_admin_user: str | None) -> str:
     actor = (x_admin_user or "").strip()
     return actor if actor else "system"
+
+
+def _is_truthy(value: str | None) -> bool:
+    if value is None:
+        return False
+    return str(value).strip().lower() in {"1", "true", "yes", "on", "active"}
+
+
+def _get_structured_config_value(db: Session, key: str, default: str | None = None) -> str | None:
+    row = db.query(schema.StructuredConfig).filter(schema.StructuredConfig.key == key).first()
+    if not row:
+        return default
+    return row.value if row.value is not None else default
+
+
+def _set_structured_config_value(db: Session, key: str, value: str):
+    row = db.query(schema.StructuredConfig).filter(schema.StructuredConfig.key == key).first()
+    if not row:
+        row = schema.StructuredConfig(key=key, value=value)
+    else:
+        row.value = value
+    row.updated_at = datetime.utcnow()
+    db.add(row)
 
 
 def _read_evac_metadata(row: schema.EvacInfo) -> dict:
@@ -341,6 +364,41 @@ async def confirm_evac_freshness(
     db.refresh(row)
     logger.info("[Freshness] Confirmed sections=%s by=%s at=%s", ",".join(sections), actor, now_ts)
     return api_models.EvacFreshnessResponse(**_build_freshness_payload(row, now_ts=now_ts))
+
+
+@router.get("/admin/emergency_mode", response_model=api_models.EmergencyModeResponse)
+async def get_emergency_mode(db: Session = Depends(get_db)):
+    active_raw = _get_structured_config_value(db, "emergency_mode_active", "false")
+    activated_at_raw = _get_structured_config_value(db, "emergency_mode_activated_at", "0")
+    try:
+        activated_at = int(activated_at_raw or 0)
+    except Exception:
+        activated_at = 0
+    return api_models.EmergencyModeResponse(
+        active=_is_truthy(active_raw),
+        activated_at=activated_at,
+    )
+
+
+@router.post("/admin/emergency_mode", response_model=api_models.EmergencyModeResponse)
+async def set_emergency_mode(
+    payload: api_models.EmergencyModeUpdateRequest,
+    db: Session = Depends(get_db),
+):
+    now_ts = int(time.time())
+    _set_structured_config_value(db, "emergency_mode_active", "true" if payload.active else "false")
+    if payload.active:
+        _set_structured_config_value(db, "emergency_mode_activated_at", str(now_ts))
+    db.commit()
+    activated_at_raw = _get_structured_config_value(db, "emergency_mode_activated_at", "0")
+    try:
+        activated_at = int(activated_at_raw or 0)
+    except Exception:
+        activated_at = 0
+    return api_models.EmergencyModeResponse(
+        active=payload.active,
+        activated_at=activated_at,
+    )
 
 # --- Publish (re-embed all) ──────────────────────────────────────────────────
 

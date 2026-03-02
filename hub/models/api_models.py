@@ -219,6 +219,15 @@ class EmergencyResolveRequest(BaseModel):
     resolved_by: Optional[str] = None
 
 
+class EmergencyModeUpdateRequest(BaseModel):
+    active: bool
+
+
+class EmergencyModeResponse(BaseModel):
+    active: bool
+    activated_at: int = 0
+
+
 class EmergencyStatusResponse(BaseModel):
     id: int
     status: str
