@@ -15,7 +15,8 @@ ResKiosk now enforces a mandatory weekly review for Shelter Config data.
 - `medical_station`
 - `registration_steps`
 - `announcements`
-- `emergency_mode`
+
+Emergency Mode is no longer part of Shelter Configuration freshness scope. It is controlled from Dashboard.
 
 ## Admin Flow
 

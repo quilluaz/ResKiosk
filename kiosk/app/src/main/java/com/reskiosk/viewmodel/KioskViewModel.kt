@@ -1,6 +1,7 @@
 package com.reskiosk.viewmodel
 
 import android.app.Application
+import android.media.MediaPlayer
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,6 +9,8 @@ import com.reskiosk.audio.AudioRecorder
 import com.reskiosk.emergency.EmergencyDetector
 import com.reskiosk.emergency.EmergencyStrings
 import com.reskiosk.network.HubApiClient
+import com.reskiosk.network.PingResponse
+import com.reskiosk.R
 import com.reskiosk.stt.SherpaSttEngine
 import com.reskiosk.stt.analyzeIntonation
 import com.reskiosk.tts.SherpaTtsEngine
@@ -26,6 +29,7 @@ import kotlin.math.sqrt
 import java.io.File
 import java.util.Collections
 import java.util.UUID
+import java.net.URI
 
 // States
 sealed class KioskState {
@@ -52,7 +56,7 @@ sealed class KioskState {
 
 enum class ChatMode {
     VOICE_ONLY,
-    TEXT_VOICE
+    TEXT_ONLY
 }
 
 // Data class for Chat Frame
@@ -110,6 +114,14 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
     private var failedPings = 0
     private var lastSttMode: String = "local"
     private var lastTtsMode: String = "local"
+    private val _hubReachable = MutableStateFlow(false)
+    val hubReachable = _hubReachable.asStateFlow()
+    private val _hubUrlValidationError = MutableStateFlow<String?>(null)
+    val hubUrlValidationError = _hubUrlValidationError.asStateFlow()
+    private val _emergencyModeActive = MutableStateFlow(false)
+    val emergencyModeActive = _emergencyModeActive.asStateFlow()
+    private val _emergencyModeOverlayVisible = MutableStateFlow(false)
+    val emergencyModeOverlayVisible = _emergencyModeOverlayVisible.asStateFlow()
     
     // Session State
     private var _sessionId = MutableStateFlow<String?>(null)
@@ -150,6 +162,7 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
         // Start heartbeat if URL exists (runs on IO so it never blocks UI)
         if (getHubUrl().isNotBlank()) {
             startHeartbeat()
+            refreshHubConnectionStatus()
         }
         
         // Load punctuation model on background thread to avoid blocking main thread and triggering ANR
@@ -181,12 +194,25 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
         heartbeatJob?.cancel()
         heartbeatJob = viewModelScope.launch(Dispatchers.IO) {
             while (isActive) {
-                val url = getHubUrl()
-                if (url.isNotBlank()) {
+                val saved = getHubUrl()
+                if (saved.isNotBlank()) {
+                    val normalized = normalizeHubUrl(saved)
+                    if (normalized == null) {
+                        _hubUrlValidationError.value = "Invalid URL. Use host:port or http://host:port."
+                        _hubReachable.value = false
+                        delay(HUB_POLL_INTERVAL_MS)
+                        continue
+                    }
+                    _hubUrlValidationError.value = null
+                    if (normalized != saved) {
+                        prefs.edit().putString("hub_url", normalized).apply()
+                    }
                     try {
-                        val api = HubApiClient.getService(url)
-                        api.ping()
+                        val (reachable, pingResp) = probeHub(normalized)
+                        if (!reachable) throw IllegalStateException("Hub unreachable")
                         failedPings = 0
+                        _hubReachable.value = true
+                        updateEmergencyModeFromPing(pingResp)
                     } catch (e: Exception) {
                         failedPings++
                         android.util.Log.e("KioskViewModel", "Heartbeat failed ($failedPings)", e)
@@ -195,9 +221,12 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
                             // Do NOT disconnectHub() here so we auto-reconnect once the hub recovers.
                             android.util.Log.e("KioskViewModel", "Connection lost, but keeping hub URL to auto-reconnect.")
                         }
+                        if (failedPings >= 3) {
+                            _hubReachable.value = false
+                        }
                     }
                 }
-                delay(20_000L) // Poll every 20 seconds per spec
+                delay(HUB_POLL_INTERVAL_MS)
             }
         }
     }
@@ -209,6 +238,12 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
         prefs.getString("selected_language", "en") ?: "en"
     )
     val selectedLanguage = _selectedLanguage.asStateFlow()
+
+    // Dark mode — restored from SharedPreferences
+    private val _darkModeEnabled = MutableStateFlow(
+        prefs.getBoolean("dark_mode_enabled", false)
+    )
+    val darkModeEnabled = _darkModeEnabled.asStateFlow()
 
     private val _isChangingLanguage = MutableStateFlow(false)
     val isChangingLanguage = _isChangingLanguage.asStateFlow()
@@ -290,6 +325,8 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
     private var emergencyConfirmJob: Job? = null
     private var emergencyCancelJob: Job? = null
     private var emergencyCooldownJob: Job? = null
+    private var emergencyModeOverlayJob: Job? = null
+    private var emergencyAlarmPlayer: MediaPlayer? = null
     private var emergencyCooldownUntil: Long = 0L
     private var smoothedVoiceLevel: Float = 0f
 
@@ -298,6 +335,8 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
     private val EMERGENCY_POLL_INTERVAL_MS = 15_000L
     private val EMERGENCY_RETRY_INTERVAL_MS = 30_000L
     private val EMERGENCY_COOLDOWN_MS = 60_000L
+    private val HUB_POLL_INTERVAL_MS = 5_000L
+    private val EMERGENCY_MODE_OVERLAY_MS = 5_000L
 
     /** Defer recorder restart until Idle when language changed during Recording/Transcribing */
     private var pendingRecorderRestart = false
@@ -311,12 +350,49 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
 
     // Preferences
 
-    fun getHubUrl(): String = prefs.getString("hub_url", "") ?: ""
+    private fun normalizeHubUrl(url: String): String? {
+        val raw = url.trim()
+        if (raw.isBlank()) return null
+        val candidate = if (raw.contains("://")) raw else "http://$raw"
+        return try {
+            val uri = URI(candidate)
+            val scheme = (uri.scheme ?: "http").lowercase()
+            if (scheme != "http" && scheme != "https") return null
+            val host = uri.host?.trim()?.lowercase() ?: return null
+            if (host.isBlank()) return null
+            if (host != "localhost" && !host.contains(".")) return null
+            val port = if (uri.port > 0) uri.port else 8000
+            URI(scheme, null, host, port, null, null, null).toString().removeSuffix("/")
+        } catch (_: Exception) {
+            null
+        }
+    }
 
-    fun saveHubUrl(url: String) {
-        prefs.edit().putString("hub_url", url.trim()).apply()
-        android.util.Log.i("KioskViewModel", "Hub URL saved: ${url.trim()}, starting heartbeat")
+    fun getHubUrl(): String = (prefs.getString("hub_url", "") ?: "").trim()
+
+    fun clearHubUrlValidationError() {
+        _hubUrlValidationError.value = null
+    }
+
+    fun saveHubUrl(url: String): Boolean {
+        val normalized = normalizeHubUrl(url)
+        if (normalized == null) {
+            _hubUrlValidationError.value = "Invalid URL. Use host:port or http://host:port."
+            _hubReachable.value = false
+            return false
+        }
+        _hubUrlValidationError.value = null
+        prefs.edit().putString("hub_url", normalized).apply()
+        android.util.Log.i("KioskViewModel", "Hub URL saved: $normalized, starting heartbeat")
         startHeartbeat()
+        refreshHubConnectionStatus()
+        return true
+    }
+
+    fun setDarkModeEnabled(enabled: Boolean) {
+        if (_darkModeEnabled.value == enabled) return
+        _darkModeEnabled.value = enabled
+        prefs.edit().putBoolean("dark_mode_enabled", enabled).apply()
     }
 
     fun disconnectHub() {
@@ -324,8 +400,135 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
         heartbeatJob?.cancel()
         heartbeatJob = null
         failedPings = 0
+        _hubReachable.value = false
+        _hubUrlValidationError.value = null
         endSession()
         android.util.Log.i("KioskViewModel", "Hub disconnected, heartbeat stopped")
+    }
+
+    private suspend fun probeHub(url: String): Pair<Boolean, PingResponse?> {
+        val probeTargets = LinkedHashSet<String>()
+        probeTargets.add(url)
+        if (url.startsWith("https://")) {
+            probeTargets.add("http://${url.removePrefix("https://")}")
+        }
+        for (target in probeTargets) {
+            val api = HubApiClient.getService(target)
+            try {
+                val pingResp = api.ping()
+                if (target != url) {
+                    prefs.edit().putString("hub_url", target).apply()
+                }
+                return Pair(true, pingResp)
+            } catch (pingError: Exception) {
+                Log.w("KioskViewModel", "Ping check failed for $target: ${pingError.message}")
+                try {
+                    api.health()
+                    try {
+                        val kioskId = prefs.getString("kiosk_id", null)
+                            ?: UUID.randomUUID().toString().also { prefs.edit().putString("kiosk_id", it).apply() }
+                        api.heartbeat(
+                            mapOf(
+                                "kiosk_id" to kioskId,
+                                "status" to "online",
+                                "center_id" to "center_1"
+                            )
+                        )
+                    } catch (heartbeatError: Exception) {
+                        Log.w("KioskViewModel", "register_kiosk fallback failed: ${heartbeatError.message}")
+                    }
+                    if (target != url) {
+                        prefs.edit().putString("hub_url", target).apply()
+                    }
+                    return Pair(true, null)
+                } catch (healthError: Exception) {
+                    Log.w("KioskViewModel", "Health check failed for $target: ${healthError.message}")
+                }
+            }
+        }
+        return Pair(false, null)
+    }
+
+    private fun updateEmergencyModeFromPing(ping: PingResponse?) {
+        val active = ping?.emergencyModeActive == true
+        val activatedAt = ping?.emergencyModeActivatedAt ?: 0L
+        _emergencyModeActive.value = active
+        if (!active) {
+            emergencyModeOverlayJob?.cancel()
+            _emergencyModeOverlayVisible.value = false
+            return
+        }
+        val lastSeen = prefs.getLong("last_seen_emergency_mode_activated_at", 0L)
+        if (activatedAt > 0L && activatedAt > lastSeen) {
+            prefs.edit().putLong("last_seen_emergency_mode_activated_at", activatedAt).apply()
+            emergencyModeOverlayJob?.cancel()
+            _emergencyModeOverlayVisible.value = true
+            playEmergencyModeAlarmOnce()
+            emergencyModeOverlayJob = viewModelScope.launch {
+                delay(EMERGENCY_MODE_OVERLAY_MS)
+                _emergencyModeOverlayVisible.value = false
+            }
+        }
+    }
+
+    private fun playEmergencyModeAlarmOnce() {
+        viewModelScope.launch(Dispatchers.Main) {
+            try {
+                emergencyAlarmPlayer?.release()
+                emergencyAlarmPlayer = MediaPlayer.create(getApplication(), R.raw.emergencycallalert)
+                emergencyAlarmPlayer?.setOnCompletionListener { mp ->
+                    try {
+                        mp.release()
+                    } catch (_: Exception) {
+                    }
+                    if (emergencyAlarmPlayer === mp) {
+                        emergencyAlarmPlayer = null
+                    }
+                }
+                emergencyAlarmPlayer?.start()
+            } catch (e: Exception) {
+                Log.e("KioskViewModel", "Emergency mode alarm playback failed", e)
+            }
+        }
+    }
+
+    fun refreshHubConnectionStatus(onDone: ((Boolean) -> Unit)? = null) {
+        val saved = getHubUrl()
+        if (saved.isBlank()) {
+            _hubReachable.value = false
+            onDone?.invoke(false)
+            return
+        }
+        val normalized = normalizeHubUrl(saved)
+        if (normalized == null) {
+            _hubUrlValidationError.value = "Invalid URL. Use host:port or http://host:port."
+            _hubReachable.value = false
+            onDone?.invoke(false)
+            return
+        }
+        _hubUrlValidationError.value = null
+        if (normalized != saved) {
+            prefs.edit().putString("hub_url", normalized).apply()
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val (reachable, pingResp) = try {
+                probeHub(normalized)
+            } catch (e: Exception) {
+                Log.e("KioskViewModel", "Hub refresh failed", e)
+                Pair(false, null)
+            }
+            if (reachable) {
+                failedPings = 0
+                _hubReachable.value = true
+                updateEmergencyModeFromPing(pingResp)
+            } else {
+                failedPings++
+                _hubReachable.value = false
+            }
+            withContext(Dispatchers.Main) {
+                onDone?.invoke(reachable)
+            }
+        }
     }
 
     // Cloud connectivity polling disabled (offline-first rollback).
@@ -357,7 +560,7 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
         }
         val rms = sqrt(sumSquares / chunk.size).toFloat()
         val normalized = (rms * 8f).coerceIn(0f, 1f)
-        smoothedVoiceLevel = (smoothedVoiceLevel * 0.72f) + (normalized * 0.28f)
+        smoothedVoiceLevel = (smoothedVoiceLevel * 0.84f) + (normalized * 0.16f)
 
         val current = _voiceLevels.value
         if (current.isEmpty()) {
@@ -1139,11 +1342,11 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val hubUrl = prefs.getString("hub_url", "") ?: ""
-                if (hubUrl.isBlank()) {
+                val hubUrl = normalizeHubUrl(getHubUrl())
+                if (hubUrl.isNullOrBlank()) {
                     withContext(Dispatchers.Main) {
                         clearLoadingOverlay()
-                        handleError("Hub not configured. Please connect to a Hub first.")
+                        handleError("Hub URL is not configured correctly. Please reconnect to the Hub.")
                     }
                     return@launch
                 }
@@ -1283,6 +1486,9 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         cancelInactivityTimer()
+        emergencyModeOverlayJob?.cancel()
+        emergencyAlarmPlayer?.release()
+        emergencyAlarmPlayer = null
         stt?.release()
         tts?.release()
         _punctuator?.release()

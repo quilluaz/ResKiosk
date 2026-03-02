@@ -43,20 +43,23 @@ object EmergencyStrings {
         "retrieving_new_response_5" to "Finding a clearer answer...",
         "start_title" to "Welcome to ResKiosk",
         "start_subtitle" to "Ask by voice or type a message. Reze is ready to help.",
+        "start_subtitle_line_1" to "Ask by voice or type a message.",
+        "start_subtitle_line_2" to "Reze is ready to help.",
         "start_button" to "Start Session",
         "mode_voice_only" to "Voice",
-        "mode_text_voice" to "Text + Voice",
+        "mode_text_voice" to "Text",
         "keyboard_open" to "Keyboard",
         "input_placeholder" to "Type your question",
         "send" to "Send",
         "voice_only_hint" to "Tap the button below and speak your question.",
+        "text_only_hint" to "Use the keyboard below to ask a question.",
         "text_voice_hint" to "Tap speak or open the keyboard to ask a question.",
         "asking_hub_title_1" to "Asking the hub...",
         "asking_hub_title_2" to "Finding the best answer...",
         "asking_hub_title_3" to "Checking shelter information...",
         "asking_hub_title_4" to "Preparing your response...",
         "asking_hub_title_5" to "Almost there...",
-        "asking_hub_subtitle" to "Reze will respond soon...",
+        "asking_hub_subtitle" to "Reze will respond soon.",
         "sos_confirm_title" to "Confirm emergency alert",
         "sos_confirm_body" to "Use this only when immediate help is needed.",
         "sos_hold_instruction" to "Press and hold for 3 seconds to send SOS.",
@@ -77,13 +80,16 @@ object EmergencyStrings {
         "listening" to "Escuchando...",
         "start_title" to "Bienvenido a ResKiosk",
         "start_subtitle" to "Pregunta por voz o escribe un mensaje. Reze esta lista para ayudar.",
+        "start_subtitle_line_1" to "Pregunta por voz o escribe un mensaje.",
+        "start_subtitle_line_2" to "Reze esta lista para ayudar.",
         "start_button" to "Iniciar sesion",
         "mode_voice_only" to "Voz",
-        "mode_text_voice" to "Texto + Voz",
+        "mode_text_voice" to "Texto",
         "keyboard_open" to "Teclado",
         "input_placeholder" to "Escribe tu pregunta",
         "send" to "Enviar",
         "voice_only_hint" to "Toca el boton y di tu pregunta.",
+        "text_only_hint" to "Usa el teclado para hacer una pregunta.",
         "text_voice_hint" to "Toca hablar o abre el teclado para preguntar.",
         "asking_hub_title_1" to "Consultando al hub...",
         "asking_hub_title_2" to "Buscando la mejor respuesta...",
@@ -99,25 +105,34 @@ object EmergencyStrings {
     )
 
     private val de = en + mapOf(
+        "start_subtitle_line_1" to "Frage per Sprache oder tippe eine Nachricht.",
+        "start_subtitle_line_2" to "Reze ist bereit zu helfen.",
         "mode_voice_only" to "Sprache",
-        "mode_text_voice" to "Text + Sprache",
+        "mode_text_voice" to "Text",
+        "text_only_hint" to "Nutze die Tastatur unten fur deine Frage.",
         "keyboard_open" to "Tastatur",
         "send" to "Senden",
         "asking_hub_subtitle" to "Reze antwortet gleich..."
     )
 
     private val fr = en + mapOf(
+        "start_subtitle_line_1" to "Posez votre question a la voix ou par texte.",
+        "start_subtitle_line_2" to "Reze est prete a aider.",
         "mode_voice_only" to "Voix",
-        "mode_text_voice" to "Texte + Voix",
+        "mode_text_voice" to "Texte",
+        "text_only_hint" to "Utilisez le clavier ci-dessous pour poser une question.",
         "keyboard_open" to "Clavier",
         "send" to "Envoyer",
         "asking_hub_subtitle" to "Reze repondra bientot..."
     )
 
     private val ja = en + mapOf(
+        "start_subtitle_line_1" to "Ask by voice or type a message.",
+        "start_subtitle_line_2" to "Reze is ready to help.",
         "mode_voice_only" to "Voice",
-        "mode_text_voice" to "Text + Voice",
-        "asking_hub_subtitle" to "Reze will respond soon..."
+        "mode_text_voice" to "Text",
+        "text_only_hint" to "Use the keyboard below to ask a question.",
+        "asking_hub_subtitle" to "Reze will respond soon."
     )
 
     private val strings = mapOf(

@@ -30,7 +30,13 @@ data class HubQueryResponse(
 
 data class PingResponse(
     val status: String?,
-    @SerializedName("hub_version") val hubVersion: String?
+    @SerializedName("hub_version") val hubVersion: String?,
+    @SerializedName("emergency_mode_active") val emergencyModeActive: Boolean? = null,
+    @SerializedName("emergency_mode_activated_at") val emergencyModeActivatedAt: Long? = null
+)
+
+data class HealthResponse(
+    val status: String?
 )
 
 data class EmergencyStatusResponse(
@@ -76,6 +82,9 @@ interface HubApiService {
 
     @GET("admin/ping")
     suspend fun ping(): PingResponse
+
+    @GET("health")
+    suspend fun health(): HealthResponse
 
     // Cloud connectivity endpoint disabled (offline-first rollback).
 
