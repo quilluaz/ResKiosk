@@ -337,6 +337,7 @@ function MessagesTab({ messages, categories, hubs, loading, loraConnected, thisH
         subject: '', content: '', target_hub_id: '', category_id: '', priority: 'normal'
     });
     const [sending, setSending] = useState(false);
+    const [ackSending, setAckSending] = useState(false);
 
     const loadAll = useCallback(() => {
         window.__hubMessagesReload?.();
@@ -396,6 +397,22 @@ function MessagesTab({ messages, categories, hubs, loading, loraConnected, thisH
             loadAll();
         } catch (e) {
             await modal.alert('Status update failed.');
+        }
+    };
+
+    const handleSendAck = async (msg) => {
+        setAckSending(true);
+        try {
+            const res = await hubClient.post('/lora/send_ack', { message_id: msg.id });
+            if (res.data.ok) {
+                handleStatusChange(msg.id, 'read');
+            } else {
+                alert('Acknowledgement failed: ' + (res.data.error || 'Unknown error'));
+            }
+        } catch {
+            alert('Failed to send acknowledgement.');
+        } finally {
+            setAckSending(false);
         }
     };
 
@@ -775,6 +792,32 @@ function MessagesTab({ messages, categories, hubs, loading, loraConnected, thisH
                                     <button className="btn" style={{ color: 'var(--danger)' }} onClick={() => { handleDelete(viewMsg.id); setViewMsg(null); }}>
                                         <Trash2 size={15} /> Delete
                                     </button>
+                                    {viewSent && (
+                                        <button className="btn" style={{ color: 'var(--primary)' }} onClick={() => {
+                                            setForm({
+                                                subject: viewMsg.subject || '',
+                                                content: viewMsg.content || '',
+                                                priority: viewMsg.priority || 'normal',
+                                                category_id: viewMsg.category_id ? String(viewMsg.category_id) : '',
+                                                target_hub_id: viewMsg.target_hub_id ? String(viewMsg.target_hub_id) : '',
+                                            });
+                                            setViewMsg(null);
+                                            setShowCompose(true);
+                                        }}>
+                                            <RotateCcw size={15} /> Resend
+                                        </button>
+                                    )}
+                                    {!viewSent && viewMsg.status === 'pending' && (
+                                        <button
+                                            className="btn"
+                                            style={{ color: 'var(--success)' }}
+                                            disabled={ackSending}
+                                            onClick={() => handleSendAck(viewMsg)}
+                                        >
+                                            <CheckCircle size={15} />
+                                            {ackSending ? 'Sending...' : 'Send Acknowledgement'}
+                                        </button>
+                                    )}
                                     <button className="btn" onClick={() => setViewMsg(null)}>Close</button>
                                 </div>
                             </div>

@@ -180,10 +180,10 @@ function Dashboard({ setEmergencyMode }) {
                           style={isEmergency
                             ? { backgroundColor: '#E8610A', borderColor: '#E8610A', color: '#fff' }
                             : { backgroundColor: '#b71c1c', borderColor: '#b71c1c', color: '#fff' }}
-                      >
-                          {isEmergency ? 'DEACTIVATE' : 'ACTIVATE'}
-                      </button>
-                  </div>
+                    >
+                        {isEmergency ? 'DEACTIVATE' : 'ACTIVATE'}
+                    </button>
+                </div>
             </div>
 
             {/* Dashboard KB List */}
