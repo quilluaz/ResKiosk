@@ -7,9 +7,10 @@ from sqlalchemy.orm import Session
 from hub.db.session import get_db
 from hub.db import schema
 from hub.models import api_models
-from hub.retrieval import search, formatter, translator
+from hub.retrieval import search, translator
 from hub.retrieval import rewriter as query_rewriter
 from hub.retrieval.normalizer import normalize_query
+from hub.retrieval import formatter
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -117,7 +118,6 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
             # and may lazily hallucinate and repeat the exact same response instead of using the new KB article.
             if query.session_id and query.session_id in session_history and not query.is_retry:
                 history_str = json.dumps(session_history[query.session_id][-3:], ensure_ascii=False)
-            import json
             article_json = json.dumps(result["article_data"], ensure_ascii=False)
             try:
                 include_intro = bool(query.session_id) and (query.session_id not in session_history) and not query.is_retry

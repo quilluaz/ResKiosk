@@ -49,7 +49,13 @@ def sync_evac_to_kb(db: Session):
     """
     evac = db.query(schema.EvacInfo).filter(schema.EvacInfo.id == 1).first()
     if not evac:
-        return
+        return {
+            "changed_count": 0,
+            "changed_ids": [],
+            "disabled_count": 0,
+            "embedded_count": 0,
+            "had_any_kb_change": False,
+        }
 
     # Load existing evac_sync articles keyed by question
     existing = {
@@ -61,6 +67,7 @@ def sync_evac_to_kb(db: Session):
 
     now = int(time.time())
     changed_articles = []
+    disabled_count = 0
 
     for field, (question, tags) in FIELD_MAP.items():
         value = (getattr(evac, field, None) or "").strip()
@@ -95,28 +102,49 @@ def sync_evac_to_kb(db: Session):
             if art and art.enabled:
                 art.enabled = 0
                 art.last_updated = now
+                disabled_count += 1
 
     db.commit()
 
     if not changed_articles:
-        print("[EvacSync] No changes detected.")
-        return
+        if disabled_count > 0:
+            from hub.retrieval.search import invalidate_corpus_cache
+            invalidate_corpus_cache()
+            print(f"[EvacSync] {disabled_count} article(s) disabled.")
+        else:
+            print("[EvacSync] No changes detected.")
+        return {
+            "changed_count": 0,
+            "changed_ids": [],
+            "disabled_count": disabled_count,
+            "embedded_count": 0,
+            "had_any_kb_change": disabled_count > 0,
+        }
 
     # Embed changed articles inline (fast — only short sentences)
     from hub.retrieval.embedder import load_embedder, serialize_embedding, get_embeddable_text
     from hub.retrieval.search import invalidate_corpus_cache
 
     embedder = load_embedder()
+    embedded_count = 0
     for art in changed_articles:
         try:
             db.refresh(art)
             text = get_embeddable_text(art)
             vec = embedder.embed_text(text)
             art.embedding = serialize_embedding(vec)
+            embedded_count += 1
             print(f"[EvacSync] Embedded article {art.id}: '{art.question}'")
         except Exception as e:
             print(f"[EvacSync] WARNING: Failed to embed '{art.question}': {e}")
 
     db.commit()
     invalidate_corpus_cache()
-    print(f"[EvacSync] {len(changed_articles)} article(s) synced and embedded.")
+    print(f"[EvacSync] changed={len(changed_articles)} disabled={disabled_count} embedded={embedded_count}")
+    return {
+        "changed_count": len(changed_articles),
+        "changed_ids": [art.id for art in changed_articles if art.id is not None],
+        "disabled_count": disabled_count,
+        "embedded_count": embedded_count,
+        "had_any_kb_change": True,
+    }

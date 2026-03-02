@@ -12,6 +12,8 @@ This document describes the current emergency calls feature across kiosk, hub, a
 
 While an emergency is active, the kiosk session timeout is suspended. The timer resumes after dismissal or resolution.
 
+Cloud integration is currently disabled and does not affect emergency behavior. Emergency detection, alert routing, and responder workflow remain local/LAN-only and do not depend on cloud service availability.
+
 ---
 
 ## Kiosk

@@ -1,13 +1,26 @@
+import json
+import logging
 import time
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Header
 from sqlalchemy.orm import Session
 from hub.db.session import get_db
 from hub.db import schema
 from hub.models import api_models
 from hub.retrieval.embedder import load_embedder, serialize_embedding, get_embeddable_text
-from hub.retrieval.search import invalidate_corpus_cache
+from hub.retrieval.search import invalidate_corpus_cache, invalidate_shelter_config_cache
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+FRESHNESS_DAYS = 7
+FRESHNESS_SECTIONS = [
+    "food_schedule",
+    "sleeping_zones",
+    "medical_station",
+    "registration_steps",
+    "announcements",
+    "emergency_mode",
+]
 
 
 def _increment_kb_version(db: Session):
@@ -18,6 +31,112 @@ def _increment_kb_version(db: Session):
         sv.last_published = int(time.time())
         db.add(sv)
         db.commit()
+
+
+def _safe_json_dict(raw: str | None) -> dict:
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, dict) else {}
+    except Exception:
+        return {}
+
+
+def _get_actor(x_admin_user: str | None) -> str:
+    actor = (x_admin_user or "").strip()
+    return actor if actor else "system"
+
+
+def _read_evac_metadata(row: schema.EvacInfo) -> dict:
+    return _safe_json_dict(getattr(row, "info_metadata", None))
+
+
+def _write_evac_metadata(row: schema.EvacInfo, metadata: dict):
+    row.info_metadata = json.dumps(metadata, ensure_ascii=True)
+
+
+def _apply_freshness_stamp(
+    row: schema.EvacInfo,
+    sections: list[str],
+    actor: str,
+    now_ts: int,
+):
+    if not sections:
+        return
+    metadata = _read_evac_metadata(row)
+    freshness = metadata.get("freshness")
+    if not isinstance(freshness, dict):
+        freshness = {}
+    for section in sections:
+        freshness[section] = {
+            "reviewed_at": now_ts,
+            "reviewed_by": actor,
+        }
+    metadata["freshness"] = freshness
+    _write_evac_metadata(row, metadata)
+
+
+def _fallback_reviewed_at(row: schema.EvacInfo) -> int | None:
+    raw = getattr(row, "last_updated", None)
+    if raw is None:
+        return None
+    if isinstance(raw, int):
+        return raw
+    try:
+        return int(raw)
+    except Exception:
+        pass
+    try:
+        return int(time.mktime(time.strptime(raw[:19], "%Y-%m-%dT%H:%M:%S")))
+    except Exception:
+        return None
+
+
+def _build_freshness_payload(row: schema.EvacInfo, now_ts: int | None = None) -> dict:
+    now = now_ts or int(time.time())
+    metadata = _read_evac_metadata(row)
+    freshness = metadata.get("freshness")
+    if not isinstance(freshness, dict):
+        freshness = {}
+    fallback_reviewed_at = _fallback_reviewed_at(row)
+    sections_payload = []
+    expired_sections = []
+    ttl_secs = FRESHNESS_DAYS * 24 * 60 * 60
+    for section in FRESHNESS_SECTIONS:
+        entry = freshness.get(section)
+        reviewed_at = None
+        reviewed_by = None
+        if isinstance(entry, dict):
+            reviewed_at = entry.get("reviewed_at")
+            reviewed_by = entry.get("reviewed_by")
+        if reviewed_at is None:
+            reviewed_at = fallback_reviewed_at
+        age_days = None
+        expires_at = None
+        is_expired = True
+        if isinstance(reviewed_at, (int, float)):
+            reviewed_at = int(reviewed_at)
+            age_days = max(0, int((now - reviewed_at) // (24 * 60 * 60)))
+            expires_at = reviewed_at + ttl_secs
+            is_expired = now >= expires_at
+        if is_expired:
+            expired_sections.append(section)
+        sections_payload.append(
+            {
+                "section": section,
+                "last_reviewed_at": reviewed_at,
+                "reviewed_by": reviewed_by,
+                "age_days": age_days,
+                "expires_at": expires_at,
+                "is_expired": is_expired,
+            }
+        )
+    return {
+        "freshness_days": FRESHNESS_DAYS,
+        "sections": sections_payload,
+        "expired_sections": expired_sections,
+    }
 
 
 def _embed_article(db: Session, article: schema.KBArticle):
@@ -114,6 +233,7 @@ async def delete_article(id: int, db: Session = Depends(get_db)):
     _increment_kb_version(db)
     db.commit()
     invalidate_corpus_cache()
+    invalidate_shelter_config_cache()
 
 
 # ─── Evac Info (Shelter Operations Config) ──────────────────────────────────
@@ -126,10 +246,10 @@ async def get_evac_info(db: Session = Depends(get_db)):
     return row
 
 
-@router.put("/admin/evac", response_model=api_models.EvacInfoResponse)
+@router.put("/admin/evac", response_model=api_models.EvacInfoUpdateResponse)
 async def update_evac_info(
     update: dict,
-    background_tasks: BackgroundTasks,
+    x_admin_user: str | None = Header(default=None, alias="X-Admin-User"),
     db: Session = Depends(get_db),
 ):
     row = db.query(schema.EvacInfo).filter(schema.EvacInfo.id == 1).first()
@@ -137,28 +257,92 @@ async def update_evac_info(
         row = schema.EvacInfo(id=1)
         db.add(row)
 
-    allowed = ["food_schedule", "sleeping_zones", "medical_station",
-               "registration_steps", "announcements", "emergency_mode"]
+    actor = _get_actor(x_admin_user)
+    allowed = FRESHNESS_SECTIONS
+    changed_sections = []
+    now_ts = int(time.time())
     for field in allowed:
         if field in update:
-            setattr(row, field, update[field])
-    
+            incoming = update[field]
+            if getattr(row, field, None) != incoming:
+                changed_sections.append(field)
+            setattr(row, field, incoming)
+
     # Map 'metadata' from request to 'info_metadata' column
     if "metadata" in update:
         row.info_metadata = update["metadata"]
-    import datetime
-    row.last_updated = datetime.datetime.utcnow().isoformat()
+    _apply_freshness_stamp(row, changed_sections, actor, now_ts)
+    row.last_updated = str(now_ts)
 
     db.commit()
     db.refresh(row)
 
-    # Sync evac fields → KB articles for semantic search
+    # Sync evac fields -> KB articles for semantic search
     from hub.db.evac_sync import sync_evac_to_kb
-    sync_evac_to_kb(db)
+    sync_result = sync_evac_to_kb(db) or {}
+    if sync_result.get("had_any_kb_change"):
+        _increment_kb_version(db)
+        logger.info("[Freshness] Shelter config auto-published by %s", actor)
+    sv = db.query(schema.SystemVersion).first()
+    invalidate_corpus_cache()
+    invalidate_shelter_config_cache()
 
-    return row
+    return api_models.EvacInfoUpdateResponse(
+        id=row.id,
+        food_schedule=row.food_schedule,
+        sleeping_zones=row.sleeping_zones,
+        medical_station=row.medical_station,
+        registration_steps=row.registration_steps,
+        announcements=row.announcements,
+        emergency_mode=row.emergency_mode,
+        last_updated=row.last_updated,
+        metadata=row.info_metadata,
+        kb_version=sv.kb_version if sv else None,
+        published_at=sv.last_published if sv and sync_result.get("had_any_kb_change") else None,
+        evac_sync=api_models.EvacSyncSummary(
+            changed_count=sync_result.get("changed_count", 0),
+            changed_ids=sync_result.get("changed_ids", []),
+            disabled_count=sync_result.get("disabled_count", 0),
+            embedded_count=sync_result.get("embedded_count", 0),
+        ),
+    )
 
-# ─── Publish (re-embed all) ──────────────────────────────────────────────────
+
+@router.get("/admin/evac/freshness", response_model=api_models.EvacFreshnessResponse)
+async def get_evac_freshness(db: Session = Depends(get_db)):
+    row = db.query(schema.EvacInfo).filter(schema.EvacInfo.id == 1).first()
+    if not row:
+        row = schema.EvacInfo(id=1)
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+    payload = _build_freshness_payload(row)
+    return api_models.EvacFreshnessResponse(**payload)
+
+
+@router.post("/admin/evac/freshness/confirm", response_model=api_models.EvacFreshnessResponse)
+async def confirm_evac_freshness(
+    payload: api_models.EvacFreshnessConfirmRequest,
+    x_admin_user: str | None = Header(default=None, alias="X-Admin-User"),
+    db: Session = Depends(get_db),
+):
+    row = db.query(schema.EvacInfo).filter(schema.EvacInfo.id == 1).first()
+    if not row:
+        row = schema.EvacInfo(id=1)
+        db.add(row)
+    sections = [s for s in (payload.sections or []) if s in FRESHNESS_SECTIONS]
+    if not sections:
+        raise HTTPException(status_code=400, detail="No valid sections were provided.")
+    now_ts = int(time.time())
+    actor = _get_actor(x_admin_user)
+    _apply_freshness_stamp(row, sections, actor, now_ts)
+    row.last_updated = row.last_updated or str(now_ts)
+    db.commit()
+    db.refresh(row)
+    logger.info("[Freshness] Confirmed sections=%s by=%s at=%s", ",".join(sections), actor, now_ts)
+    return api_models.EvacFreshnessResponse(**_build_freshness_payload(row, now_ts=now_ts))
+
+# --- Publish (re-embed all) ──────────────────────────────────────────────────
 
 # ─── Publish (re-embed all) ──────────────────────────────────────────────────
 

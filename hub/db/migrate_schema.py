@@ -52,12 +52,22 @@ def migrate():
             "rlhf_top_source_id": "ALTER TABLE query_logs ADD COLUMN rlhf_top_source_id INTEGER",
             "rlhf_top_score": "ALTER TABLE query_logs ADD COLUMN rlhf_top_score REAL",
             "retrieval_score": "ALTER TABLE query_logs ADD COLUMN retrieval_score REAL",
+            "formatter_mode": "ALTER TABLE query_logs ADD COLUMN formatter_mode TEXT",
+            "stt_mode": "ALTER TABLE query_logs ADD COLUMN stt_mode TEXT",
+            "tts_mode": "ALTER TABLE query_logs ADD COLUMN tts_mode TEXT",
+            "connectivity_state": "ALTER TABLE query_logs ADD COLUMN connectivity_state TEXT",
+            "cloud_consent_mode": "ALTER TABLE query_logs ADD COLUMN cloud_consent_mode TEXT DEFAULT 'disabled'",
         }
         for col, sql in ql_migrations.items():
             if col not in cols:
                 cursor.execute(sql)
                 print(f"[Migration] Added query_logs.{col}")
                 migrated += 1
+        if "cloud_consent_mode" in ql_migrations:
+            cursor.execute(
+                "UPDATE query_logs SET cloud_consent_mode = 'disabled' "
+                "WHERE cloud_consent_mode IS NULL OR cloud_consent_mode = ''"
+            )
 
     # ── kb_articles ───────────────────────────────────────────────────
     cols = _get_existing_columns(cursor, "kb_articles")
@@ -65,6 +75,20 @@ def migrate():
         cursor.execute("ALTER TABLE kb_articles ADD COLUMN status VARCHAR")
         print("[Migration] Added kb_articles.status")
         migrated += 1
+
+    # -- network_config -------------------------------------------------------
+    cols = _get_existing_columns(cursor, "network_config")
+    if cols:
+        net_migrations = {
+            "cloud_enabled": "ALTER TABLE network_config ADD COLUMN cloud_enabled INTEGER DEFAULT 0",
+            "cloud_user_overridden": "ALTER TABLE network_config ADD COLUMN cloud_user_overridden INTEGER DEFAULT 0",
+            "cloud_last_changed_at": "ALTER TABLE network_config ADD COLUMN cloud_last_changed_at INTEGER",
+        }
+        for col, sql in net_migrations.items():
+            if col not in cols:
+                cursor.execute(sql)
+                print(f"[Migration] Added network_config.{col}")
+                migrated += 1
 
     # ── emergency_alerts ───────────────────────────────────────────────────────────────
     cols = _get_existing_columns(cursor, "emergency_alerts")

@@ -1,5 +1,7 @@
 # Kiosk UI - Current Implementation
 
+**Note:** Cloud integration is currently disabled. Kiosk behavior is fully offline-first.
+
 This document describes the current Android kiosk UI behavior after the recent overhaul.
 
 ## Scope
@@ -157,5 +159,5 @@ New kiosk-specific keys include:
 ## Notes for Future Changes
 
 - This implementation keeps mode state session-scoped (not persisted between sessions).
-- Voice-only mode intentionally hides user bubbles but still records full internal query metadata for retry/feedback.
-- Emergency flow details and hub/console lifecycle are documented separately in `docs/emergency-calls.md`.
+ - Voice-only mode intentionally hides user bubbles but still records full internal query metadata for retry/feedback.
+ - Emergency flow details and hub/console lifecycle are documented separately in `docs/emergency-calls.md`.

@@ -26,6 +26,11 @@ class QueryLog(Base):
     source_id = Column(Integer, nullable=True)
     rewrite_attempted = Column(Boolean, default=False)  # Stored as 0/1 in SQLite
     rewritten_query = Column(Text, nullable=True)
+    formatter_mode = Column(String, nullable=True)  # cloud|local
+    stt_mode = Column(String, nullable=True)        # kiosk-reported: cloud|local
+    tts_mode = Column(String, nullable=True)        # kiosk-reported: cloud|local
+    connectivity_state = Column(String, nullable=True)  # ONLINE|OFFLINE
+    cloud_consent_mode = Column(String, nullable=False, default="disabled")
     latency_ms = Column(Float)
     created_at = Column(Integer)  # Unix timestamp
 
@@ -112,6 +117,9 @@ class NetworkConfig(Base):
     network_mode = Column(Text)   # 'hotspot' or 'router'
     ip_override  = Column(Text)
     port         = Column(Integer)
+    cloud_enabled = Column(Integer, default=0)
+    cloud_user_overridden = Column(Integer, default=0)
+    cloud_last_changed_at = Column(Integer, nullable=True)
     last_updated = Column(Integer)  # Unix timestamp
 
 

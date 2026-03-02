@@ -5,7 +5,23 @@
 - `docs/kiosk-ui.md` - Kiosk UI behavior (start screen, chat modes, loading overlay, SOS hold-to-confirm).
 - `docs/emergency-calls.md` - End-to-end emergency lifecycle across kiosk, hub, and console.
 - `docs/intent-classification.md` - Intent and retrieval classification behavior.
+- `docs/rlhf.md` - RLHF-style feedback and retrieval-bias behavior.
 - `docs/PIPELINE_END_TO_END.md` - Full speech-to-response pipeline.
+
+## Model Configuration
+
+Hub LLM model selection now supports split formatter/rewriter models:
+
+- `RESKIOSK_FORMAT_MODEL` (formatter; default fallback: `translategemma:4b`)
+- `RESKIOSK_REWRITE_MODEL` (query rewriter; default fallback: `llama3.2:3b`)
+
+Backward compatibility is preserved:
+
+- If the new vars are unset, both modules fall back to `RESKIOSK_LLM_MODEL`.
+
+## Cloud Integration (Paused)
+
+Cloud integration is currently disabled. The system runs fully offline-first and does not expose cloud endpoints or UI controls. This section is retained for future re-enable work.
 
 ## Hub connection
 

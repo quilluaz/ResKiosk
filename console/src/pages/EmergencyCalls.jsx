@@ -10,7 +10,6 @@ function EmergencyCalls() {
     const [editingKiosk, setEditingKiosk] = useState(null);
     const [editName, setEditName] = useState('');
     const [tab, setTab] = useState('active');
-    const [muted, setMuted] = useState(false);
     const [sseDisconnected, setSseDisconnected] = useState(false);
     const [showDismissed, setShowDismissed] = useState(false);
     const [showResolved, setShowResolved] = useState(false);
@@ -40,10 +39,9 @@ function EmergencyCalls() {
         if (alertId == null) return;
         if (playedAlertIdsRef.current.has(alertId)) return;
         playedAlertIdsRef.current.add(alertId);
-        if (muted) return;
         const audio = new Audio('/console/emergencycallalert.mp3');
         audio.play().catch(() => {});
-    }, [muted]);
+    }, []);
 
     const fetchHistory = useCallback(async () => {
         try {
@@ -344,21 +342,12 @@ function EmergencyCalls() {
                     Live alert feed disconnected — reconnecting.
                 </div>
             )}
-            {muted && (
-                <div className="card" style={{ background: 'rgba(110, 82, 15, 0.35)', color: '#ffe082', border: '1px solid rgba(255, 224, 130, 0.25)' }}>
-                    SOUND MUTED — Emergency alerts will not play audio.
-                </div>
-            )}
-
             <div className="flex gap-2">
                 <button className={`btn btn-sm ${tab === 'active' ? '' : 'btn-muted'}`} onClick={() => setTab('active')}>
                     Active
                 </button>
                 <button className={`btn btn-sm ${tab === 'history' ? '' : 'btn-muted'}`} onClick={() => { setTab('history'); fetchHistory(); }}>
                     History
-                </button>
-                <button className="btn btn-sm" onClick={() => setMuted(m => !m)}>
-                    {muted ? 'Unmute' : 'Mute'}
                 </button>
             </div>
 

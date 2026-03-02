@@ -1,5 +1,7 @@
 # ResKiosk Voice Pipeline: STT to TTS (including RLHF & Feedback)
 
+**Note:** Cloud integration is currently disabled. This document reflects the offline-first local pipeline only.
+
 This document provides a comprehensive, step-by-step breakdown of the ResKiosk voice pipeline. It covers everything from the moment the user speaks to the voice output they hear, detailing language-specific differences, backend retrieval, the rewrite/format steps, and the reinforcement learning from human feedback (RLHF) loop.
 
 ---
@@ -135,3 +137,7 @@ To execute this entire offline pipeline, the architecture leverages the followin
 - **LLM Engine:** Local `Ollama` running the `llama3.2:3b` model.
 
 *End of Pipeline Overview.*
+
+---
+
+ 

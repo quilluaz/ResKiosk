@@ -61,6 +61,9 @@ def _terminate_ollama_and_children():
 async def health_check():
     return {"status": "ok"}
 
+
+# /system/connectivity disabled (offline-first rollback)
+
 @router.get("/admin/ping")
 async def admin_ping(request: Request):
     """

@@ -112,6 +112,9 @@ class QueryRequest(BaseModel):
     session_id: Optional[str] = None
     # Optional list of KB article IDs that should be excluded from consideration
     exclude_source_ids: Optional[List[int]] = None
+    stt_mode: Optional[str] = None   # cloud|local (reported by kiosk)
+    tts_mode: Optional[str] = None   # cloud|local (reported by kiosk)
+    cloud_consent_mode: Optional[str] = None  # operator|session|disabled
 
 
 
@@ -144,6 +147,39 @@ class EvacInfoResponse(BaseModel):
     metadata: Optional[str] = Field(None, alias="info_metadata", serialization_alias="metadata")
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class EvacSyncSummary(BaseModel):
+    changed_count: int = 0
+    changed_ids: List[int] = []
+    disabled_count: int = 0
+    embedded_count: int = 0
+
+
+class EvacInfoUpdateResponse(EvacInfoResponse):
+    kb_version: Optional[int] = None
+    published_at: Optional[int] = None
+    evac_sync: Optional[EvacSyncSummary] = None
+
+
+class EvacFreshnessSection(BaseModel):
+    section: str
+    last_reviewed_at: Optional[int] = None
+    reviewed_by: Optional[str] = None
+    age_days: Optional[int] = None
+    expires_at: Optional[int] = None
+    is_expired: bool
+
+
+class EvacFreshnessResponse(BaseModel):
+    freshness_days: int
+    sections: List[EvacFreshnessSection]
+    expired_sections: List[str] = []
+
+
+class EvacFreshnessConfirmRequest(BaseModel):
+    sections: List[str]
+    note: Optional[str] = None
 
 
 # ─── Emergency ───────────────────────────────────────────────────────────────

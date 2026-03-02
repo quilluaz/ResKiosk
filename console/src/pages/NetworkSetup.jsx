@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import hubClient from '../api/hubClient';
 import { QRCodeSVG } from 'qrcode.react';
 import { Copy, RefreshCw } from 'lucide-react';
@@ -11,7 +11,7 @@ function NetworkSetup() {
         try {
             setLoading(true);
             const res = await hubClient.get('/network/info');
-            setNetInfo(res.data);
+            setNetInfo(res.data || {});
         } catch (e) {
             console.error(e);
         } finally {
@@ -25,14 +25,15 @@ function NetworkSetup() {
         return () => clearInterval(interval);
     }, []);
 
-    const hubUrl = `http://${netInfo.ip}:${netInfo.port}`;
+    const hubUrl = useMemo(() => `http://${netInfo.ip}:${netInfo.port}`, [netInfo.ip, netInfo.port]);
 
     return (
         <div className="space-y-6">
-            <h1 className="page-title">Network Setup</h1>
+            <div className="flex justify-between items-center gap-4">
+                <h1 className="page-title">Network Setup</h1>
+            </div>
 
             <div className="grid-2">
-                {/* Hub URL Card */}
                 <div className="hub-url-card">
                     <h3>Hub URL</h3>
                     <div className="hub-url-display">
@@ -45,10 +46,11 @@ function NetworkSetup() {
                             <Copy size={16} />
                         </button>
                     </div>
-                    <p className="text-sm mt-2" style={{ color: 'var(--primary)' }}>Enter this URL in Kiosk setup.</p>
+                    <p className="text-sm mt-2" style={{ color: 'var(--primary)' }}>
+                        Enter this URL in Kiosk setup.
+                    </p>
                 </div>
 
-                {/* QR Code */}
                 <div className="card qr-card">
                     <h3>Scan to Connect</h3>
                     <div className="p-4 bg-white rounded border" style={{ display: 'inline-block' }}>
@@ -57,7 +59,6 @@ function NetworkSetup() {
                 </div>
             </div>
 
-            {/* Network Configuration */}
             <div className="card space-y-4">
                 <h3 className="section-title">Configuration</h3>
 
@@ -86,13 +87,12 @@ function NetworkSetup() {
                 <button className="btn btn-primary">Save Network Settings</button>
             </div>
 
-            {/* Connected Kiosks */}
             <div className="card">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="section-title" style={{ border: 'none', margin: 0, padding: 0 }}>
                         Connected Kiosks ({netInfo.connected_kiosks || 0})
                     </h3>
-                    <button className="btn btn-sm" onClick={fetchInfo}>
+                    <button className="btn btn-sm" onClick={fetchInfo} disabled={loading}>
                         <RefreshCw size={14} /> Refresh
                     </button>
                 </div>
@@ -120,7 +120,7 @@ function NetworkSetup() {
                                         <td style={{ fontWeight: 500 }}>{kiosk.kiosk_id}</td>
                                         <td>{kiosk.kiosk_name || kiosk.kiosk_id}</td>
                                         <td className="font-mono text-sm">{kiosk.ip}</td>
-                                        <td className="text-sm text-muted">{new Date(kiosk.last_seen + 'Z').toLocaleTimeString()}</td>
+                                        <td className="text-sm text-muted">{new Date(`${kiosk.last_seen}Z`).toLocaleTimeString()}</td>
                                         <td>
                                             <span className="flex items-center gap-2">
                                                 <span className={`status-dot ${kiosk.status === 'online' ? 'online' : 'offline'}`}></span>
@@ -134,6 +134,7 @@ function NetworkSetup() {
                     </table>
                 </div>
             </div>
+
         </div>
     );
 }

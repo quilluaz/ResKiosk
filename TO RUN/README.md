@@ -34,7 +34,9 @@ Run the scripts **in order**:
    - Runs `packaging/bundle_models.py`, which:
      - Downloads the sentence embedding model (MiniLM-L6-v2)
      - Downloads the NLLB-200 translation model
-     - Sets up Ollama and pulls the configured LLM
+      - Sets up Ollama and pulls both hub LLMs:
+        - Formatter: `translategemma:4b`
+        - Rewriter: `llama3.2:3b`
    - All **model configuration (which models to use)** lives in:
      - `packaging/bundle_models.py`
    - The actual model weights are **not** tracked in git. They are downloaded locally into:
@@ -63,7 +65,11 @@ Run the scripts **in order**:
 
 When model configurations change (for example, switching the LLM or translation model), only the **source files** are edited:
 
-- Hub LLM model name: `OLLAMA_LLM_MODEL` in `packaging/bundle_models.py`
+- Hub Ollama model names: `OLLAMA_FORMAT_MODEL` and `OLLAMA_REWRITE_MODEL` in `packaging/bundle_models.py`
+- Runtime env vars (with backward compatibility fallback):
+  - `RESKIOSK_FORMAT_MODEL`
+  - `RESKIOSK_REWRITE_MODEL`
+  - fallback: `RESKIOSK_LLM_MODEL`
 - Embedder model path: `get_models_path()` / `SecureEmbedder` in `hub/retrieval/embedder.py`
 - Android STT/TTS URLs: constants in `kiosk/app/src/main/java/com/reskiosk/ModelConstants.kt`
 
@@ -73,4 +79,8 @@ After you `git pull`, simply re-run:
 2. `02_download_models.bat`
 
 The scripts use the **updated configuration** from those source files and will automatically download or update the correct models on your machine.
+
+## Cloud Language Services (Paused)
+
+Cloud integration is currently disabled. The system runs fully offline-first and does not expose cloud endpoints or UI controls.
 

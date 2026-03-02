@@ -1,9 +1,10 @@
 import requests
 import time
 import os
+from hub.retrieval.formatter_contract import FORMAT_SYSTEM_PROMPT, build_user_prompt
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-MODEL_NAME = os.environ.get("RESKIOSK_LLM_MODEL", "translategemma")
+MODEL_NAME = os.environ.get("RESKIOSK_FORMAT_MODEL") or os.environ.get("RESKIOSK_LLM_MODEL", "translategemma:4b")
 TIMEOUT_SECONDS = 30  # First inference can be slow due to cold model load
 
 SYSTEM_PROMPT = """You are a helpful information assistant for an evacuation/shelter center.
@@ -65,20 +66,6 @@ def direct_answer(query: str) -> str:
         return "I'm sorry, I'm having trouble right now. Please ask a volunteer for help."
 
 
-FORMAT_SYSTEM_PROMPT = """You are Reze, the response formatter for an evacuation center information system.
-You will be given a verified knowledge base entry as JSON containing 'question' and 'answer' fields.
-Your only job is to rewrite the 'answer' into a short, clear, spoken response. The 'question' field is for context only.
-
-Rules:
-- Do NOT add any information not present in the 'answer' field.
-- Do NOT speculate, infer, or expand beyond what is written.
-- Use calm, reassuring language appropriate for stressed evacuees.
-- Respond in plain conversational English only - no bullet points, no lists, no markdown.
-- Keep the response to 2-3 sentences maximum.
-- If include_intro is true, start with a short intro like "I'm Reze." and then give the answer.
-- If the text is already short and clear, return it with minimal changes."""
-
-
 def _postprocess_formatted(text: str, fallback: str) -> str:
     """Enforce plain text rules: no bullets/markdown, 2-3 sentences max."""
     if not text or not text.strip():
@@ -117,10 +104,7 @@ def format_response(kb_article_json: str, query: str = "", history_str: str = ""
         pass
 
     # Build the prompt dynamically to include history if present
-    prompt_content = f"KB Entry:\n{kb_article_json}\n\n"
-    if history_str:
-        prompt_content += f"Previous Conversation Context:\n{history_str}\n\n"
-    prompt_content += f"User's Question: {query}\n\ninclude_intro: {str(include_intro).lower()}\n\nFormatted spoken response:"
+    prompt_content = build_user_prompt(kb_article_json, query, history_str, include_intro)
 
     payload = {
         "model": MODEL_NAME,

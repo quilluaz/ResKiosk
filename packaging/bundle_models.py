@@ -19,7 +19,8 @@ NLLB_DIR = HUB_MODELS_DIR / "nllb"
 OLLAMA_PORTABLE_DIR = _PROJECT_ROOT / "packaging" / "ollama_portable"
 OLLAMA_MODELS_DIR = OLLAMA_PORTABLE_DIR / "models"
 
-OLLAMA_LLM_MODEL = "llama3.2:3b"
+OLLAMA_FORMAT_MODEL = "translategemma:4b"
+OLLAMA_REWRITE_MODEL = "llama3.2:3b"
 
 
 # -----------------------------------------------------------------------
@@ -159,10 +160,12 @@ def _wait_for_ollama(url="http://localhost:11434", retries=15, delay=2):
     return False
 
 
-def pull_llm_model(ollama_exe: Path):
+def pull_llm_models(ollama_exe: Path):
     print("=" * 60)
-    print(f"Pulling LLM model: {OLLAMA_LLM_MODEL}")
-    print("This is ~2 GB — may take several minutes on first run...")
+    print("Pulling Ollama models:")
+    print(f"  - Formatter model: {OLLAMA_FORMAT_MODEL}")
+    print(f"  - Rewriter model:  {OLLAMA_REWRITE_MODEL}")
+    print("This may take several minutes on first run...")
 
     env = os.environ.copy()
     env["OLLAMA_MODELS"] = str(OLLAMA_MODELS_DIR.absolute())
@@ -183,13 +186,14 @@ def pull_llm_model(ollama_exe: Path):
             server.terminate()
             sys.exit(1)
 
-        print(f"Pulling {OLLAMA_LLM_MODEL}...")
-        result = subprocess.run(
-            [str(ollama_exe), "pull", OLLAMA_LLM_MODEL],
-            env=env,
-            check=True,
-        )
-        print(f"{OLLAMA_LLM_MODEL} pulled successfully.\n")
+        for model in [OLLAMA_FORMAT_MODEL, OLLAMA_REWRITE_MODEL]:
+            print(f"Pulling {model}...")
+            subprocess.run(
+                [str(ollama_exe), "pull", model],
+                env=env,
+                check=True,
+            )
+            print(f"{model} pulled successfully.\n")
 
     finally:
         print("Stopping temporary Ollama server...")
@@ -213,9 +217,9 @@ def main():
     ollama_exe = setup_ollama()
     if ollama_exe:
         try:
-            pull_llm_model(ollama_exe)
+            pull_llm_models(ollama_exe)
         except Exception as e:
-            print(f"WARNING: Failed to pull LLM model: {e}")
+            print(f"WARNING: Failed to pull one or more Ollama models: {e}")
             print("The hub will run fine without Ollama; KB answers will just use raw text.")
     else:
         print("Ollama not found. Skipping LLM model pull.")
@@ -224,7 +228,8 @@ def main():
     print("Hub model bundle COMPLETE.")
     print(f"  - MiniLM:     {HUB_MODELS_DIR}")
     print(f"  - NLLB-200:   {NLLB_DIR}")
-    print(f"  - LLM model:  {OLLAMA_LLM_MODEL} (Ollama)")
+    print(f"  - Formatter model: {OLLAMA_FORMAT_MODEL} (Ollama)")
+    print(f"  - Rewriter model:  {OLLAMA_REWRITE_MODEL} (Ollama)")
     print("=" * 60)
 
 

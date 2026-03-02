@@ -297,3 +297,8 @@ These logs appear in `hub.log` and the console log stream.
 - `general_info` is intentionally not enriched to avoid adding noisy generic keywords.
 - `inventory` enrichment avoids food/meal terms to reduce overlap with `food` intent.
 - Clarification retries map category labels to intent keys before enrichment.
+
+## Cloud Boundary (Currently Disabled)
+
+Cloud integration is currently disabled. Intent/classification logic remains fully local:
+- Classifier, normalization, embeddings, retrieval, and rewriter are unchanged.

@@ -40,7 +40,8 @@ ECHO.
 ECHO [2/3] Downloading and bundling models...
 ECHO     - Sentence embedder (MiniLM-L6-v2)
 ECHO     - NLLB-200 translation model
-ECHO     - Ollama LLM: configured in packaging/bundle_models.py
+ECHO     - Ollama formatter model: translategemma:4b
+ECHO     - Ollama rewriter model: llama3.2:3b
 ECHO.
 
 python "packaging\bundle_models.py"

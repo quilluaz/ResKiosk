@@ -921,6 +921,7 @@ tr:hover td {
   color: var(--text-main);
 }
 
+
 /* Emergency toggle card */
 .emergency-card {
   border-left: 4px solid var(--border);

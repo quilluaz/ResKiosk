@@ -108,6 +108,8 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
     // Heartbeat & Connection
     private var heartbeatJob: Job? = null
     private var failedPings = 0
+    private var lastSttMode: String = "local"
+    private var lastTtsMode: String = "local"
     
     // Session State
     private var _sessionId = MutableStateFlow<String?>(null)
@@ -325,6 +327,8 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
         endSession()
         android.util.Log.i("KioskViewModel", "Hub disconnected, heartbeat stopped")
     }
+
+    // Cloud connectivity polling disabled (offline-first rollback).
 
     fun setChatMode(mode: ChatMode) {
         _chatMode.value = mode
@@ -1018,6 +1022,7 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
 
+                lastSttMode = "local"
                 val transcriptRaw = stt?.finishStream() ?: ""
                 Log.i("KioskVM", "STT raw transcript: '$transcriptRaw'")
 
@@ -1154,7 +1159,7 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
                     "kb_version" to 1,
                     "is_retry" to isRetry,
                     "query_type" to queryType,
-                    "intonation_confidence" to intonationConfidence
+                    "intonation_confidence" to intonationConfidence,
                 )
                 if (category != null) payload["selected_category"] = category
                 if (_sessionId.value != null) payload["session_id"] = _sessionId.value!!
@@ -1257,6 +1262,7 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
     private fun speakAndShow(text: String) {
         clearLoadingOverlay()
         _uiState.value = KioskState.Speaking(text)
+        lastTtsMode = "local"
         tts?.speak(text)
         // Wait for TTS to actually finish playing, with a safety timeout
         viewModelScope.launch {

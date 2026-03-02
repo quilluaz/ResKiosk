@@ -8,7 +8,7 @@ import requests
 
 REWRITE_ENABLED = os.environ.get("RESKIOSK_QUERY_REWRITE", "false").lower() == "true"
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-MODEL_NAME = os.environ.get("RESKIOSK_LLM_MODEL", "llama3.2:3b")
+MODEL_NAME = os.environ.get("RESKIOSK_REWRITE_MODEL") or os.environ.get("RESKIOSK_LLM_MODEL", "llama3.2:3b")
 REWRITE_TIMEOUT = 15
 
 REWRITE_SYSTEM_PROMPT = """You are a query cleaner for an evacuation center information system.

@@ -2,13 +2,17 @@ package com.reskiosk.network
 
 import com.google.gson.annotations.SerializedName
 import okhttp3.Interceptor
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
+import okhttp3.RequestBody
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.http.Multipart
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.PATCH
 import retrofit2.http.POST
+import retrofit2.http.Part
 import java.util.concurrent.TimeUnit
 
 // --- Response model ---
@@ -44,6 +48,23 @@ data class EmergencyCreateResponse(
     @SerializedName("alert_id") val alertId: Int?
 )
 
+data class ConnectivityResponse(
+    val status: String?,
+    @SerializedName("latency_ms") val latencyMs: Double?,
+    @SerializedName("checked_at") val checkedAt: Long?,
+    @SerializedName("cloud_available") val cloudAvailable: Boolean?,
+    @SerializedName("cloud_enabled") val cloudEnabled: Boolean?,
+    val reason: String?
+)
+
+data class CloudSttResponse(
+    val transcript: String?,
+    @SerializedName("detected_language") val detectedLanguage: String?,
+    @SerializedName("detection_confidence") val detectionConfidence: Float?,
+    @SerializedName("engine_mode") val engineMode: String?,
+    @SerializedName("fallback_reason") val fallbackReason: String?
+)
+
 // --- Retrofit interface ---
 
 interface HubApiService {
@@ -56,6 +77,8 @@ interface HubApiService {
     @GET("admin/ping")
     suspend fun ping(): PingResponse
 
+    // Cloud connectivity endpoint disabled (offline-first rollback).
+
     @POST("register_kiosk")
     suspend fun heartbeat(@Body payload: Map<String, String>): Any
 
@@ -67,6 +90,8 @@ interface HubApiService {
 
     @PATCH("emergency/{alert_id}/dismiss")
     suspend fun dismissEmergency(@retrofit2.http.Path("alert_id") alertId: Int): Any
+
+    // Cloud STT proxy disabled (offline-first rollback).
 
     @retrofit2.http.DELETE("query/session/{session_id}")
     suspend fun endSession(@retrofit2.http.Path("session_id") sessionId: String): Any

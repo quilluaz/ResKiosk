@@ -23,6 +23,7 @@ def on_startup():
     _embed_missing_articles()
     _prewarm_models()
     _lora_auto_connect()
+    # Cloud connectivity manager disabled (offline-first rollback).
 
 
 def _embed_missing_articles():
@@ -145,6 +146,7 @@ app.include_router(routes_query.router)
 app.include_router(routes_emergency.router)
 app.include_router(routes_messages.router)
 app.include_router(routes_lora.router)
+# Cloud routes disabled (offline-first rollback).
 
 # Serve console/dist as static files
 base = get_base_path()

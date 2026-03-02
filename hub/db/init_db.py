@@ -1,5 +1,6 @@
 from sqlalchemy import inspect, text
-from hub.db.session import engine, Base, SessionLocal
+
+from hub.db.session import Base, SessionLocal, engine
 
 
 _MIGRATIONS = [
@@ -22,10 +23,12 @@ def _migrate_columns():
 
 def init_db():
     """Create all tables and seed default rows (safe to call on every startup)."""
-    from hub.db import schema  # noqa: F401 — registers all models with Base
+    from hub.db import schema  # noqa: F401 - registers all models with Base
+    from hub.db.migrate_schema import migrate
     from hub.db.seed import seed_data
 
     print("Initializing database...")
+    migrate()
     Base.metadata.create_all(bind=engine)
     _migrate_columns()
 
@@ -36,3 +39,4 @@ def init_db():
         db.close()
 
     print("Database initialized.")
+
