@@ -24,6 +24,61 @@ function App() {
     const prevSerialConnected = useRef(null);
     const location = useLocation();
     const navigate = useNavigate();
+    const pathnameRef = useRef(location.pathname);
+
+    useEffect(() => {
+        pathnameRef.current = location.pathname;
+    }, [location.pathname]);
+
+    // ── Global LoRa WebSocket Listener for new_message ──────────────────
+    useEffect(() => {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        let hostUrl = window.location.host;
+        if (window.location.port === '5173') {
+            hostUrl = window.location.hostname + ':8000';
+        }
+        const wsUrl = `${protocol}//${hostUrl}/lora/ws/lora`;
+
+        let ws;
+        let reconnectTimer;
+
+        function connect() {
+            ws = new WebSocket(wsUrl);
+            ws.onmessage = (event) => {
+                if (!event.data) return;
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.event === 'new_message') {
+                        // If not on messages page, navigate to it and pass message
+                        if (pathnameRef.current !== '/messages') {
+                            navigate('/messages', {
+                                state: {
+                                    showIncomingMsg: {
+                                        id: data.id,
+                                        subject: data.subject,
+                                        content: data.content,
+                                        priority: data.priority || 'normal',
+                                        source_hub_id: data.source_hub_id,
+                                        source_hub_name: data.source_hub_name,
+                                        from_device_id: data.from_device_id,
+                                    }
+                                }
+                            });
+                        }
+                    }
+                } catch (e) {}
+            };
+            ws.onclose = () => {
+                reconnectTimer = setTimeout(connect, 5000);
+            };
+        }
+        connect();
+
+        return () => {
+            clearTimeout(reconnectTimer);
+            if (ws) ws.close();
+        };
+    }, [navigate]);
 
     // ── Serial / LoRa status polling ──────────────────────────────────────
     useEffect(() => {
@@ -123,6 +178,7 @@ function App() {
 
                     <nav className="sidebar-nav">
                         <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
+                        <NavItem to="/kb" icon={FileText} label="Knowledge Base" />
 
                         <NavItem to="/config" icon={Settings} label="Shelter Config" />
                         <NavItem to="/network" icon={Wifi} label="Network Setup" />
@@ -166,12 +222,12 @@ function App() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: 'rgba(0, 0, 0, 0.6)',
+                    background: 'var(--modal-overlay)',
                     backdropFilter: 'blur(4px)',
                     animation: 'fadeIn 0.25s ease',
                 }}>
                     <div style={{
-                        background: 'var(--surface)',
+                        background: 'var(--modal-bg)',
                         backdropFilter: 'blur(24px)',
                         WebkitBackdropFilter: 'blur(24px)',
                         borderRadius: '16px',

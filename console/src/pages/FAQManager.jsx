@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import hubClient from '../api/hubClient';
 import { Save, ArrowLeft, Upload, FileJson, X, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { useModal } from '../components/ModalProvider';
 
 function FAQManager({ isNew }) {
+    const modal = useModal();
     const navigate = useNavigate();
     const { id } = useParams();
     const [formData, setFormData] = useState({
@@ -44,7 +46,7 @@ function FAQManager({ isNew }) {
             }
         } catch (e) {
             console.error(e);
-            alert("Could not load article");
+            await modal.alert("Could not load article");
         }
     };
 
@@ -59,7 +61,7 @@ function FAQManager({ isNew }) {
             }
             navigate('/kb');
         } catch (e) {
-            alert("Save failed");
+            await modal.alert("Save failed");
         } finally {
             setLoading(false);
         }

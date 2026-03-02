@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import hubClient from '../api/hubClient';
 import { RefreshCw } from 'lucide-react';
+import { useModal } from '../components/ModalProvider';
 
 function EmergencyCalls() {
+    const modal = useModal();
     const [alerts, setAlerts] = useState([]);
     const [historyAlerts, setHistoryAlerts] = useState([]);
     const [kiosks, setKiosks] = useState([]);
@@ -127,7 +129,7 @@ function EmergencyCalls() {
         try {
             await hubClient.patch(`/emergency/${alertId}/acknowledge`);
         } catch (e) {
-            alert('Failed to acknowledge');
+            await modal.alert('Failed to acknowledge');
         }
     };
 
@@ -135,21 +137,23 @@ function EmergencyCalls() {
         try {
             await hubClient.patch(`/emergency/${alertId}/responding`);
         } catch (e) {
-            alert('Failed to mark responding');
+            await modal.alert('Failed to mark responding');
         }
     };
 
     const resolveAlert = async (alertId) => {
         try {
-            const notes = window.prompt('Resolution notes (optional):', '');
-            const resolvedBy = window.prompt('Resolved by (name):', '');
+            const notes = await modal.prompt('Resolution notes (optional):', '');
+            if (notes === null) return;
+            const resolvedBy = await modal.prompt('Resolved by (name):', '');
+            if (resolvedBy === null) return;
             await hubClient.post(`/emergency/${alertId}/resolve`, {
                 resolution_notes: notes || null,
                 resolved_by: resolvedBy || null,
             });
             setAlerts(prev => prev.filter(a => a.id !== alertId));
         } catch (e) {
-            alert('Failed to mark resolved');
+            await modal.alert('Failed to mark resolved');
         }
     };
 
@@ -310,7 +314,7 @@ function EmergencyCalls() {
             setEditingKiosk(null);
             setEditName('');
         } catch (e) {
-            alert('Failed to update name');
+            await modal.alert('Failed to update name');
         }
     };
 

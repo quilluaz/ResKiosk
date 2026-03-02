@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import hubClient from '../api/hubClient';
 import logoSvg from '../assets/reskiosk-logo.svg';
-import KBViewer from './KBViewer';
+// Removed direct KBViewer import to use a custom paginated list instead
 import { useNavigate } from 'react-router-dom';
-import { HelpCircle, TrendingUp, MessageCircle, Hash } from 'lucide-react';
+import { HelpCircle, TrendingUp, MessageCircle, Hash, FileText, Edit } from 'lucide-react';
+import { useModal } from '../components/ModalProvider';
 
 function Dashboard({ setEmergencyMode }) {
+    const modal = useModal();
     const [stats, setStats] = useState({ kb_version: 0, online: false, article_count: 0, device_id: '' });
     const [loading, setLoading] = useState(true);
     const [isEmergency, setIsEmergency] = useState(false);
     const [faqStats, setFaqStats] = useState({ total: 0, unique: 0, topQuestion: null });
+    const [articles, setArticles] = useState([]);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 5;
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -19,10 +24,11 @@ function Dashboard({ setEmergencyMode }) {
     const loadData = async () => {
         setLoading(true);
         try {
-            const [snapRes, netRes, emergencyRes] = await Promise.all([
+            const [snapRes, netRes, emergencyRes, faqRes] = await Promise.all([
                 hubClient.get('/kb/snapshot'),
                 hubClient.get('/network/info').catch(() => ({ data: {} })),
-                hubClient.get('/admin/emergency_mode').catch(() => ({ data: { active: false } }))
+                hubClient.get('/admin/emergency_mode').catch(() => ({ data: { active: false } })),
+                hubClient.get('/admin/faq-tracker').catch(() => ({ data: [] }))
             ]);
             const snap = snapRes.data;
             const articles = snap.articles || [];
@@ -44,7 +50,12 @@ function Dashboard({ setEmergencyMode }) {
                 topQuestion: sorted.length > 0 ? sorted[0] : null
             });
 
-            const em = config.emergency_mode === 'active';
+            // Store articles for dashboard display
+            if (snapRes.data && snapRes.data.articles) {
+                setArticles(snapRes.data.articles);
+            }
+
+            const em = emergencyRes.data.active === true;
             setIsEmergency(em);
             setEmergencyMode(em);
 
@@ -61,7 +72,7 @@ function Dashboard({ setEmergencyMode }) {
             setIsEmergency(active);
             setEmergencyMode(active);
         } catch (e) {
-            alert("Failed to toggle emergency mode");
+            await modal.alert("Failed to toggle emergency mode");
         }
     };
 
@@ -156,11 +167,13 @@ function Dashboard({ setEmergencyMode }) {
                         <p className="text-sm text-muted">Activates header banners on all kiosks.</p>
                     </div>
                       <button
-                          onClick={() => {
+                          onClick={async () => {
                               if (isEmergency) {
                                   setEmergency(false);
                               } else {
-                                  setShowActivateModal(true);
+                                  if (await modal.confirm('Are you sure you want to activate emergency mode?\n\nDoing so will alert all kiosks and play the emergency alarm. Continue?')) {
+                                      await setEmergency(true);
+                                  }
                               }
                           }}
                           className={`btn ${isEmergency ? '' : 'btn-danger'}`}
@@ -173,40 +186,79 @@ function Dashboard({ setEmergencyMode }) {
                   </div>
             </div>
 
-            {showActivateModal && (
-                <div className="modal-overlay" style={{ zIndex: 1300 }}>
-                    <div className="modal-content" style={{ maxWidth: '560px' }}>
-                        <div className="modal-header">
-                            <h2 className="modal-title">Are you sure you want to activate emergency mode?</h2>
-                        </div>
-                        <div className="modal-body">
-                            <p className="text-sm text-muted" style={{ marginBottom: '1rem' }}>
-                                Doing so will alert all kiosks and play the emergency alarm. Continue?
-                            </p>
-                            <div className="flex gap-2 justify-end">
-                                <button
-                                    className="btn"
-                                    onClick={() => setShowActivateModal(false)}
-                                >
-                                    Go Back
-                                </button>
-                                <button
-                                    className="btn btn-danger"
-                                    style={{ backgroundColor: '#b71c1c', borderColor: '#b71c1c', color: '#fff' }}
-                                    onClick={async () => {
-                                        setShowActivateModal(false);
-                                        await setEmergency(true);
-                                    }}
-                                >
-                                    Activate
-                                </button>
-                            </div>
-                        </div>
+            {/* Dashboard KB List */}
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                <div className="flex items-center justify-between" style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border)' }}>
+                    <div className="flex items-center gap-2">
+                        <FileText size={18} style={{ color: 'var(--primary)' }} />
+                        <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>Knowledge Base</h3>
                     </div>
                 </div>
-            )}
-
-            <KBViewer />
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Question</th>
+                            <th>Category</th>
+                            <th>Status</th>
+                            <th style={{ width: '4rem' }}>Edit</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {articles.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map(a => (
+                            <tr key={a.id}>
+                                <td style={{ fontWeight: 500 }}>{a.question}</td>
+                                <td className="text-muted">{a.category}</td>
+                                <td>
+                                    <span className={`badge ${a.status === 'published' ? 'badge-success' : 'badge-warning'}`}>
+                                        {(a.status || 'draft').toUpperCase()}
+                                    </span>
+                                </td>
+                                <td>
+                                    <button 
+                                        onClick={() => navigate('/kb', { state: { editArticle: a.id } })} 
+                                        className="btn btn-icon" 
+                                        title="Edit"
+                                    >
+                                        <Edit size={15} style={{ color: 'var(--primary)' }} />
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                        {articles.length === 0 && (
+                            <tr>
+                                <td colSpan="4" className="empty-state">No articles found.</td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+                {/* Pagination Controls */}
+                {Math.ceil(articles.length / itemsPerPage) > 1 && (
+                    <div className="flex items-center justify-between" style={{ padding: '1rem 1.25rem', borderTop: '1px solid var(--border)' }}>
+                        <span className="text-sm text-muted">
+                            Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, articles.length)} of {articles.length} entries
+                        </span>
+                        <div className="flex gap-2">
+                            <button 
+                                className="btn btn-sm" 
+                                disabled={currentPage === 1}
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            >
+                                Previous
+                            </button>
+                            <div className="flex items-center px-3 text-sm font-medium bg-[var(--bg-secondary)] rounded-md border border-[var(--border)]">
+                                {currentPage} / {Math.ceil(articles.length / itemsPerPage)}
+                            </div>
+                            <button 
+                                className="btn btn-sm" 
+                                disabled={currentPage === Math.ceil(articles.length / itemsPerPage)}
+                                onClick={() => setCurrentPage(p => Math.min(Math.ceil(articles.length / itemsPerPage), p + 1))}
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

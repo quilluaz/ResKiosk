@@ -1,12 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import hubClient from '../api/hubClient';
 import { Plus, Edit, Trash2, Save, X, Upload, FileJson, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { useModal } from '../components/ModalProvider';
 
 function KBViewer() {
+    const modal = useModal();
     const [articles, setArticles] = useState([]);
     const [filter, setFilter] = useState('all');
     const [search, setSearch] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
+    const location = useLocation();
+    const navigate = useNavigate();
 
     // New-article modal state
     const [showNewModal, setShowNewModal] = useState(false);
@@ -32,18 +38,40 @@ function KBViewer() {
         try {
             const res = await hubClient.get('/kb/snapshot');
             setArticles(res.data.articles || []);
+            
+            // Check if we need to open the edit modal for a specific article
+            if (location.state?.editArticle) {
+                const articleId = location.state.editArticle;
+                // We need to wait for articles to be loaded to find the full data
+                const articleToEdit = res.data.articles?.find(a => a.id === articleId);
+                if (articleToEdit) {
+                    setFormData({
+                        id: articleToEdit.id,
+                        question: articleToEdit.question,
+                        answer: articleToEdit.answer,
+                        category: articleToEdit.category || 'General',
+                        tags: articleToEdit.tags || [],
+                        enabled: articleToEdit.enabled,
+                        status: articleToEdit.status || 'draft'
+                    });
+                    setShowNewModal(true);
+                }
+                
+                // Clear the state so it doesn't re-trigger on refresh
+                navigate('.', { replace: true, state: {} });
+            }
         } catch (e) {
             console.error(e);
         }
     };
 
     const handleDelete = async (id) => {
-        if (!confirm("Delete this article?")) return;
+        if (!(await modal.confirm("Delete this article?"))) return;
         try {
             await hubClient.delete(`/admin/article/${id}`);
             loadArticles();
         } catch (e) {
-            alert("Delete failed");
+            await modal.alert("Delete failed");
         }
     };
 
@@ -57,11 +85,32 @@ function KBViewer() {
         return true;
     });
 
+    const totalPages = Math.ceil(filtered.length / itemsPerPage);
+    const paginatedArticles = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+    // Reset to page 1 when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [filter, search]);
+
     // ─── New Article Modal ───────────────────────────────────────────────
 
     const resetNewForm = () => {
         setFormData({ question: '', answer: '', category: 'General', tags: [], enabled: true, status: 'draft' });
         setSaving(false);
+    };
+
+    const openEditModal = (article) => {
+        setFormData({
+            id: article.id,
+            question: article.question,
+            answer: article.answer,
+            category: article.category || 'General',
+            tags: article.tags || [],
+            enabled: article.enabled,
+            status: article.status || 'draft'
+        });
+        setShowNewModal(true);
     };
 
     const openNewModal = () => {
@@ -78,11 +127,15 @@ function KBViewer() {
         e.preventDefault();
         setSaving(true);
         try {
-            await hubClient.post('/admin/article', formData);
+            if (formData.id) {
+                await hubClient.put(`/admin/article/${formData.id}`, formData);
+            } else {
+                await hubClient.post('/admin/article', formData);
+            }
             closeNewModal();
             loadArticles();
         } catch (e) {
-            alert("Save failed");
+            await modal.alert("Save failed");
         } finally {
             setSaving(false);
         }
@@ -248,7 +301,7 @@ function KBViewer() {
                         </tr>
                     </thead>
                     <tbody>
-                        {filtered.map(a => (
+                        {paginatedArticles.map(a => (
                             <tr key={a.id}>
                                 <td style={{ fontWeight: 500 }}>{a.question}</td>
                                 <td className="text-muted">{a.category}</td>
@@ -265,9 +318,9 @@ function KBViewer() {
                                         </span>
                                     ) : (
                                         <div className="flex gap-1">
-                                            <Link to={`/faq/${a.id}/edit`} className="btn btn-icon" title="Edit">
+                                            <button onClick={() => openEditModal(a)} className="btn btn-icon" title="Edit">
                                                 <Edit size={15} style={{ color: 'var(--primary)' }} />
-                                            </Link>
+                                            </button>
                                             <button onClick={() => handleDelete(a.id)} className="btn btn-icon" title="Delete">
                                                 <Trash2 size={15} style={{ color: 'var(--danger)' }} />
                                             </button>
@@ -285,12 +338,40 @@ function KBViewer() {
                 </table>
             </div>
 
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                    <span className="text-sm text-muted">
+                        Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filtered.length)} of {filtered.length} entries
+                    </span>
+                    <div className="flex gap-2">
+                        <button 
+                            className="btn btn-sm" 
+                            disabled={currentPage === 1}
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        >
+                            Previous
+                        </button>
+                        <div className="flex items-center px-3 text-sm font-medium bg-[var(--bg-secondary)] rounded-md border border-[var(--border)]">
+                            {currentPage} / {totalPages}
+                        </div>
+                        <button 
+                            className="btn btn-sm" 
+                            disabled={currentPage === totalPages}
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        >
+                            Next
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* ─── New Article Modal ─── */}
             {showNewModal && (
                 <div className="modal-overlay" onClick={closeNewModal}>
                     <div className="modal-content" style={{ maxWidth: '560px' }} onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h2 className="modal-title">New Article</h2>
+                            <h2 className="modal-title">{formData.id ? 'Edit Article' : 'New Article'}</h2>
                             <button className="btn-icon" onClick={closeNewModal}>
                                 <X size={18} />
                             </button>

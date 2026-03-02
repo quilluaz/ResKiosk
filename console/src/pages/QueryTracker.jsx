@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import hubClient from '../api/hubClient';
 import { RefreshCw, Search, Trash2, TrendingUp, MessageCircle, Clock, Hash, Filter, ArrowUpDown, X } from 'lucide-react';
+import { useModal } from '../components/ModalProvider';
 
 function QueryTracker() {
+    const modal = useModal();
     const [faqs, setFaqs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -27,22 +29,22 @@ function QueryTracker() {
     };
 
     const deleteFAQ = async (id) => {
-        if (!confirm('Delete this FAQ entry?')) return;
+        if (!(await modal.confirm('Delete this FAQ entry?'))) return;
         try {
             await hubClient.delete(`/admin/faq-tracker/${id}`);
             setFaqs(prev => prev.filter(f => f.id !== id));
         } catch (e) {
-            alert('Failed to delete entry');
+            await modal.alert('Failed to delete entry');
         }
     };
 
     const clearAll = async () => {
-        if (!confirm('Clear ALL FAQ tracker entries? This cannot be undone.')) return;
+        if (!(await modal.confirm('Clear ALL FAQ tracker entries? This cannot be undone.'))) return;
         try {
             await hubClient.delete('/admin/faq-tracker');
             setFaqs([]);
         } catch (e) {
-            alert('Failed to clear entries');
+            await modal.alert('Failed to clear entries');
         }
     };
 

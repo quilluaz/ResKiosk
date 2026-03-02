@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import hubClient from '../api/hubClient';
 import { Save, Plus, Trash2, Info, MapPin, Heart, ClipboardCheck, Bell } from 'lucide-react';
+import { useModal } from '../components/ModalProvider';
 
 const SECTION_LABELS = {
     food_schedule: 'Food & Nutrition',
@@ -11,6 +12,7 @@ const SECTION_LABELS = {
 };
 
 function ShelterConfig() {
+    const modal = useModal();
     const [subFields, setSubFields] = useState({
         food: {
             breakfast: { time: '', desc: '' },
@@ -108,10 +110,10 @@ function ShelterConfig() {
             const res = await hubClient.put('/admin/evac', payload, { headers: getAdminHeaders() });
             await loadFreshness();
             const versionText = res?.data?.kb_version ? ` (KB v${res.data.kb_version})` : '';
-            alert(`Shelter configuration updated and published${versionText}.`);
+            await modal.alert(`Shelter configuration updated and published${versionText}.`);
         } catch (e) {
             console.error(e);
-            alert('Failed to save configuration.');
+            await modal.alert('Failed to save configuration.');
         } finally {
             setSaving(false);
         }
@@ -196,7 +198,7 @@ function ShelterConfig() {
 
     const confirmSelectedFreshness = async () => {
         if (selectedExpired.length === 0) {
-            alert('Select at least one expired section to confirm.');
+            await modal.alert('Select at least one expired section to confirm.');
             return;
         }
         setConfirmingFreshness(true);
@@ -209,7 +211,7 @@ function ShelterConfig() {
             await loadFreshness();
         } catch (e) {
             console.error(e);
-            alert('Could not confirm freshness.');
+            await modal.alert('Could not confirm freshness.');
         } finally {
             setConfirmingFreshness(false);
         }

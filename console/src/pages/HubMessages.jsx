@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import hubClient from '../api/hubClient';
+import { useModal } from '../components/ModalProvider';
 import {
     Send, Trash2, Eye, X, Radio, MessageSquare,
     Wifi, WifiOff, Usb, Bluetooth, RefreshCw, TerminalSquare, ArrowUp, ArrowDown,
@@ -49,6 +51,7 @@ const INCOMING_MODAL_THEME = {
 };
 
 function IncomingLoraModal({ message, onClose, onViewDetails, thisHubDeviceId }) {
+    const modal = useModal();
     const [ackStatus, setAckStatus] = useState(null);
     const [resending, setResending] = useState(false);
     const [resendDone, setResendDone] = useState(false);
@@ -103,10 +106,10 @@ function IncomingLoraModal({ message, onClose, onViewDetails, thisHubDeviceId })
             if (res.data.ok) {
                 setResendDone(true);
             } else {
-                alert('Resend failed: ' + (res.data.error || 'Unknown error'));
+                await modal.alert('Resend failed: ' + (res.data.error || 'Unknown error'));
             }
         } catch {
-            alert('Resend failed.');
+            await modal.alert('Resend failed.');
         } finally {
             setResending(false);
         }
@@ -325,6 +328,7 @@ function IncomingLoraModal({ message, onClose, onViewDetails, thisHubDeviceId })
 // ─── Messages Tab (original) ──────────────────────────────────────────────
 
 function MessagesTab({ messages, categories, hubs, loading, loraConnected, thisHubId }) {
+    const modal = useModal();
     const [direction, setDirection] = useState('all');
     const [filterStatus, setFilterStatus] = useState('all');
     const [showCompose, setShowCompose] = useState(false);
@@ -346,7 +350,7 @@ function MessagesTab({ messages, categories, hubs, loading, loraConnected, thisH
     const handleSend = async (e) => {
         e.preventDefault();
         if (!loraConnected) {
-            alert('No LoRa device connected.');
+            await modal.alert('No LoRa device connected.');
             return;
         }
         setSending(true);
@@ -360,7 +364,7 @@ function MessagesTab({ messages, categories, hubs, loading, loraConnected, thisH
             };
             const res = await hubClient.post('/lora/send', payload);
             if (!res.data.ok) {
-                alert('LoRa send failed: ' + (res.data.error || 'Unknown error'));
+                await modal.alert('LoRa send failed: ' + (res.data.error || 'Unknown error'));
                 setSending(false);
                 return;
             }
@@ -368,20 +372,20 @@ function MessagesTab({ messages, categories, hubs, loading, loraConnected, thisH
             setForm({ subject: '', content: '', target_hub_id: '', category_id: '', priority: 'normal' });
             loadAll();
         } catch (e) {
-            alert('Failed to send message.');
+            await modal.alert('Failed to send message.');
         } finally {
             setSending(false);
         }
     };
 
     const handleDelete = async (id) => {
-        if (!confirm('Delete this message?')) return;
+        if (!(await modal.confirm('Delete this message?'))) return;
         try {
             await hubClient.delete(`/messages/${id}`);
             if (viewMsg && viewMsg.id === id) setViewMsg(null);
             loadAll();
         } catch (e) {
-            alert('Delete failed.');
+            await modal.alert('Delete failed.');
         }
     };
 
@@ -391,7 +395,7 @@ function MessagesTab({ messages, categories, hubs, loading, loraConnected, thisH
             if (viewMsg && viewMsg.id === id) setViewMsg(res.data);
             loadAll();
         } catch (e) {
-            alert('Status update failed.');
+            await modal.alert('Status update failed.');
         }
     };
 
@@ -786,6 +790,7 @@ function MessagesTab({ messages, categories, hubs, loading, loraConnected, thisH
 // ─── LoRa Monitor Tab ─────────────────────────────────────────────────────
 
 function LoraMonitorTab({ hubs }) {
+    const modal = useModal();
     const [status, setStatus] = useState(null);
     const [ports, setPorts] = useState([]);
     const [logs, setLogs] = useState([]);
@@ -871,10 +876,10 @@ function LoraMonitorTab({ hubs }) {
                 setEncCopied(false);
                 fetchEncryption();
             } else {
-                alert('Failed: ' + (res.data.error || 'Unknown error'));
+                await modal.alert('Failed: ' + (res.data.error || 'Unknown error'));
             }
         } catch {
-            alert('Failed to generate encryption key.');
+            await modal.alert('Failed to generate encryption key.');
         } finally {
             setEncBusy(false);
         }
@@ -890,24 +895,24 @@ function LoraMonitorTab({ hubs }) {
                 setEncRevealedKey(null);
                 fetchEncryption();
             } else {
-                alert('Failed: ' + (res.data.error || 'Unknown error'));
+                await modal.alert('Failed: ' + (res.data.error || 'Unknown error'));
             }
         } catch {
-            alert('Failed to set encryption key.');
+            await modal.alert('Failed to set encryption key.');
         } finally {
             setEncBusy(false);
         }
     };
 
     const handleDisableEncryption = async () => {
-        if (!confirm('Disable LoRa encryption? Messages will be sent in plaintext.')) return;
+        if (!(await modal.confirm('Disable LoRa encryption? Messages will be sent in plaintext.'))) return;
         setEncBusy(true);
         try {
             await hubClient.delete('/lora/encryption');
             setEncRevealedKey(null);
             fetchEncryption();
         } catch {
-            alert('Failed to disable encryption.');
+            await modal.alert('Failed to disable encryption.');
         } finally {
             setEncBusy(false);
         }
@@ -972,10 +977,10 @@ function LoraMonitorTab({ hubs }) {
                 setShowConnect(false);
                 fetchStatus();
             } else {
-                alert('Connection failed: ' + (res.data.error || 'Unknown error'));
+                await modal.alert('Connection failed: ' + (res.data.error || 'Unknown error'));
             }
         } catch (e) {
-            alert('Connection failed.');
+            await modal.alert('Connection failed.');
         } finally {
             setConnecting(false);
         }
@@ -986,7 +991,7 @@ function LoraMonitorTab({ hubs }) {
             await hubClient.post('/lora/disconnect');
             fetchStatus();
         } catch (e) {
-            alert('Disconnect failed.');
+            await modal.alert('Disconnect failed.');
         }
     };
 
@@ -1007,10 +1012,10 @@ function LoraMonitorTab({ hubs }) {
                 setLoraForm({ subject: '', content: '', target_hub_id: '', priority: 'normal' });
                 fetchStatus();
             } else {
-                alert('Send failed: ' + (res.data.error || 'Unknown error'));
+                await modal.alert('Send failed: ' + (res.data.error || 'Unknown error'));
             }
         } catch (e) {
-            alert('Send failed.');
+            await modal.alert('Send failed.');
         } finally {
             setSendingLora(false);
         }
@@ -1688,6 +1693,18 @@ function HubMessages() {
     const [incomingMsg, setIncomingMsg] = useState(null);
     const [thisHubId, setThisHubId] = useState(null);
     const [noUsbAlert, setNoUsbAlert] = useState(null);
+
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    // Check if we navigated here with an incoming message
+    useEffect(() => {
+        if (location.state?.showIncomingMsg) {
+            setTab('messages');
+            setIncomingMsg(location.state.showIncomingMsg);
+            navigate('.', { replace: true, state: {} });
+        }
+    }, [location.state, navigate]);
 
     const loadAll = useCallback(async () => {
         try {
