@@ -112,12 +112,13 @@ function App() {
         <div className="app-shell">
             {emergencyMode && (
                 <div className="banner-emergency">
-                    ⚠ EMERGENCY MODE ACTIVE
+                    <AlertTriangle size={18} />
+                    <span>EMERGENCY MODE ACTIVE</span>
                 </div>
             )}
             {activeAlertCount > 0 && (
-                <div className="banner-emergency" style={{ backgroundColor: '#b71c1c' }}>
-                    <span className="pulse-dot" style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: '#fff', marginRight: 8, animation: 'pulse 1s ease-in-out infinite' }}></span>
+                <div className="banner-emergency" style={{ borderBottomColor: 'rgba(255, 150, 0, 0.8)', animation: 'none' }}>
+                    <span className="pulse-dot" style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: '#fff', animation: 'pulse-border 1.5s ease-in-out infinite' }}></span>
                     <strong>{activeAlertCount}</strong> active emergency alert(s) —
                     <Link to="/emergency" style={{ color: '#fff', textDecoration: 'underline', marginLeft: 6 }}>View now</Link>
                 </div>
@@ -181,9 +182,11 @@ function App() {
                     animation: 'fadeIn 0.25s ease',
                 }}>
                     <div style={{
-                        background: 'var(--bg-primary, #1a1a2e)',
+                        background: 'var(--surface)',
+                        backdropFilter: 'blur(24px)',
+                        WebkitBackdropFilter: 'blur(24px)',
                         borderRadius: '16px',
-                        border: '1px solid var(--danger, #ef5350)',
+                        border: '1px solid rgba(239, 83, 80, 0.5)',
                         boxShadow: '0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(239,83,80,0.15)',
                         maxWidth: '28rem',
                         width: '90%',
