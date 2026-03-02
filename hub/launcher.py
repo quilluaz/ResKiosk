@@ -60,6 +60,41 @@ def setup_env(base_path, data_path):
     print(f"  RESKIOSK_DB_PATH: {os.environ['RESKIOSK_DB_PATH']}")
     sys.stdout.flush()
 
+def ensure_firewall_rules():
+    """Add Windows Firewall rules for Hub API and Discovery if not already present."""
+    if os.name != 'nt':
+        return  # Only needed on Windows
+
+    hub_port = int(os.environ.get("HUB_PORT", 8000))
+    rules = [
+        ("ResKiosk Hub API", "TCP", hub_port),
+        ("ResKiosk Hub Discovery", "UDP", 9999),
+    ]
+
+    for rule_name, protocol, port in rules:
+        try:
+            # Check if rule already exists
+            check = subprocess.run(
+                ["netsh", "advfirewall", "firewall", "show", "rule", f"name={rule_name}"],
+                capture_output=True, text=True
+            )
+            if check.returncode == 0 and rule_name in check.stdout:
+                continue  # Rule exists
+
+            # Add the rule
+            result = subprocess.run(
+                ["netsh", "advfirewall", "firewall", "add", "rule",
+                 f"name={rule_name}", "dir=in", "action=allow",
+                 f"protocol={protocol}", f"localport={port}"],
+                capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                print(f"  Firewall rule added: {rule_name} ({protocol} {port})")
+            else:
+                print(f"  Firewall rule skipped (need admin): {rule_name}")
+        except Exception:
+            print(f"  Firewall rule skipped: {rule_name}")
+
 def start_ollama(base_path):
     """Start bundled or system Ollama server. Returns process or None."""
     import shutil
@@ -177,6 +212,8 @@ def launch():
         print("Ollama not started. Continuing without it.")
         sys.stdout.flush()
         
+    print()
+    ensure_firewall_rules()
     print()
     print("Starting FastAPI server on http://localhost:8000 ...")
     sys.stdout.flush()
