@@ -120,7 +120,7 @@ Still inside `processAudio()` on IO:
 
 [KioskViewModel.kt](reskiosk/kiosk/app/src/main/java/com/reskiosk/viewmodel/KioskViewModel.kt) `performQuery()` (lines 394–475) runs in `viewModelScope.launch(Dispatchers.IO)`.
 
-1. **Hub URL** — From `prefs.getString("hub_url", "")`. If blank, `handleError("Hub not configured...")` on Main and return.
+1. **Hub URL** — Loaded from `prefs.getString("hub_url", "")`, normalized before use (auto-adds `http://`, defaults port `8000`, rejects malformed host values). If blank/invalid, Main shows reconnect error and returns.
 2. **Payload** — Built as a `Map`: `center_id`, `kiosk_id`, `transcript_original`, `transcript_english`, `language`, `kb_version`, `is_retry`, `query_type`, `intonation_confidence`; if clarification retry, `selected_category` and `session_id` are added (lines 407–419).
 3. **HTTP call** — `HubApiClient.getService(hubUrl)` then `api.query(payload)` (lines 424–425). Defined in [HubApiClient.kt](reskiosk/kiosk/app/src/main/java/com/reskiosk/network/HubApiClient.kt): `HubApiService` has `suspend fun query(@Body payload: Map<String, Any?>): HubQueryResponse` (lines 29–31). Response type includes `answerTextEn`, `answerTextLocalized`, `answerType`, `clarificationCategories` (lines 15–19).
 

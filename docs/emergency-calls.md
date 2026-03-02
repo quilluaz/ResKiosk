@@ -16,6 +16,23 @@ Cloud integration is currently disabled and does not affect emergency behavior. 
 
 ---
 
+## Dashboard Emergency Mode Broadcast
+
+Emergency Mode is controlled from Dashboard (not Shelter Config).
+
+When activated from Dashboard:
+- Hub persists state in `structured_config` (`emergency_mode_active`, `emergency_mode_activated_at`).
+- Kiosks receive state through `GET /admin/ping` polling every 5 seconds.
+- On a new activation timestamp, each kiosk:
+  - shows a full-screen emergency overlay for 5 seconds
+  - plays `emergencycallalert.mp3` once (local bundled asset)
+  - then shows animated top and bottom emergency banners until deactivated
+
+When deactivated from Dashboard:
+- Kiosk overlay/banners clear immediately on next poll.
+
+---
+
 ## Kiosk
 
 ### Detection and Trigger
