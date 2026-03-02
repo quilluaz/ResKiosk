@@ -181,6 +181,52 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
             db.add(log_entry)
             db.commit()
             query_log_id = log_entry.id
+
+            # ── FAQ Tracker: upsert by source_id (KB article) ──────────────
+            try:
+                matched_source_id = result.get("source_id")
+                if matched_source_id and answer_type == "DIRECT_MATCH":
+                    now_ts = int(_time.time())
+                    q_text = raw_text.strip()
+
+                    existing = db.query(schema.FAQTracker).filter(
+                        schema.FAQTracker.source_id == matched_source_id
+                    ).first()
+
+                    if existing:
+                        existing.count += 1
+                        existing.last_asked_at = now_ts
+                        existing.kiosk_id = query.kiosk_id or existing.kiosk_id
+                        existing.language = user_language
+                        existing.question_display = q_text
+                        existing.question_normalized = q_text.lower()
+                    else:
+                        # Fetch the KB article question/answer for display
+                        kb_article = db.query(schema.KBArticle).filter(
+                            schema.KBArticle.id == matched_source_id
+                        ).first()
+                        source_q = kb_article.question if kb_article else q_text
+                        source_a = kb_article.answer[:200] if kb_article and kb_article.answer else ""
+
+                        faq_entry = schema.FAQTracker(
+                            source_id=matched_source_id,
+                            source_question=source_q,
+                            source_answer=source_a,
+                            question_normalized=q_text.lower(),
+                            question_display=q_text,
+                            language=user_language,
+                            count=1,
+                            first_asked_at=now_ts,
+                            last_asked_at=now_ts,
+                            kiosk_id=query.kiosk_id or "",
+                            answer_type=answer_type,
+                        )
+                        db.add(faq_entry)
+                    db.commit()
+            except Exception as faq_err:
+                logger.warning(f"[FAQ Tracker] Upsert failed: {faq_err}")
+                db.rollback()
+
         except Exception as e:
             logger.exception("[Query] DB log/commit failed")
             db.rollback()

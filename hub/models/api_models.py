@@ -301,3 +301,20 @@ class HubResponse(BaseModel):
     location: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class FAQTrackerItem(BaseModel):
+    id: int
+    source_id: int
+    source_question: Optional[str] = None
+    source_answer: Optional[str] = None
+    question_normalized: Optional[str] = None
+    question_display: Optional[str] = None
+    language: Optional[str] = None
+    count: int
+    first_asked_at: Optional[int] = None
+    last_asked_at: Optional[int] = None
+    kiosk_id: Optional[str] = None
+    answer_type: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)

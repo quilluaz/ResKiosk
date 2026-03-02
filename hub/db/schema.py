@@ -272,3 +272,21 @@ class StructuredConfig(Base):
     key        = Column(String, primary_key=True)
     value      = Column(Text)
     updated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class FAQTracker(Base):
+    """Tracks frequently asked questions grouped by KB article answer (source_id)."""
+    __tablename__ = "faq_tracker"
+
+    id                  = Column(Integer, primary_key=True, autoincrement=True)
+    source_id           = Column(Integer, nullable=False, unique=True, index=True)  # KB article ID
+    source_question     = Column(Text, nullable=True)   # KB article question (for display)
+    source_answer       = Column(Text, nullable=True)   # KB article answer snippet (for display)
+    question_normalized = Column(Text, nullable=True)    # Last user query (lowercased)
+    question_display    = Column(Text, nullable=True)    # Last user query (original case)
+    language            = Column(String, nullable=True)
+    count               = Column(Integer, nullable=False, default=1)
+    first_asked_at      = Column(Integer)   # Unix timestamp
+    last_asked_at       = Column(Integer)   # Unix timestamp
+    kiosk_id            = Column(String, nullable=True)
+    answer_type         = Column(String, nullable=True)

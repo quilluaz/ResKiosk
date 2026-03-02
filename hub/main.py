@@ -125,7 +125,7 @@ def _lora_auto_connect():
 
 
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 import os
 import sys
 from pathlib import Path
@@ -148,19 +148,31 @@ app.include_router(routes_messages.router)
 app.include_router(routes_lora.router)
 # Cloud routes disabled (offline-first rollback).
 
-# Serve console/dist as static files
+# Serve console static files
 base = get_base_path()
-static_dir = base / "console_static"
-if not static_dir.exists():
-    static_dir = Path("console/dist")
+static_dir = None
+for candidate in (
+    base / "console_static",       # PyInstaller bundle location
+    base / "console" / "dist",     # Source repo location (cwd-independent)
+):
+    if candidate.exists():
+        static_dir = candidate
+        break
 
-if static_dir.exists():
+if static_dir is not None:
     app.mount("/console", StaticFiles(directory=str(static_dir), html=True), name="console")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return Response(status_code=204)
 
 
 @app.get("/")
 async def root():
-    return RedirectResponse(url="/console/")
+    if static_dir is not None:
+        return RedirectResponse(url="/console/")
+    return {"status": "ok", "message": "Hub API is running. Console assets were not found."}
 
 
 if __name__ == "__main__":

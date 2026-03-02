@@ -17,6 +17,8 @@ kiosk/app/build/
 *.log
 *.env
 .env
+dist.zip
+
 
 # Node modules
 node_modules/

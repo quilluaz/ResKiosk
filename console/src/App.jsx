@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Settings, Wifi, WifiOff, Terminal, Phone, MessageSquare, Moon, Sun, AlertTriangle, X } from 'lucide-react';
+import { LayoutDashboard, FileText, Settings, Wifi, WifiOff, Terminal, Phone, MessageSquare, Moon, Sun, AlertTriangle, X, HelpCircle } from 'lucide-react';
 import hubClient from './api/hubClient';
 import logoSvg from './assets/reskiosk-logo.svg';
 
@@ -13,6 +13,7 @@ import NetworkSetup from './pages/NetworkSetup';
 import LogsViewer from './pages/LogsViewer';
 import EmergencyCalls from './pages/EmergencyCalls';
 import HubMessages from './pages/HubMessages';
+import QueryTracker from './pages/QueryTracker';
 
 function App() {
     const [emergencyMode, setEmergencyMode] = useState(false);
@@ -140,6 +141,7 @@ function App() {
                         <NavItem to="/network" icon={Wifi} label="Network Setup" />
                         <NavItem to="/emergency" icon={Phone} label="Emergency Calls" />
                         <NavItem to="/messages" icon={MessageSquare} label="Hub Messages" />
+                        <NavItem to="/query-tracker" icon={HelpCircle} label="Query Tracker" />
                         <NavItem to="/logs" icon={Terminal} label="Logs" highlight={false} />
                     </nav>
 
@@ -162,6 +164,7 @@ function App() {
                         <Route path="/network" element={<NetworkSetup />} />
                         <Route path="/emergency" element={<EmergencyCalls />} />
                         <Route path="/messages" element={<HubMessages />} />
+                        <Route path="/query-tracker" element={<QueryTracker />} />
                         <Route path="/logs" element={<LogsViewer />} />
                     </Routes>
                 </main>
