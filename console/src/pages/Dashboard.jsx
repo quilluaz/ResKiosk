@@ -10,6 +10,7 @@ function Dashboard({ setEmergencyMode }) {
     const [loading, setLoading] = useState(true);
     const [isEmergency, setIsEmergency] = useState(false);
     const [faqStats, setFaqStats] = useState({ total: 0, unique: 0, topQuestion: null });
+    const [showActivateModal, setShowActivateModal] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -155,22 +156,22 @@ function Dashboard({ setEmergencyMode }) {
                         </h3>
                         <p className="text-sm text-muted">Activates header banners on all kiosks.</p>
                     </div>
-                      <button
-                          onClick={() => {
-                              if (isEmergency) {
-                                  setEmergency(false);
-                              } else {
-                                  setShowActivateModal(true);
-                              }
-                          }}
-                          className={`btn ${isEmergency ? '' : 'btn-danger'}`}
-                          style={isEmergency
+                    <button
+                        onClick={() => {
+                            if (isEmergency) {
+                                setEmergency(false);
+                            } else {
+                                setShowActivateModal(true);
+                            }
+                        }}
+                        className={`btn ${isEmergency ? '' : 'btn-danger'}`}
+                        style={isEmergency
                             ? { backgroundColor: '#E8610A', borderColor: '#E8610A', color: '#fff' }
                             : { backgroundColor: '#b71c1c', borderColor: '#b71c1c', color: '#fff' }}
-                      >
-                          {isEmergency ? 'DEACTIVATE' : 'ACTIVATE'}
-                      </button>
-                  </div>
+                    >
+                        {isEmergency ? 'DEACTIVATE' : 'ACTIVATE'}
+                    </button>
+                </div>
             </div>
 
             {showActivateModal && (
