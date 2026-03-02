@@ -353,6 +353,9 @@ class LoRaSerialManager:
                 except Exception as e:
                     logger.error(f"LoRa message callback error: {e}")
 
+        elif msg_type == "ack":
+            self._handle_ack(data)
+
         elif msg_type == "info":
             self.device_info = data.get("firmware", data.get("device", str(data)))
             self._log(f"[SYS] Device info: {self.device_info}")
@@ -434,6 +437,129 @@ class LoRaSerialManager:
                 db.close()
         except Exception as e:
             logger.error(f"DB import error in LoRa save: {e}")
+
+    # ── ACK handling ───────────────────────────────────────────────────────
+
+    def _handle_ack(self, data: dict):
+        """Process an incoming ACK: update the original sent message status to 'delivered'."""
+        ack_subject = data.get("ack_subject", "")
+        ack_content = data.get("ack_content", "")
+        ack_msg_id = data.get("ack_msg_id")
+        from_device = data.get("from")
+
+        self._log(f"[SYS] ACK received for: {ack_subject or ack_msg_id} from {from_device}")
+        logger.info(f"LoRa ACK received — subject={ack_subject!r}, msg_id={ack_msg_id}, from={from_device}")
+
+        try:
+            from hub.db.session import SessionLocal
+            from hub.db import schema
+
+            db = SessionLocal()
+            try:
+                now = int(time.time())
+
+                # Determine this hub's ID (try HubIdentity first, then Hub table)
+                this_hub_id = None
+                try:
+                    identity = db.query(schema.HubIdentity).first()
+                    if identity and identity.hub_id:
+                        this_hub_id = identity.hub_id
+                except Exception:
+                    pass
+                if not this_hub_id:
+                    this_hub = db.query(schema.Hub).first()
+                    this_hub_id = this_hub.hub_id if this_hub else None
+
+                # Strip "ACK: " prefix if present (backward compat)
+                clean_subject = ack_subject
+                if clean_subject.startswith("ACK: "):
+                    clean_subject = clean_subject[5:]
+
+                msg = None
+
+                # Strategy 1: match by subject + source hub + pending status
+                if clean_subject and this_hub_id:
+                    msg = (
+                        db.query(schema.HubMessage)
+                        .filter(
+                            schema.HubMessage.source_hub_id == this_hub_id,
+                            schema.HubMessage.subject == clean_subject,
+                            schema.HubMessage.status.in_(["pending", "sent"]),
+                        )
+                        .order_by(schema.HubMessage.sent_at.desc())
+                        .first()
+                    )
+
+                # Strategy 2: relax status filter (maybe status was changed manually)
+                if not msg and clean_subject and this_hub_id:
+                    msg = (
+                        db.query(schema.HubMessage)
+                        .filter(
+                            schema.HubMessage.source_hub_id == this_hub_id,
+                            schema.HubMessage.subject == clean_subject,
+                            schema.HubMessage.status != "delivered",
+                        )
+                        .order_by(schema.HubMessage.sent_at.desc())
+                        .first()
+                    )
+                    if msg:
+                        self._log(f"[SYS] ACK matched via fallback (status was '{msg.status}')")
+
+                # Strategy 3: match by subject only (no hub filter)
+                if not msg and clean_subject:
+                    msg = (
+                        db.query(schema.HubMessage)
+                        .filter(
+                            schema.HubMessage.subject == clean_subject,
+                            schema.HubMessage.status.in_(["pending", "sent"]),
+                            schema.HubMessage.received_via == "lora",
+                        )
+                        .order_by(schema.HubMessage.sent_at.desc())
+                        .first()
+                    )
+                    if msg:
+                        self._log(f"[SYS] ACK matched via subject-only fallback")
+
+                # Strategy 4: match by message body/content (subject didn't match)
+                if not msg and ack_content:
+                    msg = (
+                        db.query(schema.HubMessage)
+                        .filter(
+                            schema.HubMessage.content == ack_content,
+                            schema.HubMessage.status.in_(["pending", "sent"]),
+                            schema.HubMessage.received_via == "lora",
+                        )
+                        .order_by(schema.HubMessage.sent_at.desc())
+                        .first()
+                    )
+                    if msg:
+                        self._log(f"[SYS] ACK matched via message body fallback")
+
+                if msg:
+                    msg.status = "delivered"
+                    if not msg.received_at:
+                        msg.received_at = now
+                    db.commit()
+                    self._log(f"[SYS] Message #{msg.id} status → delivered")
+                    logger.info(f"Message {msg.id} marked as delivered via ACK")
+
+                    # Notify console via WebSocket
+                    self._broadcast_ws(json.dumps({
+                        "event": "message_delivered",
+                        "id": msg.id,
+                        "status": "delivered",
+                    }))
+                else:
+                    self._log(f"[SYS] ACK received but no matching message found for subject: '{clean_subject}' (hub_id={this_hub_id})")
+                    logger.warning(f"ACK could not be matched — subject={clean_subject!r}, hub_id={this_hub_id}")
+
+            except Exception as e:
+                logger.error(f"Failed to process ACK: {e}")
+                db.rollback()
+            finally:
+                db.close()
+        except Exception as e:
+            logger.error(f"DB import error in ACK handler: {e}")
 
     # ── Logging / WebSocket broadcast ──────────────────────────────────────
 
