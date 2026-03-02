@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import hubClient from '../api/hubClient';
 import logoSvg from '../assets/reskiosk-logo.svg';
 import KBViewer from './KBViewer';
+import { useNavigate } from 'react-router-dom';
+import { HelpCircle, TrendingUp, MessageCircle, Hash } from 'lucide-react';
 
 function Dashboard({ setEmergencyMode }) {
     const [stats, setStats] = useState({ kb_version: 0, online: false, article_count: 0, device_id: '' });
     const [loading, setLoading] = useState(true);
     const [isEmergency, setIsEmergency] = useState(false);
-    const [showActivateModal, setShowActivateModal] = useState(false);
+    const [faqStats, setFaqStats] = useState({ total: 0, unique: 0, topQuestion: null });
+    const navigate = useNavigate();
 
     useEffect(() => {
         loadData();
@@ -31,7 +34,17 @@ function Dashboard({ setEmergencyMode }) {
                 device_id: netRes.data.device_id || ''
             });
 
-            const em = !!emergencyRes.data?.active;
+            // FAQ stats
+            const faqData = faqRes.data || [];
+            const totalQueries = faqData.reduce((acc, f) => acc + f.count, 0);
+            const sorted = [...faqData].sort((a, b) => b.count - a.count);
+            setFaqStats({
+                total: totalQueries,
+                unique: faqData.length,
+                topQuestion: sorted.length > 0 ? sorted[0] : null
+            });
+
+            const em = config.emergency_mode === 'active';
             setIsEmergency(em);
             setEmergencyMode(em);
 
@@ -84,6 +97,43 @@ function Dashboard({ setEmergencyMode }) {
                 <div className="card">
                     <div className="stat-label">Active Articles</div>
                     <div className="stat-value">{stats.article_count}</div>
+                </div>
+            </div>
+
+            {/* FAQ Tracker Summary */}
+            <div className="card">
+                <div className="flex items-center justify-between" style={{ marginBottom: '0.75rem' }}>
+                    <div className="flex items-center gap-2">
+                        <HelpCircle size={18} style={{ color: 'var(--primary)' }} />
+                        <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Query Tracker</h3>
+                    </div>
+                    <button className="btn" onClick={() => navigate('/query-tracker')} style={{ fontSize: '0.8rem', padding: '0.3rem 0.75rem' }}>
+                        View All →
+                    </button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+                    <div style={{ background: 'var(--bg-secondary)', borderRadius: '0.5rem', padding: '0.75rem 1rem' }}>
+                        <div className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.25rem' }}>
+                            <MessageCircle size={12} /> Total Queries
+                        </div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{faqStats.total}</div>
+                    </div>
+                    <div style={{ background: 'var(--bg-secondary)', borderRadius: '0.5rem', padding: '0.75rem 1rem' }}>
+                        <div className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.25rem' }}>
+                            <Hash size={12} /> Unique Topics
+                        </div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{faqStats.unique}</div>
+                    </div>
+                    <div style={{ background: 'var(--bg-secondary)', borderRadius: '0.5rem', padding: '0.75rem 1rem' }}>
+                        <div className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.25rem' }}>
+                            <TrendingUp size={12} /> Top FAQ
+                        </div>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>
+                            {faqStats.topQuestion
+                                ? `"${(faqStats.topQuestion.source_question || faqStats.topQuestion.question_display || '').slice(0, 35)}${(faqStats.topQuestion.source_question || '').length > 35 ? '…' : ''}" (${faqStats.topQuestion.count}×)`
+                                : 'No queries yet'}
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -162,3 +212,4 @@ function Dashboard({ setEmergencyMode }) {
 }
 
 export default Dashboard;
+

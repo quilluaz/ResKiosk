@@ -498,3 +498,34 @@ async def import_articles(payload: dict, db: Session = Depends(get_db)):
         "errors": errors_list,
         "total_in_payload": len(articles_data),
     }
+
+
+# ─── FAQ Tracker ─────────────────────────────────────────────────────────────
+
+@router.get("/admin/faq-tracker", response_model=list[api_models.FAQTrackerItem])
+async def get_faq_tracker(limit: int = 200, db: Session = Depends(get_db)):
+    """Return FAQ entries sorted by frequency (most asked first)."""
+    rows = (
+        db.query(schema.FAQTracker)
+        .order_by(schema.FAQTracker.count.desc())
+        .limit(limit)
+        .all()
+    )
+    return rows
+
+
+@router.delete("/admin/faq-tracker/{faq_id}", status_code=204)
+async def delete_faq_entry(faq_id: int, db: Session = Depends(get_db)):
+    """Delete a single FAQ tracker entry."""
+    entry = db.query(schema.FAQTracker).filter(schema.FAQTracker.id == faq_id).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="FAQ entry not found")
+    db.delete(entry)
+    db.commit()
+
+
+@router.delete("/admin/faq-tracker", status_code=204)
+async def clear_faq_tracker(db: Session = Depends(get_db)):
+    """Delete all FAQ tracker entries."""
+    db.query(schema.FAQTracker).delete()
+    db.commit()

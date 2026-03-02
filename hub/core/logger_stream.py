@@ -70,20 +70,21 @@ class PrintToLogger:
         return False
 
 def setup_log_capture():
-    # Attach to root and uvicorn loggers
     root = logging.getLogger()
     root.setLevel(logging.INFO)
     if stream_handler not in root.handlers:
         root.addHandler(stream_handler)
-    
-    # Uvicorn specific
-    for name in ["uvicorn", "uvicorn.access", "uvicorn.error", "fastapi"]:
-        l = logging.getLogger(name)
-        if stream_handler not in l.handlers:
-            l.addHandler(stream_handler)
 
-    # Capture print() statements
+    # Prevent uvicorn/fastapi child loggers from propagating to root
+    # (which would duplicate every message through the same handler).
+    for name in ["uvicorn", "uvicorn.access", "uvicorn.error", "fastapi"]:
+        child = logging.getLogger(name)
+        child.propagate = False
+        if stream_handler not in child.handlers:
+            child.addHandler(stream_handler)
+
     print_logger = logging.getLogger("stdout")
+    print_logger.propagate = False
     if stream_handler not in print_logger.handlers:
         print_logger.addHandler(stream_handler)
         sys.stdout = PrintToLogger(print_logger, logging.INFO)

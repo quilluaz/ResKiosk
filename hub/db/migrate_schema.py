@@ -112,6 +112,27 @@ def migrate():
                 migrated += 1
         cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_alert_local ON emergency_alerts(alert_id_local)")
 
+    # ── faq_tracker (new table) ────────────────────────────────────────
+    # Drop and recreate if schema changed (safe: FAQ data is transient analytics)
+    cursor.execute("DROP TABLE IF EXISTS faq_tracker")
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS faq_tracker (
+            id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+            source_id           INTEGER NOT NULL UNIQUE,
+            source_question     TEXT,
+            source_answer       TEXT,
+            question_normalized TEXT,
+            question_display    TEXT,
+            language            VARCHAR,
+            count               INTEGER NOT NULL DEFAULT 1,
+            first_asked_at      INTEGER,
+            last_asked_at       INTEGER,
+            kiosk_id            VARCHAR,
+            answer_type         VARCHAR
+        )
+    """)
+    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_faq_source ON faq_tracker(source_id)")
+
     conn.commit()
     conn.close()
 
