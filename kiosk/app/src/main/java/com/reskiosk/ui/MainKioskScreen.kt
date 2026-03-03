@@ -222,6 +222,7 @@ private fun MainScreenBody(
         uiState is KioskState.EmergencyConfirmation ||
         uiState is KioskState.EmergencyCancelWindow ||
         uiState is KioskState.EmergencyCancelled
+    val isSosInProgressState = isEmergencyState && uiState !is KioskState.EmergencyResolved
     val emergencyBannerInset = if (emergencyModeActive && !emergencyModeOverlayVisible) 44.dp else 0.dp
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -263,7 +264,8 @@ private fun MainScreenBody(
                     modifier = Modifier.weight(1f),
                     contentAlignment = Alignment.CenterStart
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (!isSosInProgressState) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                         Box {
                             IconButton(onClick = { showMenu = true }, enabled = !isLoadingOverlay) {
                                 Icon(
@@ -312,6 +314,7 @@ private fun MainScreenBody(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                        }
                     }
                 }
 
@@ -342,24 +345,26 @@ private fun MainScreenBody(
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(width = 44.dp, height = 26.dp)
-                                    .clip(RoundedCornerShape(13.dp))
-                                    .background(if (emergencyCooldownActive) Color(0xFFBDBDBD) else Color(0xFFB71C1C))
-                                    .clickable(
-                                        enabled = !isLoadingOverlay && !isEmergencyState && !emergencyCooldownActive
-                                    ) {
-                                        showSosConfirmDialog = true
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "SOS",
-                                    color = Color.White,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                            if (!isSosInProgressState) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(width = 44.dp, height = 26.dp)
+                                        .clip(RoundedCornerShape(13.dp))
+                                        .background(if (emergencyCooldownActive) Color(0xFFBDBDBD) else Color(0xFFB71C1C))
+                                        .clickable(
+                                            enabled = !isLoadingOverlay && !isEmergencyState && !emergencyCooldownActive
+                                        ) {
+                                            showSosConfirmDialog = true
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "SOS",
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                             Box(
                                 modifier = Modifier
@@ -829,8 +834,8 @@ private fun MainPage(
                 iconText = "OTW",
                 title = EmergencyStrings.get("acknowledged_title", selectedLang),
                 body = EmergencyStrings.get("acknowledged_body", selectedLang),
-                titleFontSize = 34.sp,
-                titleLineHeight = 38.sp
+                titleFontSize = 24.sp,
+                titleLineHeight = 28.sp
             )
             is KioskState.EmergencyResponding -> EmergencyStatePanel(
                 backgroundColor = Color(0xFFFFE8C4),

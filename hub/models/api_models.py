@@ -117,6 +117,7 @@ class QueryRequest(BaseModel):
     stt_mode: Optional[str] = None   # cloud|local (reported by kiosk)
     tts_mode: Optional[str] = None   # cloud|local (reported by kiosk)
     cloud_consent_mode: Optional[str] = None  # operator|session|disabled
+    follow_up_token: Optional[str] = None
 
 
 
@@ -133,6 +134,8 @@ class QueryResponse(BaseModel):
     # Shadow RLHF fields: what the RLHF ranker would pick as top, if enabled
     rlhf_top_source_id: Optional[int] = None
     rlhf_top_score: Optional[float] = None
+    follow_up_prompt: Optional[str] = None
+    follow_up_intent: Optional[str] = None
 
 
 # ─── Evac Info ───────────────────────────────────────────────────────────────

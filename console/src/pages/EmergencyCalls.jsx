@@ -16,6 +16,7 @@ function EmergencyCalls() {
     const [showDismissed, setShowDismissed] = useState(false);
     const [showResolved, setShowResolved] = useState(false);
     const playedAlertIdsRef = useRef(new Set());
+    const pendingAlertIdsRef = useRef(new Set());
     const alertAudioRef = useRef(null);
     const audioUnlockedRef = useRef(false);
 
@@ -36,12 +37,7 @@ function EmergencyCalls() {
         }
     }, []);
 
-    const playNewAlertSound = useCallback((alertId) => {
-        if (alertId == null) return;
-        const normalizedId = String(alertId);
-        if (playedAlertIdsRef.current.has(normalizedId)) return;
-        playedAlertIdsRef.current.add(normalizedId);
-
+    const attemptPlayAlertSound = useCallback(async () => {
         const srcCandidates = ['/emergencycallalert.mp3', '/console/emergencycallalert.mp3'];
         const audio = alertAudioRef.current || new Audio();
         alertAudioRef.current = audio;
@@ -51,33 +47,61 @@ function EmergencyCalls() {
         audio.loop = false;
         audio.currentTime = 0;
 
-        const tryPlay = (index = 0) => {
-            if (index >= srcCandidates.length) return;
-            audio.src = srcCandidates[index];
-            audio.play().catch(() => tryPlay(index + 1));
-        };
-        tryPlay(0);
+        for (const src of srcCandidates) {
+            try {
+                audio.src = src;
+                await audio.play();
+                return true;
+            } catch (err) {
+                // try next src
+            }
+        }
+        return false;
     }, []);
 
+    const playNewAlertSound = useCallback(async (alertId) => {
+        if (alertId == null) return;
+        const normalizedId = String(alertId);
+        if (playedAlertIdsRef.current.has(normalizedId)) return;
+        const played = await attemptPlayAlertSound();
+        if (played) {
+            playedAlertIdsRef.current.add(normalizedId);
+            pendingAlertIdsRef.current.delete(normalizedId);
+        } else {
+            pendingAlertIdsRef.current.add(normalizedId);
+        }
+    }, [attemptPlayAlertSound]);
+
     useEffect(() => {
-        const unlockAudio = () => {
-            if (audioUnlockedRef.current) return;
-            audioUnlockedRef.current = true;
+        const unlockAudio = async () => {
             const audio = alertAudioRef.current || new Audio('/emergencycallalert.mp3');
             alertAudioRef.current = audio;
             audio.muted = true;
             audio.volume = 0;
-            audio.play()
-                .then(() => {
-                    audio.pause();
-                    audio.currentTime = 0;
-                    audio.muted = false;
-                    audio.volume = 1.0;
-                })
-                .catch(() => {
-                    audio.muted = false;
-                    audio.volume = 1.0;
-                });
+            try {
+                await audio.play();
+                audio.pause();
+                audio.currentTime = 0;
+                audioUnlockedRef.current = true;
+            } catch (err) {
+                // leave listeners attached; try again on next user interaction
+            } finally {
+                audio.muted = false;
+                audio.volume = 1.0;
+            }
+
+            if (audioUnlockedRef.current && pendingAlertIdsRef.current.size > 0) {
+                const pendingIds = Array.from(pendingAlertIdsRef.current);
+                for (const id of pendingIds) {
+                    const played = await attemptPlayAlertSound();
+                    if (played) {
+                        playedAlertIdsRef.current.add(id);
+                        pendingAlertIdsRef.current.delete(id);
+                    }
+                }
+            }
+
+            if (!audioUnlockedRef.current) return;
             document.removeEventListener('pointerdown', unlockAudio);
             document.removeEventListener('keydown', unlockAudio);
         };
@@ -87,7 +111,7 @@ function EmergencyCalls() {
             document.removeEventListener('pointerdown', unlockAudio);
             document.removeEventListener('keydown', unlockAudio);
         };
-    }, []);
+    }, [attemptPlayAlertSound]);
 
     const fetchHistory = useCallback(async () => {
         try {
@@ -140,7 +164,7 @@ function EmergencyCalls() {
                 try {
                     const data = JSON.parse(e.data);
                     if (data.type === 'EMERGENCY_ALERT') {
-                        playNewAlertSound(data.id ?? data.alert_id);
+                        void playNewAlertSound(data.id ?? data.alert_id);
                         setAlerts(prev => [data, ...prev]);
                     } else if (
                         data.type === 'EMERGENCY_ACKNOWLEDGED' ||

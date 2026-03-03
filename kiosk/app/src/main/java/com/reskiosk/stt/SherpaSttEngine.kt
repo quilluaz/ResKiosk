@@ -36,8 +36,10 @@ class SherpaSttEngine private constructor(
         fun forLanguage(context: Context, langCode: String): SherpaSttEngine {
             val modelsBase = File(context.filesDir, ModelConstants.MODELS_BASE_DIR)
             return when (langCode) {
-                "en" -> buildZipformer(modelsBase, ModelConstants.STT_DIR_EN, useBpe = true)
-                "ja" -> buildZipformer(modelsBase, ModelConstants.STT_DIR_JA, useBpe = false)
+                "en" -> buildZipformer(modelsBase, ModelConstants.STT_DIR_EN, useBpe = true, preferInt8 = true)
+                // Japanese Zipformer package has shown native incompatibilities on some devices.
+                // Use Whisper multilingual for stability.
+                "ja" -> buildWhisper(modelsBase, "ja")
                 else -> buildWhisper(modelsBase, langCode)
             }
         }
@@ -46,7 +48,12 @@ class SherpaSttEngine private constructor(
          * Builds a streaming Zipformer recognizer.
          * @param useBpe true for English (BPE tokenization), false for Japanese (char-based)
          */
-        private fun buildZipformer(modelsBase: File, modelDirName: String, useBpe: Boolean): SherpaSttEngine {
+        private fun buildZipformer(
+            modelsBase: File,
+            modelDirName: String,
+            useBpe: Boolean,
+            preferInt8: Boolean,
+        ): SherpaSttEngine {
             val modelsDir = File(modelsBase, modelDirName)
             Log.i(TAG, "Contents of $modelsDir: ${modelsDir.listFiles()?.joinToString { it.name }}")
             return try {
@@ -55,13 +62,24 @@ class SherpaSttEngine private constructor(
                     return SherpaSttEngine(ModelType.ZIPFORMER, null, null, "")
                 }
 
-                val encoderFile = listOf(
-                    "encoder-epoch-99-avg-1-chunk-16-left-128.onnx",
-                    "encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx",
-                    "encoder-epoch-99-avg-1.int8.onnx",
-                    "encoder-epoch-99-avg-1.onnx",
-                    "encoder.onnx"
-                ).map { File(modelsDir, it) }.firstOrNull { it.exists() }
+                val encoderCandidates = if (preferInt8) {
+                    listOf(
+                        "encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx",
+                        "encoder-epoch-99-avg-1.int8.onnx",
+                        "encoder-epoch-99-avg-1-chunk-16-left-128.onnx",
+                        "encoder-epoch-99-avg-1.onnx",
+                        "encoder.onnx"
+                    )
+                } else {
+                    listOf(
+                        "encoder-epoch-99-avg-1-chunk-16-left-128.onnx",
+                        "encoder-epoch-99-avg-1.onnx",
+                        "encoder.onnx",
+                        "encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx",
+                        "encoder-epoch-99-avg-1.int8.onnx"
+                    )
+                }
+                val encoderFile = encoderCandidates.map { File(modelsDir, it) }.firstOrNull { it.exists() }
 
                 val decoderFile = listOf(
                     "decoder-epoch-99-avg-1-chunk-16-left-128.onnx",
@@ -69,13 +87,24 @@ class SherpaSttEngine private constructor(
                     "decoder.onnx"
                 ).map { File(modelsDir, it) }.firstOrNull { it.exists() }
 
-                val joinerFile = listOf(
-                    "joiner-epoch-99-avg-1-chunk-16-left-128.onnx",
-                    "joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx",
-                    "joiner-epoch-99-avg-1.int8.onnx",
-                    "joiner-epoch-99-avg-1.onnx",
-                    "joiner.onnx"
-                ).map { File(modelsDir, it) }.firstOrNull { it.exists() }
+                val joinerCandidates = if (preferInt8) {
+                    listOf(
+                        "joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx",
+                        "joiner-epoch-99-avg-1.int8.onnx",
+                        "joiner-epoch-99-avg-1-chunk-16-left-128.onnx",
+                        "joiner-epoch-99-avg-1.onnx",
+                        "joiner.onnx"
+                    )
+                } else {
+                    listOf(
+                        "joiner-epoch-99-avg-1-chunk-16-left-128.onnx",
+                        "joiner-epoch-99-avg-1.onnx",
+                        "joiner.onnx",
+                        "joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx",
+                        "joiner-epoch-99-avg-1.int8.onnx"
+                    )
+                }
+                val joinerFile = joinerCandidates.map { File(modelsDir, it) }.firstOrNull { it.exists() }
 
                 if (encoderFile == null || decoderFile == null || joinerFile == null) {
                     Log.e(TAG, "Zipformer onnx files not found in $modelsDir")
@@ -116,7 +145,11 @@ class SherpaSttEngine private constructor(
                     endpointConfig = endpointConfig,
                 )
 
-                Log.i(TAG, "Initializing OnlineRecognizer with Zipformer ($modelDirName)...")
+                Log.i(
+                    TAG,
+                    "Initializing OnlineRecognizer with Zipformer ($modelDirName), preferInt8=$preferInt8, " +
+                        "encoder=${encoderFile.name}, decoder=${decoderFile.name}, joiner=${joinerFile.name}"
+                )
                 val recognizer = OnlineRecognizer(assetManager = null, config = config)
                 Log.i(TAG, "Zipformer loaded successfully from $modelsDir")
 
@@ -192,6 +225,7 @@ class SherpaSttEngine private constructor(
             "es" -> "es"      // Spanish
             "de" -> "de"      // German
             "fr" -> "fr"      // French
+            "ja" -> "ja"      // Japanese
             else -> "en"
         }
     }

@@ -59,6 +59,11 @@ enum class ChatMode {
     TEXT_ONLY
 }
 
+private data class PendingFollowUp(
+    val intent: String,
+    val prompt: String? = null
+)
+
 // Data class for Chat Frame
 data class ChatMessage(
     val isUser: Boolean,
@@ -114,6 +119,7 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
     private var failedPings = 0
     private var lastSttMode: String = "local"
     private var lastTtsMode: String = "local"
+    private var pendingFollowUp: PendingFollowUp? = null
     private val _hubReachable = MutableStateFlow(false)
     val hubReachable = _hubReachable.asStateFlow()
     private val _hubUrlValidationError = MutableStateFlow<String?>(null)
@@ -314,7 +320,6 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
     private var recordedSamples: MutableList<Float> = Collections.synchronizedList(mutableListOf())
     private var lastQueryEnglish: String? = null
     private var lastQueryOriginal: String? = null
-    private var hasIntroducedReze = false
     private var hasSpokenSessionEnding = false
 
     // Emergency flow state
@@ -327,6 +332,7 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
     private var emergencyConfirmJob: Job? = null
     private var emergencyCancelJob: Job? = null
     private var emergencyCooldownJob: Job? = null
+    private var emergencyResolvedAutoEndJob: Job? = null
     private var emergencyModeOverlayJob: Job? = null
     private var emergencyAlarmPlayer: MediaPlayer? = null
     private var emergencyCooldownUntil: Long = 0L
@@ -600,7 +606,6 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
         _chatMode.value = ChatMode.VOICE_ONLY
         clearLoadingOverlay()
         resetVoiceLevels()
-        hasIntroducedReze = false
         hasSpokenSessionEnding = false
         emergencyAlertId = null
         emergencyAlertLocalId = null
@@ -611,12 +616,17 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
         emergencyConfirmJob?.cancel()
         emergencyCancelJob?.cancel()
         emergencyCooldownJob?.cancel()
+        emergencyResolvedAutoEndJob?.cancel()
         emergencyCooldownUntil = 0L
         _emergencyCooldownActive.value = false
         recorder.setNoiseSuppressionEnabled(_selectedLanguage.value == "en" || _selectedLanguage.value == "ja")
         recorder.startContinuousListening(viewModelScope)
 
         fetchFaqSuggestions()
+        val welcome = EmergencyStrings.get("session_start_welcome", _selectedLanguage.value)
+        tts?.stop()
+        tts?.speak(welcome)
+
         resetInactivityTimer()
     }
 
@@ -634,7 +644,6 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
         clearLoadingOverlay()
         resetVoiceLevels()
         _transcript.value = ""
-        hasIntroducedReze = false
         emergencyAlertId = null
         emergencyAlertLocalId = null
         emergencyTranscript = null
@@ -644,6 +653,7 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
         emergencyConfirmJob?.cancel()
         emergencyCancelJob?.cancel()
         emergencyCooldownJob?.cancel()
+        emergencyResolvedAutoEndJob?.cancel()
         emergencyCooldownUntil = 0L
         _emergencyCooldownActive.value = false
         _faqSuggestions.value = emptyList()
@@ -746,13 +756,8 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
 
         _uiState.value = KioskState.PreparingToListen
         startListeningJob = viewModelScope.launch {
-            // If TTS was playing, wait briefly for playback to fully stop to avoid bleed
-            val ttsStopDeadline = System.currentTimeMillis() + 1200L
-            while (tts?.isPlaying() == true && System.currentTimeMillis() < ttsStopDeadline) {
-                delay(50)
-            }
-            recorder.clearPreBuffer()
-            delay(150) // Let residual speaker output dissipate before capturing; show loading until then
+            // Hard gate recording until TTS pipeline is fully settled to avoid audio bleed.
+            waitForTtsToSettle()
             if (!isActive) return@launch
             _uiState.value = KioskState.Listening
             startListeningJob = null
@@ -879,6 +884,47 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
             "nan", "doko", "itsu", "naze", "dou"
         )
         return if (firstToken in questionStarts) "question" else "statement"
+    }
+
+    private fun isFollowUpAgreement(text: String, language: String): Boolean {
+        val normalized = text
+            .trim()
+            .lowercase()
+            .replace(Regex("[^\\p{L}\\p{N}\\s]"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+        if (normalized.isBlank()) return false
+
+        val baseAgreement = setOf(
+            "yes", "yes please", "yeah", "yep", "sure", "ok", "okay", "go ahead",
+            "affirmative", "please do", "do it",
+            "opo", "oo", "sige"
+        )
+        val localizedAgreement = when (language.lowercase()) {
+            "es" -> setOf("si", "sí", "claro", "vale", "por favor")
+            "de" -> setOf("ja", "klar", "bitte", "ok")
+            "fr" -> setOf("oui", "daccord", "d accord", "ok", "bien sur")
+            "ja" -> setOf("hai", "un", "onegai", "yoroshiku")
+            else -> emptySet()
+        }
+        return normalized in baseAgreement || normalized in localizedAgreement
+    }
+
+    private fun followUpIntentToCategory(intent: String): String? {
+        return when (intent.lowercase()) {
+            "food" -> "Food & Water"
+            "medical" -> "Medical"
+            "registration" -> "Registration"
+            "sleeping" -> "Sleeping"
+            "facilities" -> "Facilities"
+            "transportation" -> "Transportation"
+            "safety", "emergency" -> "Safety"
+            "lost_person" -> "Lost Person"
+            "pets" -> "Pets"
+            "children" -> "Children"
+            "special_needs" -> "Special Needs"
+            else -> null
+        }
     }
 
     fun reset() {
@@ -1036,9 +1082,12 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
                                 _uiState.value = KioskState.EmergencyResolved
                             }
                             emergencyPollJob?.cancel()
-                            viewModelScope.launch(Dispatchers.Main) {
+                            emergencyResolvedAutoEndJob?.cancel()
+                            emergencyResolvedAutoEndJob = viewModelScope.launch(Dispatchers.Main) {
                                 delay(30_000L)
-                                finishEmergencyLocal()
+                                if (_uiState.value is KioskState.EmergencyResolved && _sessionId.value != null) {
+                                    endSession()
+                                }
                             }
                         }
                         "DISMISSED" -> {
@@ -1060,6 +1109,7 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
         emergencyPollJob?.cancel()
         emergencyConfirmJob?.cancel()
         emergencyCancelJob?.cancel()
+        emergencyResolvedAutoEndJob?.cancel()
         clearLoadingOverlay()
         resetVoiceLevels()
         emergencyAlertId = null
@@ -1384,6 +1434,23 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                var effectiveIsRetry = isRetry
+                var effectiveCategory = category
+                val followUp = pendingFollowUp
+                var followUpAccepted = false
+                if (!isRetry && category == null && followUp != null) {
+                    if (isFollowUpAgreement(queryOriginal, _selectedLanguage.value)) {
+                        val mappedCategory = followUpIntentToCategory(followUp.intent)
+                        if (mappedCategory != null) {
+                            effectiveIsRetry = true
+                            effectiveCategory = mappedCategory
+                            followUpAccepted = true
+                            Log.i("KioskVM", "Follow-up accepted. Auto-answering secondary intent=${followUp.intent}")
+                        }
+                    }
+                    pendingFollowUp = null
+                }
+
                 val hubUrl = normalizeHubUrl(getHubUrl())
                 if (hubUrl.isNullOrBlank()) {
                     withContext(Dispatchers.Main) {
@@ -1395,22 +1462,23 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
 
                 val kioskId = prefs.getString("kiosk_id", null)
                     ?: UUID.randomUUID().toString().also { prefs.edit().putString("kiosk_id", it).apply() }
-                val payload = mutableMapOf<String, Any>(
+                val payload = mutableMapOf<String, Any?>(
                     "center_id" to "center_1",
                     "kiosk_id" to kioskId,
                     "transcript_original" to queryOriginal,
                     "transcript_english" to queryEnglish,
                     "language" to _selectedLanguage.value,
                     "kb_version" to 1,
-                    "is_retry" to isRetry,
+                    "is_retry" to effectiveIsRetry,
                     "query_type" to queryType,
                     "intonation_confidence" to intonationConfidence,
                 )
-                if (category != null) payload["selected_category"] = category
+                if (effectiveCategory != null) payload["selected_category"] = effectiveCategory
                 if (_sessionId.value != null) payload["session_id"] = _sessionId.value!!
                 if (!excludeSourceIds.isNullOrEmpty()) {
                     payload["exclude_source_ids"] = excludeSourceIds
                 }
+                payload["follow_up_token"] = null
 
                 Log.i("KioskVM", "Sending query to hub: ${queryEnglish.take(80)}")
                 val queryStart = System.currentTimeMillis()
@@ -1422,6 +1490,7 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
                 withContext(Dispatchers.Main) {
                     clearLoadingOverlay()
                     if (response.answerType == "NEEDS_CLARIFICATION") {
+                        pendingFollowUp = null
                         if (placeholderId != null) {
                             _chatHistory.value = _chatHistory.value.filter { it.id != placeholderId }
                         }
@@ -1434,10 +1503,18 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
 
                         resetInactivityTimer()
                     } else {
-                        var finalAnswer = response.answerTextLocalized
+                        if (followUpAccepted) {
+                            Log.i("KioskVM", "Follow-up answer returned successfully.")
+                        }
+                        val finalAnswer = response.answerTextLocalized
                             ?: response.answerTextEn
                             ?: "I'm sorry, I couldn't find an answer."
-                        finalAnswer = applyRezeIntro(finalAnswer)
+                        pendingFollowUp = response.followUpIntent?.let {
+                            PendingFollowUp(
+                                intent = it,
+                                prompt = response.followUpPrompt
+                            )
+                        }
 
                         if (placeholderId != null) {
                             _chatHistory.value = _chatHistory.value.map {
@@ -1464,6 +1541,17 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
                                 queryTextOriginal = queryOriginal,
                                 excludeSourceIds = excludeSourceIds
                             ))
+                            _chatHistory.value = newList
+                        }
+                        if (!response.followUpPrompt.isNullOrBlank()) {
+                            val newList = _chatHistory.value.toMutableList()
+                            newList.add(
+                                ChatMessage(
+                                    isUser = false,
+                                    text = response.followUpPrompt,
+                                    id = UUID.randomUUID().toString()
+                                )
+                            )
                             _chatHistory.value = newList
                         }
                         speakAndShow(finalAnswer)
@@ -1537,37 +1625,15 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
         recorder.release()
     }
 
-    private fun applyRezeIntro(answer: String): String {
-        if (answer.isBlank()) return answer
-        val lowered = answer.trimStart().lowercase()
-        val introPrefixes = listOf(
-            "hi i'm reze",
-            "hi, i'm reze",
-            "i'm reze",
-            "im reze",
-            "hello i'm reze",
-            "hello im reze",
-        )
-
-        val startsWithIntro = introPrefixes.any { lowered.startsWith(it) }
-        if (!hasIntroducedReze) {
-            hasIntroducedReze = true
-            return if (startsWithIntro) {
-                answer
-            } else {
-                "Hi I'm Reze. " + answer.trimStart()
-            }
+    private suspend fun waitForTtsToSettle() {
+        tts?.stop()
+        val ttsStopDeadline = System.currentTimeMillis() + 1200L
+        while (tts?.isPlaying() == true && System.currentTimeMillis() < ttsStopDeadline) {
+            delay(40L)
         }
-
-        if (startsWithIntro) {
-            var trimmed = answer.trimStart()
-            // Remove the intro sentence if present.
-            trimmed = trimmed.replaceFirst(Regex("(?i)^hi,?\\s+i'?m\\s+reze\\.?\\s*"), "")
-            trimmed = trimmed.replaceFirst(Regex("(?i)^hello\\s+i'?m\\s+reze\\.?\\s*"), "")
-            trimmed = trimmed.replaceFirst(Regex("(?i)^i'?m\\s+reze\\.?\\s*"), "")
-            return trimmed.trimStart()
-        }
-
-        return answer
+        // Clear recorder pre-buffer and add a short settle window so speaker tail isn't captured.
+        recorder.clearPreBuffer()
+        delay(220L)
     }
+
 }

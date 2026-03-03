@@ -10,6 +10,7 @@ function KBViewer() {
     const [filter, setFilter] = useState('all');
     const [search, setSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
+    const [selectedArticle, setSelectedArticle] = useState(null);
     const itemsPerPage = 10;
     const location = useLocation();
     const navigate = useNavigate();
@@ -93,6 +94,13 @@ function KBViewer() {
 
     const totalPages = Math.ceil(filtered.length / itemsPerPage);
     const paginatedArticles = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    const selectedArticleBody =
+        selectedArticle?.answer ||
+        selectedArticle?.content ||
+        selectedArticle?.article ||
+        selectedArticle?.body ||
+        selectedArticle?.response ||
+        '';
 
     // Reset to page 1 when filters change
     useEffect(() => {
@@ -332,10 +340,10 @@ function KBViewer() {
                                         </span>
                                     ) : (
                                         <div className="flex gap-1">
-                                            <button onClick={() => openEditModal(a)} className="btn btn-icon" title="Edit">
+                                            <button onClick={(e) => { e.stopPropagation(); openEditModal(a); }} className="btn btn-icon" title="Edit">
                                                 <Edit size={15} style={{ color: 'var(--primary)' }} />
                                             </button>
-                                            <button onClick={() => handleDelete(a.id)} className="btn btn-icon" title="Delete">
+                                            <button onClick={(e) => { e.stopPropagation(); handleDelete(a.id); }} className="btn btn-icon" title="Delete">
                                                 <Trash2 size={15} style={{ color: 'var(--danger)' }} />
                                             </button>
                                         </div>
@@ -723,6 +731,36 @@ function KBViewer() {
                                     </div>
                                 </div>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {selectedArticle && (
+                <div className="modal-overlay" onClick={() => setSelectedArticle(null)}>
+                    <div
+                        className="modal-content article-view-modal"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="modal-header">
+                            <h3 className="modal-title">Article Details</h3>
+                            <button className="btn btn-sm" onClick={() => setSelectedArticle(null)}>Close</button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="article-view-head">
+                                <div className="article-view-question">{selectedArticle.question || 'Untitled article'}</div>
+                                <div className="article-view-meta">
+                                    <span className="badge">{selectedArticle.category || 'Uncategorized'}</span>
+                                    <span className={`badge ${selectedArticle.status === 'published' ? 'badge-success' : 'badge-warning'}`}>
+                                        {(selectedArticle.status || 'draft').toUpperCase()}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="article-view-content">
+                                {selectedArticleBody
+                                    ? selectedArticleBody
+                                    : 'No article content available.'}
+                            </div>
                         </div>
                     </div>
                 </div>

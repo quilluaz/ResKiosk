@@ -84,6 +84,8 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
         # Track rewrite state for logging
         rewritten_text = text
         rewrite_happened = False
+        follow_up_prompt = result.get("follow_up_prompt")
+        follow_up_intent = result.get("follow_up_intent")
 
         # Query rewrite on low-confidence results
         if result["answer_type"] in ("NO_MATCH", "NEEDS_CLARIFICATION"):
@@ -106,6 +108,8 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                     result = retry_result
                     rewritten_text = candidate
                     rewrite_happened = True
+                    follow_up_prompt = result.get("follow_up_prompt")
+                    follow_up_intent = result.get("follow_up_intent")
                 except Exception as e:
                     logger.warning(f"[Query] Rewrite retry failed: {e}")
 
@@ -138,7 +142,11 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
             answer_text = "I am here to answer questions about registration, food, medical help, sleeping areas, transportation, safety, and other services in this shelter. Please ask about one of these topics or see a volunteer for more help."
 
         latency = (time.time() - start_time) * 1000
-        logger.info(f"[Query] {answer_type} in {latency:.0f}ms | conf={confidence:.2f} | lang={user_language}")
+        logger.info(
+            f"[Query] {answer_type} in {latency:.0f}ms | conf={confidence:.2f} | lang={user_language} "
+            f"| is_compound={bool(result.get('is_compound'))} | primary={result.get('intent')} | secondary={follow_up_intent} "
+            f"| follow_up_prompt_emitted={bool(follow_up_prompt)}"
+        )
 
         # Translate answer back to user's language
         answer_text_localized = None
@@ -247,6 +255,8 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
             query_log_id=query_log_id,
             rlhf_top_source_id=result.get("rlhf_top_source_id"),
             rlhf_top_score=result.get("rlhf_top_score"),
+            follow_up_prompt=follow_up_prompt,
+            follow_up_intent=follow_up_intent,
         )
 
     except Exception:
@@ -259,6 +269,8 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
             kb_version=getattr(query, "kb_version", 1),
             source_id=None,
             clarification_categories=None,
+            follow_up_prompt=None,
+            follow_up_intent=None,
         )
 
 

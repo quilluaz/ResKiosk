@@ -66,10 +66,21 @@ class MainActivity : ComponentActivity() {
             MaterialTheme(colorScheme = colorScheme) {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     val modelsDir = File(filesDir, "sherpa-models")
-                    val sttDir = File(modelsDir, ModelConstants.STT_DIR_BILINGUAL)
-                    val ttsDir = File(modelsDir, ModelConstants.TTS_DIR_EN)
+                    val requiredModelDirs = listOf(
+                        File(modelsDir, ModelConstants.STT_DIR_BILINGUAL),
+                        File(modelsDir, ModelConstants.STT_DIR_JA),
+                        File(modelsDir, ModelConstants.STT_DIR_WHISPER),
+                        File(modelsDir, ModelConstants.TTS_DIR_EN),
+                        File(modelsDir, ModelConstants.TTS_DIR_JA),
+                        File(modelsDir, ModelConstants.TTS_DIR_ES),
+                        File(modelsDir, ModelConstants.TTS_DIR_DE),
+                        File(modelsDir, ModelConstants.TTS_DIR_FR),
+                        File(modelsDir, ModelConstants.PUNCTUATION_DIR),
+                    )
 
-                    var setupComplete by remember { mutableStateOf(sttDir.exists() && ttsDir.exists()) }
+                    var setupComplete by remember {
+                        mutableStateOf(requiredModelDirs.all { it.exists() && (it.list()?.isNotEmpty() ?: false) })
+                    }
 
                     if (setupComplete) {
                         MainKioskScreen(viewModel = kioskViewModel)
