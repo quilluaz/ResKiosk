@@ -250,46 +250,46 @@ function EmergencyCalls() {
 
     const getTierChipStyle = (tier) => {
         if ((tier || 1) === 1) {
-            return { background: '#b71c1c', color: '#fff', border: '1px solid #e57373' };
+            return { background: 'var(--danger)', color: '#fff', border: '1px solid var(--danger)' };
         }
-        return { background: '#8a6d1a', color: '#fff', border: '1px solid #d4b14a' };
+        return { background: 'var(--warning)', color: '#fff', border: '1px solid var(--warning)' };
     };
 
     const getStatusChipStyle = (status) => {
         const s = (status || 'ACTIVE').toUpperCase();
-        if (s === 'ACTIVE') return { background: 'rgba(183, 28, 28, 0.16)', color: '#ffb4b4', border: '1px solid rgba(255, 120, 120, 0.35)' };
-        if (s === 'ACKNOWLEDGED') return { background: 'rgba(255, 179, 0, 0.14)', color: '#ffd166', border: '1px solid rgba(255, 209, 102, 0.35)' };
-        if (s === 'RESPONDING') return { background: 'rgba(79, 195, 247, 0.14)', color: '#9fe8ff', border: '1px solid rgba(120, 220, 255, 0.35)' };
-        if (s === 'DISMISSED') return { background: 'rgba(158, 158, 158, 0.2)', color: '#d6d6d6', border: '1px solid rgba(200, 200, 200, 0.25)' };
-        if (s === 'RESOLVED') return { background: 'rgba(102, 187, 106, 0.16)', color: '#b9f6ca', border: '1px solid rgba(165, 214, 167, 0.35)' };
-        return { background: 'rgba(160, 160, 160, 0.16)', color: '#e0e0e0', border: '1px solid rgba(180, 180, 180, 0.3)' };
+        if (s === 'ACTIVE') return { background: 'var(--danger-light)', color: 'var(--danger)', border: '1px solid var(--danger)' };
+        if (s === 'ACKNOWLEDGED') return { background: 'var(--warning-light)', color: 'var(--warning)', border: '1px solid var(--warning)' };
+        if (s === 'RESPONDING') return { background: 'rgba(2, 136, 209, 0.14)', color: 'var(--info)', border: '1px solid var(--info)' };
+        if (s === 'DISMISSED') return { background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' };
+        if (s === 'RESOLVED') return { background: 'var(--success-light)', color: 'var(--success)', border: '1px solid var(--success)' };
+        return { background: 'var(--surface)', color: 'var(--text-main)', border: '1px solid var(--border)' };
     };
 
     const getAlertCardStyle = (alert) => {
         const status = (alert?.status || 'ACTIVE').toUpperCase();
         if (status === 'ACTIVE') {
             return {
-                border: '1px solid rgba(255, 84, 84, 0.42)',
-                background: 'linear-gradient(180deg, rgba(140, 22, 22, 0.38), rgba(90, 16, 16, 0.22))',
-                boxShadow: '0 0 0 1px rgba(183, 28, 28, 0.2), 0 8px 24px rgba(0,0,0,0.25)',
+                border: '1px solid var(--danger)',
+                background: 'var(--danger-light)',
+                boxShadow: '0 0 0 1px var(--danger), var(--shadow-md)',
             };
         }
         if (status === 'RESPONDING') {
             return {
-                border: '1px solid rgba(120, 220, 255, 0.35)',
-                background: 'linear-gradient(180deg, rgba(16, 51, 72, 0.36), rgba(12, 37, 55, 0.2))',
-                boxShadow: '0 0 0 1px rgba(79, 195, 247, 0.18), 0 8px 20px rgba(0,0,0,0.2)',
+                border: '1px solid var(--info)',
+                background: 'rgba(2, 136, 209, 0.1)',
+                boxShadow: '0 0 0 1px var(--info), var(--shadow-sm)',
             };
         }
         if (status === 'ACKNOWLEDGED') {
             return {
-                border: '1px solid rgba(255, 209, 102, 0.32)',
-                background: 'linear-gradient(180deg, rgba(92, 72, 22, 0.34), rgba(58, 45, 14, 0.2))',
+                border: '1px solid var(--warning)',
+                background: 'var(--warning-light)',
             };
         }
         return {
-            border: '1px solid rgba(160, 160, 160, 0.28)',
-            background: 'linear-gradient(180deg, rgba(70, 70, 70, 0.22), rgba(46, 46, 46, 0.16))',
+            border: '1px solid var(--border)',
+            background: 'var(--surface)',
         };
     };
 
@@ -298,31 +298,7 @@ function EmergencyCalls() {
         fontWeight: 700,
         borderRadius: 10,
         padding: '0.55rem 0.85rem',
-        border: '1px solid transparent',
         letterSpacing: '0.01em',
-    };
-
-    const btnPrimary = {
-        ...actionBtnStyle,
-        background: 'linear-gradient(180deg, #ff7a1a, #e05e00)',
-        color: '#fff',
-        borderColor: 'rgba(255, 190, 120, 0.45)',
-        boxShadow: '0 6px 18px rgba(224, 94, 0, 0.35)',
-    };
-
-    const btnSecondary = {
-        ...actionBtnStyle,
-        background: 'rgba(255, 255, 255, 0.06)',
-        color: '#e8e8e8',
-        borderColor: 'rgba(255, 255, 255, 0.18)',
-    };
-
-    const btnSuccess = {
-        ...actionBtnStyle,
-        background: 'linear-gradient(180deg, #2e8f4b, #256f3a)',
-        color: '#fff',
-        borderColor: 'rgba(149, 242, 178, 0.4)',
-        boxShadow: '0 6px 18px rgba(46, 143, 75, 0.32)',
     };
 
     const exportHistoryCsv = () => {
@@ -442,7 +418,7 @@ function EmergencyCalls() {
                                 <div className="flex justify-between items-start gap-4">
                                     <div>
                                         <div className="flex items-center gap-2">
-                                            <div className="font-semibold text-lg" style={{ color: '#ffd9d9' }}>
+                                            <div className="font-semibold text-lg" style={{ color: 'var(--text-main)' }}>
                                                 {a.kiosk_name || a.kiosk_location || 'Unknown kiosk'}
                                             </div>
                                             <span className="badge" style={getTierChipStyle(a.tier)}>
@@ -452,47 +428,47 @@ function EmergencyCalls() {
                                                 {a.status || 'ACTIVE'}
                                             </span>
                                         </div>
-                                        <div className="text-xs mt-1" style={{ color: '#9aa0a6' }}>
+                                        <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
                                             Kiosk ID: {a.kiosk_id || 'unknown'}
                                             {a.kiosk_location ? ` | Location: ${a.kiosk_location}` : ''}
                                         </div>
-                                        <div className="text-sm mt-1" style={{ color: '#bfbfbf' }}>
+                                        <div className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
                                             {new Date(a.timestamp).toLocaleString()} | {formatTimeAgo(a.timestamp)}
                                         </div>
-                                        <div className="text-xs mt-1" style={{ color: '#9aa0a6' }}>
+                                        <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
                                             Tier: {a.tier || 1} | Lang: {a.language || 'en'}
                                         </div>
 
                                         {a.transcript && (
-                                            <p className="mt-2" style={{ color: '#f0f0f0' }}>{a.transcript}</p>
+                                            <p className="mt-2" style={{ color: 'var(--text-main)' }}>{a.transcript}</p>
                                         )}
                                         {a.dismissed_by_kiosk === 1 && (
-                                            <div className="text-xs mt-2" style={{ color: '#9aa0a6' }}>User dismissed at kiosk.</div>
+                                            <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>User dismissed at kiosk.</div>
                                         )}
                                     </div>
                                     <div className="flex flex-col gap-2">
                                         {a.status === 'ACTIVE' && (
-                                            <button style={btnPrimary} onClick={() => acknowledgeAlert(a.id)}>
+                                            <button className="btn btn-primary" style={actionBtnStyle} onClick={() => acknowledgeAlert(a.id)}>
                                                 Acknowledge Alert
                                             </button>
                                         )}
                                         {a.status === 'ACKNOWLEDGED' && (
                                             <>
-                                                <button style={btnPrimary} onClick={() => respondingAlert(a.id)}>
+                                                <button className="btn btn-primary" style={actionBtnStyle} onClick={() => respondingAlert(a.id)}>
                                                     Mark Responding
                                                 </button>
-                                                <button style={btnSecondary} onClick={() => resolveAlert(a.id)}>
+                                                <button className="btn" style={actionBtnStyle} onClick={() => resolveAlert(a.id)}>
                                                     Resolve Alert
                                                 </button>
                                             </>
                                         )}
                                         {a.status === 'RESPONDING' && (
-                                            <button style={btnSuccess} onClick={() => resolveAlert(a.id)}>
+                                            <button className="btn btn-success" style={actionBtnStyle} onClick={() => resolveAlert(a.id)}>
                                                 Resolve Alert
                                             </button>
                                         )}
                                         {a.status === 'DISMISSED' && (
-                                            <button style={btnSecondary} onClick={() => resolveAlert(a.id)}>
+                                            <button className="btn" style={actionBtnStyle} onClick={() => resolveAlert(a.id)}>
                                                 Resolve Dismissed Alert
                                             </button>
                                         )}

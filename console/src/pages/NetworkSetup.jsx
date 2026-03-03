@@ -86,39 +86,12 @@ function NetworkSetup() {
 
                 <div className="card qr-card">
                     <h3>Scan to Connect</h3>
-                    <div className="p-4 bg-white rounded border" style={{ display: 'inline-block' }}>
+                    <div className="p-4 rounded border" style={{ display: 'inline-block', backgroundColor: 'white', borderColor: 'white' }}>
                         <QRCodeSVG value={hubUrl} size={150} />
                     </div>
                 </div>
             </div>
 
-            <div className="card space-y-4">
-                <h3 className="section-title">Configuration</h3>
-
-                <div className="form-group">
-                    <label>Network Mode</label>
-                    <select className="input" style={{ maxWidth: '24rem' }}>
-                        <option>Using existing Wi-Fi (Recommended)</option>
-                        <option>Hub Hosting Hotspot (Standalone)</option>
-                    </select>
-                </div>
-
-                <div className="form-group">
-                    <label>Static IP Override (Optional)</label>
-                    <input className="input" style={{ maxWidth: '24rem' }} placeholder="e.g. 192.168.1.100" />
-                    <p className="form-hint">Leave empty to use automatic detection.</p>
-                </div>
-
-                <div className="form-group">
-                    <label>Firewall Status</label>
-                    <div className="flex items-center gap-2">
-                        <span className="status-dot warning"></span>
-                        <span className="text-sm">Unknown (check manually)</span>
-                    </div>
-                </div>
-
-                <button className="btn btn-primary">Save Network Settings</button>
-            </div>
 
             <div className="card">
                 <div className="flex justify-between items-center mb-4">

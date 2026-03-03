@@ -3,17 +3,17 @@
   --primary-hover: #D35400;
   --primary-light: #FFF4EC;
   --accent: #F5A35A;
-  --bg-color: #F8F9FA;
-  --surface: rgba(255, 255, 255, 0.35);
+  --bg-color: #E0E3E7;
+  --surface: rgba(255, 255, 255, 0.55);
   --glass-border: rgba(255, 255, 255, 0.6);
   --text-main: #1C1C1E;
   --text-muted: #757575;
   --border: rgba(232, 232, 227, 0.4);
-  --danger: #D32F2F;
+  --danger: #C62828;
   --danger-light: #FFEBEE;
-  --success: #388E3C;
+  --success: #2E7D32;
   --success-light: #E8F5E9;
-  --warning: #F9A825;
+  --warning: #F57F17;
   --warning-light: #FFF8E1;
   --info: #0288D1;
   --radius: 8px;
@@ -956,12 +956,13 @@ tr:hover td {
 
 /* Hub URL highlight card */
 .hub-url-card {
-  background: rgba(232, 97, 10, 0.1); /* Translucent primary */
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--accent);
+  background: var(--surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   padding: 1.25rem 1.5rem;
+  box-shadow: var(--shadow-sm);
 }
 
 .hub-url-card h3 {

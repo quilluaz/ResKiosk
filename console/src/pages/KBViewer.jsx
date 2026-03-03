@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import hubClient from '../api/hubClient';
-import { Plus, Edit, Trash2, Save, X, Upload, FileJson, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, X, Upload, FileJson, CheckCircle, AlertCircle, Loader, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { useModal } from '../components/ModalProvider';
 
 function KBViewer() {
@@ -307,8 +307,8 @@ function KBViewer() {
                 <table>
                     <thead>
                         <tr>
-                            <th>Question</th>
-                            <th>Category</th>
+                            <th onClick={() => handleSort('question')} style={{ cursor: 'pointer', userSelect: 'none' }}>Question {getSortIcon('question')}</th>
+                            <th onClick={() => handleSort('category')} style={{ cursor: 'pointer', userSelect: 'none' }}>Category {getSortIcon('category')}</th>
                             <th>Status</th>
                             <th>Created By</th>
                             <th>Updated By</th>

@@ -3,7 +3,7 @@ import hubClient from '../api/hubClient';
 import logoSvg from '../assets/reskiosk-logo.svg';
 // Removed direct KBViewer import to use a custom paginated list instead
 import { useNavigate } from 'react-router-dom';
-import { HelpCircle, TrendingUp, MessageCircle, Hash, FileText, Edit } from 'lucide-react';
+import { HelpCircle, TrendingUp, MessageCircle, Hash, FileText, Edit, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { useModal } from '../components/ModalProvider';
 
 function Dashboard({ setEmergencyMode }) {
@@ -15,6 +15,8 @@ function Dashboard({ setEmergencyMode }) {
     const [articles, setArticles] = useState([]);
     const [selectedArticle, setSelectedArticle] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
+    const [sortField, setSortField] = useState('');
+    const [sortOrder, setSortOrder] = useState('asc');
     const itemsPerPage = 5;
     const navigate = useNavigate();
 
@@ -76,6 +78,38 @@ function Dashboard({ setEmergencyMode }) {
             await modal.alert("Failed to toggle emergency mode");
         }
     };
+
+    const handleSort = (field) => {
+        if (sortField === field) {
+            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortField(field);
+            setSortOrder('asc');
+        }
+    };
+
+    const getSortIcon = (field) => {
+        if (sortField !== field) return <ChevronsUpDown size={14} className="inline ml-1" style={{ opacity: 0.4 }} />;
+        return sortOrder === 'asc' ? <ChevronUp size={14} className="inline ml-1" /> : <ChevronDown size={14} className="inline ml-1" />;
+    };
+
+    const sortedArticles = [...articles].sort((a, b) => {
+        if (!sortField) return 0;
+        let valA = a[sortField];
+        let valB = b[sortField];
+        
+        if (sortField === 'question' || sortField === 'category') {
+            valA = (valA || '').toLowerCase();
+            valB = (valB || '').toLowerCase();
+        } else if (sortField === 'last_updated') {
+            valA = valA || 0;
+            valB = valB || 0;
+        }
+
+        if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+        if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+        return 0;
+    });
 
     if (loading) return <div className="p-8 text-muted">Loading Dashboard...</div>;
 
@@ -185,10 +219,7 @@ function Dashboard({ setEmergencyMode }) {
                                   }
                               }
                           }}
-                          className={`btn ${isEmergency ? '' : 'btn-danger'}`}
-                          style={isEmergency
-                            ? { backgroundColor: '#E8610A', borderColor: '#E8610A', color: '#fff' }
-                            : { backgroundColor: '#b71c1c', borderColor: '#b71c1c', color: '#fff' }}
+                          className={`btn ${isEmergency ? 'btn-primary' : 'btn-danger'}`}
                     >
                         {isEmergency ? 'DEACTIVATE' : 'ACTIVATE'}
                     </button>
@@ -206,9 +237,10 @@ function Dashboard({ setEmergencyMode }) {
                 <table>
                     <thead>
                         <tr>
-                            <th>Question</th>
-                            <th>Category</th>
+                            <th onClick={() => handleSort('question')} style={{ cursor: 'pointer', userSelect: 'none' }}>Question {getSortIcon('question')}</th>
+                            <th onClick={() => handleSort('category')} style={{ cursor: 'pointer', userSelect: 'none' }}>Category {getSortIcon('category')}</th>
                             <th>Status</th>
+                            <th onClick={() => handleSort('last_updated')} style={{ cursor: 'pointer', userSelect: 'none' }}>Last Updated {getSortIcon('last_updated')}</th>
                             <th style={{ width: '4rem' }}>Edit</th>
                         </tr>
                     </thead>
@@ -227,6 +259,7 @@ function Dashboard({ setEmergencyMode }) {
                                         {(a.status || 'draft').toUpperCase()}
                                     </span>
                                 </td>
+                                <td className="text-muted text-sm">{a.last_updated ? new Date(a.last_updated * 1000).toLocaleString() : '—'}</td>
                                 <td>
                                     <button 
                                         onClick={(e) => {
@@ -241,9 +274,9 @@ function Dashboard({ setEmergencyMode }) {
                                 </td>
                             </tr>
                         ))}
-                        {articles.length === 0 && (
+                        {sortedArticles.length === 0 && (
                             <tr>
-                                <td colSpan="4" className="empty-state">No articles found.</td>
+                                <td colSpan="5" className="empty-state">No articles found.</td>
                             </tr>
                         )}
                     </tbody>
