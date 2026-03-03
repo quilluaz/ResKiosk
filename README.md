@@ -102,9 +102,10 @@ All AI models run locally. The hub, kiosks, console, and RELAY nodes can communi
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+
 ### Architecture Overview
 
-mermaid
+```mermaid
 flowchart TB
     subgraph kiosk [Android Kiosk]
         Tap[User taps Speak]
@@ -114,7 +115,7 @@ flowchart TB
         Receive[Receive response]
         TTS[TTS speak]
     end
-    subgraph hubconsole [Hub + Console]
+    subgraph hub [Hub - FastAPI]
         Route[submit_query]
         Trans[NLLB Translate to EN]
         Norm[normalize_query]
@@ -122,20 +123,21 @@ flowchart TB
         Intent[IntentClassifier]
         Embed[MiniLM embed + cosine sim]
         Gate[Gating / Clarification]
-        Rewrite[Ollama rewriter model]
-        Format[Ollama formatter model]
-        Admin[React admin console]
+        Format[Ollama LLM format]
+        Back[Translate response back]
     end
-    subgraph relay [ResKiosk RELAY Nodes (LoRa)]
-        RelayMsg[Inter-hub relay messaging]
+    subgraph console [Admin Console - React]
+        KB[KB Manager]
+        Config[Shelter Config]
+        Emergency[Emergency Calls]
+        Logs[Query Logs]
     end
     Tap --> Listen --> Post --> Send --> Route
     Route --> Trans --> Norm --> Retrieve
-    Retrieve --> Intent --> Embed --> Gate --> Rewrite --> Format
-    Format --> Receive --> TTS
-    Admin <-.-> Route
-    Route <-.-> RelayMsg
-
+    Retrieve --> Intent --> Embed --> Gate --> Format --> Back
+    Back --> Receive --> TTS
+    console <-.-> hub
+```
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ### Built With
@@ -565,36 +567,48 @@ Retrieval is fast (~25 ms). LLM formatting dominates total query latency. See [B
 
 ## Project Structure
 
+```
 ResKiosk/
-├── hub/                        # Python backend + console serving + relay APIs
-│   ├── api/                    #   Route handlers (query, emergency, admin, KB, lora)
-│   ├── db/                     #   SQLAlchemy models and migrations
+├── hub/                        # Python backend (FastAPI)
+│   ├── api/                    #   Route handlers (query, emergency, admin, KB)
+│   ├── db/                     #   SQLAlchemy models, migrations, evac sync
 │   ├── retrieval/              #   Search, intent, embedder, formatter, rewriter, RLHF
-│   ├── services/               #   Translation and runtime services
-│   ├── core/                   #   Config, security, LoRa serial/crypto utilities
+│   ├── services/               #   Translation, cloud (paused), connectivity
+│   ├── models/                 #   Pydantic API models
+│   ├── core/                   #   Config, security, utilities
 │   ├── main.py                 #   FastAPI app entry point
 │   └── launcher.py             #   Ollama + Uvicorn orchestrator
 │
 ├── kiosk/                      # Android app (Kotlin + Jetpack Compose)
 │   └── app/src/main/java/com/reskiosk/
-│       ├── ui/                 #   Compose screens
-│       ├── viewmodel/          #   KioskViewModel
-│       ├── audio/              #   AudioRecorder
+│       ├── ui/                 #   Compose screens (MainKioskScreen, settings)
+│       ├── viewmodel/          #   KioskViewModel (state machine, query pipeline)
+│       ├── audio/              #   AudioRecorder (ring buffer, STT feed)
 │       ├── stt/                #   SherpaSttEngine, SttPostProcessor
 │       ├── tts/                #   SherpaTtsEngine
 │       ├── emergency/          #   EmergencyDetector, EmergencyStrings
 │       └── network/            #   HubApiClient (Retrofit)
 │
 ├── console/                    # Admin dashboard (React + Vite)
+│   └── src/
+│       ├── pages/              #   Dashboard, KBViewer, ShelterConfig, EmergencyCalls, etc.
+│       └── assets/             #   Logo, styles
+│
 ├── packaging/                  # Model bundling + PyInstaller
+│   ├── bundle_models.py        #   Download MiniLM, NLLB, Ollama models
+│   └── reskiosk-hub.spec       #   PyInstaller spec for standalone .exe
+│
 ├── TO RUN/                     # One-click setup scripts
+│   ├── 01_install_deps.bat     #   Venv + pip + npm + console build
+│   ├── 02_download_models.bat  #   Download all AI models
+│   ├── start_hub.vbs           #   Launch hub in background
+│   └── README.md               #   Setup instructions
+│
 ├── docs/                       # Documentation
 ├── scripts/                    # Utility/test scripts
 ├── requirements.txt            # Python dependencies
 └── reskiosk.db                 # SQLite database (generated at runtime)
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
+```
 ---
 
 ## Documentation
@@ -668,3 +682,4 @@ ResKiosk/
 [React-url]: https://reactjs.org/
 [Vite-badge]: https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white
 [Vite-url]: https://vitejs.dev/
+
