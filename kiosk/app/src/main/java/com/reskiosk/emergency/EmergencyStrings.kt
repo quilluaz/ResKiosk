@@ -2,8 +2,15 @@ package com.reskiosk.emergency
 
 /** Pre-translated UI/emergency strings. Falls back to English if key/lang is missing. */
 object EmergencyStrings {
-    fun get(key: String, lang: String): String =
-        strings[lang]?.get(key) ?: strings["en"]!![key] ?: key
+    fun get(key: String, lang: String): String {
+        if (lang == "ja" && key == "ja_tts_missing") {
+            return "日本語の音声パッケージが見つかりません。日本語のテキスト読み上げ音声データをインストールしてください。"
+        }
+        if (lang == "ja" && key == "err_system") {
+            return "システムエラーが発生しました。もう一度お試しください。"
+        }
+        return strings[lang]?.get(key) ?: strings["en"]!![key] ?: key
+    }
 
     fun getRandom(keyBase: String, count: Int, lang: String): String {
         if (count <= 1) return get(keyBase, lang)
@@ -52,7 +59,7 @@ object EmergencyStrings {
         "keyboard_open" to "Keyboard",
         "input_placeholder" to "Type your question",
         "send" to "Send",
-        "voice_only_hint" to "Tap the button below and speak your question.",
+        "voice_only_hint" to "Tap the button below to get started.",
         "text_only_hint" to "Use the keyboard below to ask a question.",
         "text_voice_hint" to "Tap speak or open the keyboard to ask a question.",
         "asking_hub_title_1" to "Asking the hub...",
@@ -66,7 +73,16 @@ object EmergencyStrings {
         "sos_hold_instruction" to "Press and hold for 3 seconds to send SOS.",
         "sos_hold_button" to "Hold to Send SOS",
         "cancel_button" to "Cancel",
-        "session_ending" to "Session ending, thank you for using ResKiosk."
+        "session_ending" to "Session ended. Thank you for using ResKiosk.",
+        "clarification_question" to "Which category are you asking?",
+        "no_answer_found" to "I'm sorry, I couldn't find an answer.",
+        "hub_not_configured" to "Hub URL is not configured correctly. Please reconnect to the Hub.",
+        "err_hub_unreachable" to "Cannot reach the Hub. Please check your WiFi connection.",
+        "err_hub_timeout" to "The Hub is taking too long to respond. Please try again.",
+        "err_connection_timeout" to "Connection timed out. Please try again.",
+        "err_generic" to "Something went wrong. Please try again.",
+        "err_system" to "A system error occurred. Please try again.",
+        "ja_tts_missing" to "Japanese voice package is missing. Please install Japanese Text-to-Speech voice data."
     )
 
     private val es = en + mapOf(
@@ -103,7 +119,9 @@ object EmergencyStrings {
         "sos_confirm_body" to "Usa esto solo cuando necesites ayuda inmediata.",
         "sos_hold_instruction" to "Manten pulsado 3 segundos para enviar SOS.",
         "sos_hold_button" to "Mantener para enviar SOS",
-        "cancel_button" to "Cancelar"
+        "cancel_button" to "Cancelar",
+        "err_system" to "Se produjo un error del sistema. Intentalo de nuevo.",
+        "ja_tts_missing" to "Falta el paquete de voz japonesa. Instala los datos de voz de texto a voz en japones."
     )
 
     private val de = en + mapOf(
@@ -115,7 +133,9 @@ object EmergencyStrings {
         "text_only_hint" to "Nutze die Tastatur unten fur deine Frage.",
         "keyboard_open" to "Tastatur",
         "send" to "Senden",
-        "asking_hub_subtitle" to "Reze antwortet gleich..."
+        "asking_hub_subtitle" to "Reze antwortet gleich...",
+        "err_system" to "Ein Systemfehler ist aufgetreten. Bitte versuche es erneut.",
+        "ja_tts_missing" to "Das japanische Sprachpaket fehlt. Bitte installiere japanische Text-zu-Sprache-Sprachdaten."
     )
 
     private val fr = en + mapOf(
@@ -127,17 +147,72 @@ object EmergencyStrings {
         "text_only_hint" to "Utilisez le clavier ci-dessous pour poser une question.",
         "keyboard_open" to "Clavier",
         "send" to "Envoyer",
-        "asking_hub_subtitle" to "Reze repondra bientot..."
+        "asking_hub_subtitle" to "Reze repondra bientot...",
+        "err_system" to "Une erreur systeme est survenue. Veuillez reessayer.",
+        "ja_tts_missing" to "Le pack de voix japonaise est manquant. Installez les donnees de synthese vocale japonaise."
     )
 
     private val ja = en + mapOf(
-        "start_subtitle_line_1" to "Ask by voice or type a message.",
-        "start_subtitle_line_2" to "Reze is ready to help.",
-        "session_start_welcome" to "こんにちは、Rezeです。今日はどのようにお手伝いできますか？開始するにはボタンを押してください。",
-        "mode_voice_only" to "Voice",
-        "mode_text_voice" to "Text",
-        "text_only_hint" to "Use the keyboard below to ask a question.",
-        "asking_hub_subtitle" to "Reze will respond soon."
+        "confirm_prompt" to "緊急の可能性があります。今すぐ緊急支援が必要ですか？",
+        "confirm_title" to "緊急支援が必要ですか？",
+        "confirm_yes" to "はい - 助けを呼ぶ",
+        "confirm_no" to "いいえ - キャンセル",
+        "active_title" to "支援が向かっています",
+        "active_body" to "対応チームにあなたの場所が通知されました。その場でお待ちください。あなたは一人ではありません。",
+        "acknowledged_title" to "救援要請を確認しました",
+        "acknowledged_body" to "スタッフが要請を確認しました。その場でお待ちください。",
+        "resolved_title" to "救援要請は解決されました",
+        "resolved_body" to "緊急要請は解決済みとして処理されました。この画面はまもなく閉じます。",
+        "dismiss" to "閉じる",
+        "sending_alert" to "アラート送信中...",
+        "help_on_the_way" to "支援が向かっています。",
+        "responding_body" to "その場でお待ちください。対応中です。",
+        "could_not_reach_hub" to "緊急システムに接続できません。再試行します。",
+        "retrying_attempt" to "再試行中... {max} 回中 {n} 回目。",
+        "cancel_false_alarm" to "キャンセル - 誤報です",
+        "listening" to "聞き取り中...",
+        "preparing" to "準備中...",
+        "recording_too_short" to "録音が短すぎます。もう少し長くボタンを押してください。",
+        "didnt_hear" to "音声を確認できませんでした。もう一度お試しください。",
+        "didnt_catch" to "聞き取れませんでした。もう一度お試しください。",
+        "retrieving_new_response_1" to "別の回答を取得しています...",
+        "retrieving_new_response_2" to "新しい回答を生成しています...",
+        "retrieving_new_response_3" to "より良い回答を探しています...",
+        "retrieving_new_response_4" to "別の回答を試しています...",
+        "retrieving_new_response_5" to "より分かりやすい回答を探しています...",
+        "start_title" to "ResKioskへようこそ",
+        "start_subtitle" to "音声またはテキストで質問できます。リゼがサポートします。",
+        "start_subtitle_line_1" to "音声またはテキストで質問できます。",
+        "start_subtitle_line_2" to "リゼがサポートします。",
+        "start_button" to "セッション開始",
+        "session_start_welcome" to "こんにちは、リゼです。今日はどのようにお手伝いできますか？開始するにはボタンを押してください。",
+        "mode_voice_only" to "音声",
+        "mode_text_voice" to "テキスト",
+        "keyboard_open" to "キーボード",
+        "input_placeholder" to "質問を入力してください",
+        "send" to "送信",
+        "voice_only_hint" to "下のボタンを押して質問してください。",
+        "text_only_hint" to "下のキーボードで質問してください。",
+        "text_voice_hint" to "話すかキーボード入力で質問できます。",
+        "asking_hub_title_1" to "ハブに問い合わせ中...",
+        "asking_hub_title_2" to "最適な回答を探しています...",
+        "asking_hub_title_3" to "避難所情報を確認中...",
+        "asking_hub_title_4" to "回答を準備しています...",
+        "asking_hub_title_5" to "もうすぐです...",
+        "asking_hub_subtitle" to "まもなくリゼが回答します。",
+        "sos_confirm_title" to "緊急アラートを確認",
+        "sos_confirm_body" to "これは緊急時のみ使用してください。",
+        "sos_hold_instruction" to "SOS送信には3秒間長押ししてください。",
+        "sos_hold_button" to "長押しでSOS送信",
+        "cancel_button" to "キャンセル",
+        "session_ending" to "セッションを終了しました。ResKioskをご利用いただきありがとうございました。",
+        "clarification_question" to "どのカテゴリについての質問ですか？",
+        "no_answer_found" to "申し訳ありません。回答が見つかりませんでした。",
+        "hub_not_configured" to "ハブURLの設定が正しくありません。ハブに再接続してください。",
+        "err_hub_unreachable" to "ハブに接続できません。Wi-Fi接続を確認してください。",
+        "err_hub_timeout" to "ハブの応答に時間がかかっています。もう一度お試しください。",
+        "err_connection_timeout" to "接続がタイムアウトしました。もう一度お試しください。",
+        "err_generic" to "問題が発生しました。もう一度お試しください。"
     )
 
     private val strings = mapOf(

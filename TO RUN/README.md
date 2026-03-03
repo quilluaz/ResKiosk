@@ -52,7 +52,7 @@ Run the scripts **in order**:
 4. `04_android_kiosk.bat`
    - Opens the **Android Kiosk** project folder (`kiosk/`) so you can open it in Android Studio.
    - Optionally launches Android Studio with the project if it is installed in a standard location.
-   - Before running the app: place STT/TTS model files in `kiosk/app/src/main/assets/` (see `kiosk/README.md`). In the app, set **Hub URL** (e.g. `http://<your-PC-IP>:8000`) via the Hub Connection screen so the kiosk can register and use Emergency, queries, and inventory.
+  - Before running the app: place STT/TTS model files in `kiosk/app/src/main/assets/` (see `kiosk/README.md`). For Japanese speech output, ensure Android Japanese Text-to-Speech voice data is installed on the device. In the app, set **Hub URL** (e.g. `http://<your-PC-IP>:8000`) via the Hub Connection screen so the kiosk can register and use Emergency and queries.
 
 ## Features available after setup
 

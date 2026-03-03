@@ -16,11 +16,14 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.PaddingValues
@@ -37,6 +40,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -75,6 +79,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -82,6 +87,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -479,7 +485,10 @@ private fun ChatStreamLoadingOverlay(
             .clickable(interactionSource = blocker, indication = null) {},
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            modifier = Modifier.offset(y = (-5).dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             CircularProgressIndicator(
                 modifier = Modifier.size(52.dp),
                 color = Color(0xFFE8610A),
@@ -489,14 +498,14 @@ private fun ChatStreamLoadingOverlay(
             Text(
                 text = title,
                 color = Color.White,
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.titleLarge,
                 textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(8.dp))
             Text(
                 text = subtitle,
                 color = Color.White.copy(alpha = 0.86f),
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center
             )
         }
@@ -773,7 +782,6 @@ private fun MainPage(
     onNavigateToHub: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val transcript by viewModel.transcript.collectAsState()
     val chatHistory by viewModel.chatHistory.collectAsState()
     val sessionId by viewModel.sessionId.collectAsState()
     val selectedLang by viewModel.selectedLanguage.collectAsState()
@@ -881,7 +889,6 @@ private fun MainPage(
             else -> NormalActiveSessionContent(
                 viewModel = viewModel,
                 uiState = uiState,
-                transcript = transcript,
                 chatHistory = chatHistory,
                 selectedLang = selectedLang,
                 chatMode = chatMode,
@@ -1198,7 +1205,6 @@ private fun SessionTerminatingOverlay() {
 private fun NormalActiveSessionContent(
     viewModel: KioskViewModel,
     uiState: KioskState,
-    transcript: String,
     chatHistory: List<com.reskiosk.viewmodel.ChatMessage>,
     selectedLang: String,
     chatMode: ChatMode,
@@ -1215,15 +1221,18 @@ private fun NormalActiveSessionContent(
     val isListening = uiState is KioskState.Listening || uiState is KioskState.PreparingToListen
     val isPreparing = uiState is KioskState.PreparingToListen
     val visibleMessages = if (isVoiceMode) chatHistory.filter { !it.isUser } else chatHistory
+    val suggestions by viewModel.faqSuggestions.collectAsState()
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
     val density = LocalDensity.current
     val isKeyboardVisible = WindowInsets.ime.getBottom(density) > 0
+    val latestFeedbackMessageId = visibleMessages
+        .lastOrNull { !it.isUser && it.sourceId != null }
+        ?.id
 
     val listState = rememberLazyListState()
-    LaunchedEffect(visibleMessages.size, transcript.length, isListening, uiState, chatMode) {
-        val showLive = isVoiceMode && transcript.isNotBlank() && uiState is KioskState.Listening
-        val totalItems = visibleMessages.size + if (showLive) 1 else 0
+    LaunchedEffect(visibleMessages.size, isListening, uiState, chatMode) {
+        val totalItems = visibleMessages.size
         if (totalItems > 0) listState.animateScrollToItem(totalItems - 1)
     }
 
@@ -1244,11 +1253,13 @@ private fun NormalActiveSessionContent(
         }
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .padding(top = 60.dp, bottom = 16.dp)
     ) {
+        val faqTopOffset = (maxHeight * 0.47f) + 6.dp
+
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.9f)
@@ -1258,194 +1269,159 @@ private fun NormalActiveSessionContent(
                 .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
                 .padding(12.dp)
         ) {
-            if (visibleMessages.isEmpty() && transcript.isBlank()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    when (val state = uiState) {
-                        is KioskState.Error -> Text(
-                            text = state.message,
-                            color = Color(0xFFD32F2F),
-                            style = MaterialTheme.typography.bodyLarge,
-                            textAlign = TextAlign.Center
-                        )
-                        is KioskState.Clarification -> {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(state.question, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
-                                Spacer(Modifier.height(8.dp))
-                                state.options.forEach { option ->
-                                    Button(
-                                        onClick = {
-                                            onSelectedCategoryChange(option)
-                                            viewModel.selectClarification(option)
-                                        },
-                                        modifier = Modifier.fillMaxWidth(0.7f).padding(vertical = 4.dp),
-                                        enabled = selectedCategory == null
-                                    ) {
-                                        Text(option)
-                                    }
-                                }
-                            }
-                        }
-                        else -> {
-                            val suggestions by viewModel.faqSuggestions.collectAsState()
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
-                            ) {
-                                Text(
-                                    text = if (isVoiceMode) {
-                                        EmergencyStrings.get("voice_only_hint", selectedLang)
-                                    } else {
-                                        EmergencyStrings.get("text_only_hint", selectedLang)
-                                    },
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    textAlign = TextAlign.Center
-                                )
-                                if (suggestions.isNotEmpty()) {
-                                    Spacer(Modifier.height(16.dp))
-                                    Text(
-                                        text = "Frequently Asked",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                    )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(if (isLoadingOverlay) Modifier.blur(10.dp) else Modifier)
+            ) {
+                if (visibleMessages.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        when (val state = uiState) {
+                            is KioskState.Error -> Text(
+                                text = state.message,
+                                color = Color(0xFFD32F2F),
+                                style = MaterialTheme.typography.bodyLarge,
+                                textAlign = TextAlign.Center
+                            )
+                            is KioskState.Clarification -> {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(state.question, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
                                     Spacer(Modifier.height(8.dp))
-                                    suggestions.forEach { faq ->
-                                        OutlinedButton(
-                                            onClick = { viewModel.selectFaqSuggestion(faq.question) },
-                                            modifier = Modifier
-                                                .fillMaxWidth(0.85f)
-                                                .padding(vertical = 3.dp),
-                                            shape = RoundedCornerShape(20.dp),
-                                            border = androidx.compose.foundation.BorderStroke(
-                                                1.dp, Color(0xFFE8610A)
-                                            )
+                                    state.options.forEach { option ->
+                                        Button(
+                                            onClick = {
+                                                onSelectedCategoryChange(option)
+                                                viewModel.selectClarification(option)
+                                            },
+                                            modifier = Modifier.fillMaxWidth(0.7f).padding(vertical = 4.dp),
+                                            enabled = selectedCategory == null
                                         ) {
-                                            Text(
-                                                text = faq.question,
-                                                color = Color(0xFFE8610A),
-                                                maxLines = 2,
-                                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                                textAlign = TextAlign.Center,
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
+                                            Text(option)
                                         }
                                     }
                                 }
                             }
-                        }
-                    }
-                }
-            } else {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(vertical = 8.dp)
-                ) {
-                    items(visibleMessages) { msg ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = if (msg.isUser) Arrangement.End else Arrangement.Start
-                        ) {
-                            val userBubbleColor = MaterialTheme.colorScheme.surfaceVariant
-                            val assistantBubbleColor = MaterialTheme.colorScheme.primaryContainer
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(0.82f)
-                                    .background(
-                                        if (msg.isUser) userBubbleColor else assistantBubbleColor,
-                                        RoundedCornerShape(12.dp)
+                            else -> {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
+                                ) {
+                                    Text(
+                                        text = if (isVoiceMode) {
+                                            EmergencyStrings.get("voice_only_hint", selectedLang)
+                                        } else {
+                                            EmergencyStrings.get("text_only_hint", selectedLang)
+                                        },
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center
                                     )
-                                    .padding(14.dp)
-                            ) {
-                                Text(
-                                    text = msg.text,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = if (msg.isUser)
-                                        MaterialTheme.colorScheme.onSurface
-                                    else
-                                        MaterialTheme.colorScheme.onPrimaryContainer
-                                )
+                                }
                             }
                         }
-                        if (!msg.isUser && msg.sourceId != null && msg.feedbackGiven == null) {
+                    }
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(vertical = 8.dp)
+                    ) {
+                        items(visibleMessages) { msg ->
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 4.dp, start = 4.dp),
-                                horizontalArrangement = Arrangement.Start
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = if (msg.isUser) Arrangement.End else Arrangement.Start
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .border(1.dp, Color(0xFFE8610A), RoundedCornerShape(14.dp))
-                                        .clickable { viewModel.sendFeedbackLike(msg.id) }
-                                        .padding(horizontal = 14.dp, vertical = 6.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.ThumbUp,
-                                        contentDescription = "Helpful",
-                                        tint = Color(0xFFE8610A),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                                Spacer(Modifier.width(8.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .border(1.dp, Color(0xFFE8610A), RoundedCornerShape(14.dp))
-                                        .clickable { viewModel.sendFeedbackDislike(msg.id) }
-                                        .padding(horizontal = 14.dp, vertical = 6.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.ThumbDown,
-                                        contentDescription = "Not Helpful",
-                                        tint = Color(0xFFE8610A),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    if (isVoiceMode && transcript.isNotBlank() && uiState is KioskState.Listening) {
-                        item {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                val userBubbleColor = MaterialTheme.colorScheme.surfaceVariant
+                                val assistantBubbleColor = MaterialTheme.colorScheme.primaryContainer
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth(0.82f)
-                                        .background(Color(0xFFE8E8E8).copy(alpha = 0.65f), RoundedCornerShape(12.dp))
+                                        .background(
+                                            if (msg.isUser) userBubbleColor else assistantBubbleColor,
+                                            RoundedCornerShape(12.dp)
+                                        )
                                         .padding(14.dp)
                                 ) {
-                                    Text(text = transcript, style = MaterialTheme.typography.bodyLarge, color = Color.DarkGray)
+                                    Text(
+                                        text = msg.text,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = if (msg.isUser)
+                                            MaterialTheme.colorScheme.onSurface
+                                        else
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+                            if (
+                                !msg.isUser &&
+                                msg.sourceId != null &&
+                                msg.feedbackGiven == null &&
+                                msg.id == latestFeedbackMessageId
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 4.dp, start = 4.dp),
+                                    horizontalArrangement = Arrangement.Start
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .border(1.dp, Color(0xFFE8610A), RoundedCornerShape(14.dp))
+                                            .clickable { viewModel.sendFeedbackLike(msg.id) }
+                                            .padding(horizontal = 14.dp, vertical = 6.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.ThumbUp,
+                                            contentDescription = "Helpful",
+                                            tint = Color(0xFFE8610A),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                    Spacer(Modifier.width(8.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .border(1.dp, Color(0xFFE8610A), RoundedCornerShape(14.dp))
+                                            .clickable { viewModel.sendFeedbackDislike(msg.id) }
+                                            .padding(horizontal = 14.dp, vertical = 6.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.ThumbDown,
+                                            contentDescription = "Not Helpful",
+                                            tint = Color(0xFFE8610A),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    if (uiState is KioskState.Clarification) {
-                        val clarification = uiState as KioskState.Clarification
-                        item {
-                            Column(
-                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    clarification.question,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    textAlign = TextAlign.Center,
-                                    color = Color(0xFFE8610A)
-                                )
-                                Spacer(Modifier.height(8.dp))
-                                clarification.options.forEach { option ->
-                                    Button(
-                                        onClick = {
-                                            onSelectedCategoryChange(option)
-                                            viewModel.selectClarification(option)
-                                        },
-                                        modifier = Modifier.fillMaxWidth(0.82f).padding(vertical = 4.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE8610A)),
-                                        enabled = selectedCategory == null
-                                    ) {
-                                        Text(option, textAlign = TextAlign.Center)
+                        if (uiState is KioskState.Clarification) {
+                            val clarification = uiState as KioskState.Clarification
+                            item {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        clarification.question,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        textAlign = TextAlign.Center,
+                                        color = Color(0xFFE8610A)
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    clarification.options.forEach { option ->
+                                        Button(
+                                            onClick = {
+                                                onSelectedCategoryChange(option)
+                                                viewModel.selectClarification(option)
+                                            },
+                                            modifier = Modifier.fillMaxWidth(0.82f).padding(vertical = 4.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE8610A)),
+                                            enabled = selectedCategory == null
+                                        ) {
+                                            Text(option, textAlign = TextAlign.Center)
+                                        }
                                     }
                                 }
                             }
@@ -1459,6 +1435,39 @@ private fun NormalActiveSessionContent(
                     title = loadingTitle,
                     subtitle = loadingSubtitle
                 )
+            }
+        }
+
+        val visibleSuggestions = suggestions.take(4)
+        if (visibleSuggestions.isNotEmpty()) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth(0.9f)
+                    .padding(top = faqTopOffset)
+            ) {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 2.dp)
+                ) {
+                    items(visibleSuggestions) { faq ->
+                        OutlinedButton(
+                            onClick = { viewModel.selectFaqSuggestion(faq.question) },
+                            shape = RoundedCornerShape(20.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE8610A)),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            )
+                        ) {
+                            Text(
+                                text = faq.question,
+                                color = Color(0xFFE8610A),
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -1542,32 +1551,65 @@ private fun NormalActiveSessionContent(
                     SonarWave(modifier = Modifier.size(220.dp))
                 }
                 if (isVoiceMode) {
+                    val interactionSource = remember { MutableInteractionSource() }
+                    val isPressed by interactionSource.collectIsPressedAsState()
+                    val engaged = isPressed || uiState is KioskState.Listening || isPreparing
+                    val outerBrush = if (engaged) {
+                        Brush.verticalGradient(
+                            colors = listOf(Color(0xFFCC5708), Color(0xFFB44A05))
+                        )
+                    } else {
+                        Brush.verticalGradient(
+                            colors = listOf(Color(0xFFF57C1F), Color(0xFFE8610A))
+                        )
+                    }
+                    val innerColor = if (engaged) Color(0xFFB44A05) else Color(0xFFD85A08)
+
                     Button(
                         onClick = {
                             if (isListening) viewModel.stopListening() else viewModel.startListening()
                         },
+                        interactionSource = interactionSource,
                         modifier = Modifier.size(132.dp),
                         shape = CircleShape,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE8610A)),
-                        contentPadding = PaddingValues(6.dp)
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                        contentPadding = PaddingValues(0.dp)
                     ) {
-                        if (isPreparing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(36.dp),
-                                color = Color.White,
-                                strokeWidth = 3.dp
-                            )
-                        } else {
-                            Text(
-                                text = if (uiState is KioskState.Listening) {
-                                    EmergencyStrings.get("listening", selectedLang)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape)
+                                .background(outerBrush)
+                                .border(2.dp, Color(0xFF9A3E04), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(if (engaged) 86.dp else 90.dp)
+                                    .clip(CircleShape)
+                                    .background(innerColor)
+                                    .border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isPreparing) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(32.dp),
+                                        color = Color.White,
+                                        strokeWidth = 3.dp
+                                    )
                                 } else {
-                                    "Tap to\nSpeak"
-                                },
-                                style = MaterialTheme.typography.labelMedium,
-                                textAlign = TextAlign.Center,
-                                color = Color.White
-                            )
+                                    Icon(
+                                        imageVector = Icons.Default.Mic,
+                                        contentDescription = if (uiState is KioskState.Listening) {
+                                            EmergencyStrings.get("listening", selectedLang)
+                                        } else {
+                                            EmergencyStrings.get("voice_only_hint", selectedLang)
+                                        },
+                                        tint = Color.White,
+                                        modifier = Modifier.size(38.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }

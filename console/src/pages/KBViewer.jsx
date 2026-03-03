@@ -15,9 +15,6 @@ function KBViewer() {
     const location = useLocation();
     const navigate = useNavigate();
 
-    // View (detail) modal state
-    const [selectedArticle, setSelectedArticle] = useState(null);
-
     const openViewModal = (article) => setSelectedArticle(article);
     const closeViewModal = () => setSelectedArticle(null);
 
@@ -736,35 +733,6 @@ function KBViewer() {
                 </div>
             )}
 
-            {selectedArticle && (
-                <div className="modal-overlay" onClick={() => setSelectedArticle(null)}>
-                    <div
-                        className="modal-content article-view-modal"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="modal-header">
-                            <h3 className="modal-title">Article Details</h3>
-                            <button className="btn btn-sm" onClick={() => setSelectedArticle(null)}>Close</button>
-                        </div>
-                        <div className="modal-body">
-                            <div className="article-view-head">
-                                <div className="article-view-question">{selectedArticle.question || 'Untitled article'}</div>
-                                <div className="article-view-meta">
-                                    <span className="badge">{selectedArticle.category || 'Uncategorized'}</span>
-                                    <span className={`badge ${selectedArticle.status === 'published' ? 'badge-success' : 'badge-warning'}`}>
-                                        {(selectedArticle.status || 'draft').toUpperCase()}
-                                    </span>
-                                </div>
-                            </div>
-                            <div className="article-view-content">
-                                {selectedArticleBody
-                                    ? selectedArticleBody
-                                    : 'No article content available.'}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
