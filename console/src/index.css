@@ -19,8 +19,8 @@
   --radius: 8px;
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.04);
-  --modal-overlay: rgba(0, 0, 0, 0.25);
-  --modal-bg: rgba(255, 255, 255, 0.85);
+  --modal-overlay: rgba(0, 0, 0, 0.5);
+  --modal-bg: #ffffff;
 }
 
 /* ─── Dark Theme ─── */
@@ -44,8 +44,8 @@
   --info: #42A5F5;
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2);
-  --modal-overlay: rgba(0, 0, 0, 0.55);
-  --modal-bg: rgba(45, 45, 45, 0.65);
+  --modal-overlay: rgba(0, 0, 0, 0.7);
+  --modal-bg: #1e1e1e;
   color-scheme: dark;
 }
 
@@ -1043,9 +1043,7 @@ tr:hover td {
 }
 
 .modal-content {
-  background: var(--surface);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: var(--modal-bg);
   border: 1px solid var(--glass-border);
   border-radius: 12px;
   width: 90%;
@@ -1054,7 +1052,7 @@ tr:hover td {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2), 0 4px 16px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35), 0 4px 20px rgba(0, 0, 0, 0.15);
   animation: slideUp 0.2s ease;
 }
 

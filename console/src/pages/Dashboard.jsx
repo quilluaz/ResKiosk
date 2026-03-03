@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import hubClient from '../api/hubClient';
-import logoSvg from '../assets/reskiosk-logo.svg';
 // Removed direct KBViewer import to use a custom paginated list instead
 import { useNavigate } from 'react-router-dom';
 import { HelpCircle, TrendingUp, MessageCircle, Hash, FileText, Edit, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
@@ -17,7 +16,7 @@ function Dashboard({ setEmergencyMode }) {
     const [currentPage, setCurrentPage] = useState(1);
     const [sortField, setSortField] = useState('');
     const [sortOrder, setSortOrder] = useState('asc');
-    const itemsPerPage = 5;
+    const itemsPerPage = 4;
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -124,10 +123,8 @@ function Dashboard({ setEmergencyMode }) {
     return (
         <div className="space-y-6">
             <div className="flex items-center gap-4 mb-2">
-                <img src={logoSvg} alt="ResKiosk" style={{ width: 40, height: 40, borderRadius: 8 }} />
                 <div>
                     <h1 className="page-title">Dashboard</h1>
-                    <p className="text-sm text-muted">Overview of your ResKiosk Hub</p>
                 </div>
             </div>
 
@@ -154,75 +151,79 @@ function Dashboard({ setEmergencyMode }) {
                 </div>
             </div>
 
-            {/* FAQ Tracker Summary */}
-            <div className="card">
-                <div className="flex items-center justify-between" style={{ marginBottom: '0.75rem' }}>
-                    <div className="flex items-center gap-2">
-                        <HelpCircle size={18} style={{ color: 'var(--primary)' }} />
-                        <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Query Tracker</h3>
-                    </div>
-                    <button className="btn" onClick={() => navigate('/query-tracker')} style={{ fontSize: '0.8rem', padding: '0.3rem 0.75rem' }}>
-                        View All →
-                    </button>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-                    <div style={{ background: 'var(--bg-secondary)', borderRadius: '0.5rem', padding: '0.75rem 1rem' }}>
-                        <div className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.25rem' }}>
-                            <MessageCircle size={12} /> Total Queries
-                        </div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{faqStats.total}</div>
-                    </div>
-                    <div style={{ background: 'var(--bg-secondary)', borderRadius: '0.5rem', padding: '0.75rem 1rem' }}>
-                        <div className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.25rem' }}>
-                            <Hash size={12} /> Unique Topics
-                        </div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{faqStats.unique}</div>
-                    </div>
-                    <div style={{ background: 'var(--bg-secondary)', borderRadius: '0.5rem', padding: '0.75rem 1rem' }}>
-                        <div className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.25rem' }}>
-                            <TrendingUp size={12} /> Top FAQ
-                        </div>
-                        <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>
-                            {faqStats.topQuestion
-                                ? `"${(faqStats.topQuestion.source_question || faqStats.topQuestion.question_display || '').slice(0, 35)}${(faqStats.topQuestion.source_question || '').length > 35 ? '…' : ''}" (${faqStats.topQuestion.count}×)`
-                                : 'No queries yet'}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Device ID */}
-            {stats.device_id && (
+            <div className="grid-2">
+                {/* FAQ Tracker Summary */}
                 <div className="card">
-                    <div className="stat-label">Device ID</div>
-                    <div className="font-mono text-sm" style={{ wordBreak: 'break-all' }}>{stats.device_id}</div>
-                    <p className="text-sm text-muted mt-1">Use this to identify this device (e.g. multi-site or support).</p>
-                </div>
-            )}
-
-            {/* Emergency Toggle */}
-            <div className={`card emergency-card ${isEmergency ? 'active' : ''}`}>
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--danger)', marginBottom: '0.25rem' }}>
-                            Emergency Mode
-                        </h3>
-                        <p className="text-sm text-muted">Activates header banners on all kiosks.</p>
+                    <div className="flex items-center justify-between" style={{ marginBottom: '0.75rem' }}>
+                        <div className="flex items-center gap-2">
+                            <HelpCircle size={18} style={{ color: 'var(--primary)' }} />
+                            <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Query Tracker</h3>
+                        </div>
+                        <button className="btn" onClick={() => navigate('/query-tracker')} style={{ fontSize: '0.8rem', padding: '0.3rem 0.75rem' }}>
+                            View All →
+                        </button>
                     </div>
-                      <button
-                          onClick={async () => {
-                              if (isEmergency) {
-                                  setEmergency(false);
-                              } else {
-                                  if (await modal.confirm('Are you sure you want to activate emergency mode?\n\nDoing so will alert all kiosks and play the emergency alarm. Continue?')) {
-                                      await setEmergency(true);
-                                  }
-                              }
-                          }}
-                          className={`btn ${isEmergency ? 'btn-primary' : 'btn-danger'}`}
-                    >
-                        {isEmergency ? 'DEACTIVATE' : 'ACTIVATE'}
-                    </button>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+                        <div style={{ background: 'var(--bg-secondary)', borderRadius: '0.5rem', padding: '0.75rem 1rem' }}>
+                            <div className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.25rem' }}>
+                                <MessageCircle size={12} /> Total Queries
+                            </div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{faqStats.total}</div>
+                        </div>
+                        <div style={{ background: 'var(--bg-secondary)', borderRadius: '0.5rem', padding: '0.75rem 1rem' }}>
+                            <div className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.25rem' }}>
+                                <Hash size={12} /> Unique Topics
+                            </div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{faqStats.unique}</div>
+                        </div>
+                        <div style={{ background: 'var(--bg-secondary)', borderRadius: '0.5rem', padding: '0.75rem 1rem' }}>
+                            <div className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.25rem' }}>
+                                <TrendingUp size={12} /> Top FAQ
+                            </div>
+                            <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>
+                                {faqStats.topQuestion
+                                    ? `"${(faqStats.topQuestion.source_question || faqStats.topQuestion.question_display || '').slice(0, 35)}${(faqStats.topQuestion.source_question || '').length > 35 ? '…' : ''}" (${faqStats.topQuestion.count}×)`
+                                    : 'No queries yet'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="space-y-6">
+                    {/* Device ID */}
+                    {stats.device_id && (
+                        <div className="card">
+                            <div className="stat-label">Device ID</div>
+                            <div className="font-mono text-sm" style={{ wordBreak: 'break-all' }}>{stats.device_id}</div>
+                            <p className="text-sm text-muted mt-1">Use this to identify this device (e.g. multi-site or support).</p>
+                        </div>
+                    )}
+
+                    {/* Emergency Toggle */}
+                    <div className={`card emergency-card ${isEmergency ? 'active' : ''}`}>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--danger)', marginBottom: '0.25rem' }}>
+                                    Emergency Mode
+                                </h3>
+                                <p className="text-sm text-muted">Activates header banners on all kiosks.</p>
+                            </div>
+                              <button
+                                  onClick={async () => {
+                                      if (isEmergency) {
+                                          setEmergency(false);
+                                      } else {
+                                          if (await modal.confirm('Are you sure you want to activate emergency mode?\n\nDoing so will alert all kiosks and play the emergency alarm. Continue?')) {
+                                              await setEmergency(true);
+                                          }
+                                      }
+                                  }}
+                                  className={`btn ${isEmergency ? 'btn-primary' : 'btn-danger'}`}
+                            >
+                                {isEmergency ? 'DEACTIVATE' : 'ACTIVATE'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -245,7 +246,7 @@ function Dashboard({ setEmergencyMode }) {
                         </tr>
                     </thead>
                     <tbody>
-                        {articles.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map(a => (
+                        {sortedArticles.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map(a => (
                             <tr
                                 key={a.id}
                                 className="kb-row-clickable"
@@ -261,16 +262,22 @@ function Dashboard({ setEmergencyMode }) {
                                 </td>
                                 <td className="text-muted text-sm">{a.last_updated ? new Date(a.last_updated * 1000).toLocaleString() : '—'}</td>
                                 <td>
-                                    <button 
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            navigate('/kb', { state: { editArticle: a.id } });
-                                        }} 
-                                        className="btn btn-icon" 
-                                        title="Edit"
-                                    >
-                                        <Edit size={15} style={{ color: 'var(--primary)' }} />
-                                    </button>
+                                    {a.source === 'evac_sync' ? (
+                                        <span className="badge badge-info" style={{ fontSize: '0.65rem', opacity: 0.7 }} title="Managed via Shelter Config">
+                                            Shelter Config
+                                        </span>
+                                    ) : (
+                                        <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                navigate('/kb', { state: { editArticle: a.id } });
+                                            }} 
+                                            className="btn btn-icon" 
+                                            title="Edit"
+                                        >
+                                            <Edit size={15} style={{ color: 'var(--primary)' }} />
+                                        </button>
+                                    )}
                                 </td>
                             </tr>
                         ))}
@@ -314,6 +321,7 @@ function Dashboard({ setEmergencyMode }) {
                 <div className="modal-overlay" onClick={() => setSelectedArticle(null)}>
                     <div
                         className="modal-content article-view-modal"
+                        style={{ backgroundColor: 'var(--bg-color)', backgroundImage: 'none', backdropFilter: 'none' }}
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="modal-header">

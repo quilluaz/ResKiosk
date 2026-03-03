@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
-import { X, Check, AlertTriangle, AlertCircle, HelpCircle, Info } from 'lucide-react';
+import { X, Check, AlertTriangle, AlertCircle, HelpCircle, Info, CheckCircle } from 'lucide-react';
 
 const ModalContext = createContext(null);
 
@@ -97,8 +97,8 @@ export const ModalProvider = ({ children }) => {
     const getIcon = () => {
         switch (modalState.type) {
             case 'alert': return <AlertCircle size={20} style={{ color: 'var(--danger, #ef5350)' }} />;
-            case 'confirm': return <HelpCircle size={20} style={{ color: 'var(--warning, #ffa726)' }} />;
-            case 'prompt': return <Info size={20} style={{ color: 'var(--primary, #42a5f5)' }} />;
+            case 'confirm': return <HelpCircle size={20} style={{ color: '#F57F17' }} />;
+            case 'prompt': return <Info size={20} style={{ color: '#F57F17' }} />;
             default: return <Info size={20} />;
         }
     };
@@ -106,11 +106,16 @@ export const ModalProvider = ({ children }) => {
     const getThemeColor = () => {
         switch (modalState.type) {
             case 'alert': return 'var(--danger, #ef5350)';
-            case 'confirm': return 'var(--warning, #ffa726)';
-            case 'prompt': return 'var(--primary, #42a5f5)';
-            default: return 'var(--primary, #42a5f5)';
+            case 'confirm': return '#F57F17';
+            case 'prompt': return '#F57F17';
+            default: return '#F57F17';
         }
     };
+
+    // Determine if we should use a custom SUCCESS color for alert modals titled "Success"
+    const isSuccess = modalState.type === 'alert' && modalState.title?.toLowerCase() === 'success';
+    const effectiveThemeColor = isSuccess ? 'var(--success, #2E7D32)' : getThemeColor();
+    const successIcon = isSuccess ? <CheckCircle size={20} style={{ color: 'var(--success, #2E7D32)' }} /> : null;
 
     return (
         <ModalContext.Provider value={{ alert, confirm, prompt }}>
@@ -129,11 +134,9 @@ export const ModalProvider = ({ children }) => {
                 }}>
                     <div style={{
                         background: 'var(--modal-bg)',
-                        backdropFilter: 'blur(32px)',
-                        WebkitBackdropFilter: 'blur(32px)',
                         borderRadius: '16px',
-                        border: `1px solid ${getThemeColor()}50`,
-                        boxShadow: `0 20px 60px rgba(0,0,0,0.5), 0 0 40px ${getThemeColor()}20`,
+                        border: `1px solid ${effectiveThemeColor}50`,
+                        boxShadow: `0 20px 60px rgba(0,0,0,0.5), 0 0 40px ${effectiveThemeColor}20`,
                         maxWidth: '28rem',
                         width: '90%',
                         overflow: 'hidden',
@@ -146,17 +149,17 @@ export const ModalProvider = ({ children }) => {
                             justifyContent: 'space-between',
                             padding: '1rem 1.25rem',
                             borderBottom: '1px solid var(--border, #333)',
-                            background: `${getThemeColor()}15`,
+                            background: `${effectiveThemeColor}15`,
                         }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
                                 <div style={{
                                     width: 34, height: 34, borderRadius: '50%',
-                                    background: `${getThemeColor()}20`,
+                                    background: `${effectiveThemeColor}20`,
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 }}>
-                                    {getIcon()}
+                                    {successIcon || getIcon()}
                                 </div>
-                                <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: getThemeColor() }}>
+                                <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: effectiveThemeColor }}>
                                     {modalState.title}
                                 </h2>
                             </div>

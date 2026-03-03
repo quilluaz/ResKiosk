@@ -717,29 +717,25 @@ function MessagesTab({ messages, categories, hubs, loading, loraConnected, thisH
                                 </button>
                             </div>
                             <div className="modal-body">
-                                <div style={{ marginBottom: '1.25rem' }}>
-                                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{viewMsg.subject || '(no subject)'}</h3>
+                                <div style={{ marginBottom: '1.25rem', borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
+                                    <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 600 }}>{viewMsg.subject || '(no subject)'}</h3>
                                     <div className="flex gap-2 items-center" style={{ marginTop: '0.5rem' }}>
                                         {(() => {
                                             const pri = PRIORITY_COLORS[viewMsg.priority] || PRIORITY_COLORS.normal;
-                                            const st = STATUS_COLORS[viewMsg.status] || STATUS_COLORS.pending;
                                             return (
                                                 <>
-                                                    <span className="badge" style={{
-                                                        background: viewSent ? 'var(--primary)' : 'var(--success)',
-                                                        color: '#fff', fontSize: '0.7rem',
-                                                        display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
-                                                    }}>
-                                                        {viewSent ? <><ArrowUp size={10} /> Sent</> : <><ArrowDown size={10} /> Received</>}
-                                                    </span>
-                                                    <span className="badge" style={{ background: pri.bg, color: pri.color, fontSize: '0.7rem' }}>{pri.label}</span>
-                                                    <span className="badge" style={{ background: st.bg, color: st.color, fontSize: '0.7rem', textTransform: 'uppercase' }}>{viewMsg.status}</span>
+                                                    <span className="badge" style={{ background: pri.bg, color: pri.color, fontSize: '0.75rem' }}>{pri.label}</span>
+                                                    <span className="text-muted" style={{ fontSize: '0.85rem' }}>|</span>
+                                                    <span className="text-muted" style={{ fontSize: '0.85rem', fontWeight: 500 }}>{viewMsg.category_name || 'Uncategorized'}</span>
                                                 </>
                                             );
                                         })()}
                                     </div>
                                 </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.25rem', fontSize: '0.85rem' }}>
+                                <div style={{ background: 'var(--bg-secondary)', borderRadius: '0.5rem', padding: '1rem', marginBottom: '1.25rem', whiteSpace: 'pre-wrap', fontSize: '0.95rem', lineHeight: 1.6 }}>
+                                    {viewMsg.content || '(no content)'}
+                                </div>
+                                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.25rem', fontSize: '0.85rem' }}>
                                     <div>
                                         <strong>From:</strong>{' '}
                                         <span style={{ fontFamily: "'Menlo','Consolas',monospace", fontSize: '0.8rem' }}>
@@ -752,73 +748,64 @@ function MessagesTab({ messages, categories, hubs, loading, loraConnected, thisH
                                             {viewMsg.target_device_id || viewMsg.target_hub_name || 'Broadcast'}
                                         </span>
                                     </div>
-                                    <div><strong>Category:</strong> {viewMsg.category_name || '—'}</div>
-                                    <div><strong>Via:</strong> {viewMsg.received_via || '—'}</div>
                                     <div><strong>Sent:</strong> {fmtTime(viewMsg.sent_at)}</div>
                                     <div><strong>Received:</strong> {fmtTime(viewMsg.received_at)}</div>
-                                </div>
-                                <div style={{ background: 'var(--bg-secondary)', borderRadius: '0.5rem', padding: '1rem', marginBottom: '1.25rem', whiteSpace: 'pre-wrap', fontSize: '0.9rem', lineHeight: 1.6 }}>
-                                    {viewMsg.content || '(no content)'}
-                                </div>
-                                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-                                    <label style={{ fontSize: '0.8rem', marginBottom: '0.5rem', display: 'block', color: 'var(--text-muted)' }}>
-                                        Change Status
-                                    </label>
-                                    <div className="flex gap-2 flex-wrap">
-                                        {['pending', 'delivered', 'read', 'published', 'rejected'].map(s => {
-                                            const st = STATUS_COLORS[s];
-                                            const isCurrent = viewMsg.status === s;
-                                            return (
-                                                <button
-                                                    key={s}
-                                                    className="btn btn-sm"
-                                                    disabled={isCurrent}
-                                                    style={{
-                                                        background: isCurrent ? st.bg : 'transparent',
-                                                        color: isCurrent ? st.color : 'var(--text)',
-                                                        border: `1px solid ${isCurrent ? st.bg : 'var(--border)'}`,
-                                                        opacity: isCurrent ? 1 : 0.8,
-                                                        textTransform: 'capitalize',
-                                                    }}
-                                                    onClick={() => handleStatusChange(viewMsg.id, s)}
-                                                >
-                                                    {s}
-                                                </button>
-                                            );
-                                        })}
+                                    <div><strong>Via:</strong> {viewMsg.received_via || '—'}</div>
+                                    <div className="flex items-center gap-2">
+                                        <strong>Status:</strong>
+                                        <span className="badge" style={{ background: STATUS_COLORS[viewMsg.status]?.bg || 'transparent', color: STATUS_COLORS[viewMsg.status]?.color || 'inherit', fontSize: '0.7rem', textTransform: 'uppercase' }}>
+                                            {viewMsg.status}
+                                        </span>
                                     </div>
                                 </div>
-                                <div className="flex justify-end gap-3" style={{ marginTop: '1rem' }}>
-                                    <button className="btn" style={{ color: 'var(--danger)' }} onClick={() => { handleDelete(viewMsg.id); setViewMsg(null); }}>
-                                        <Trash2 size={15} /> Delete
-                                    </button>
-                                    {viewSent && (
-                                        <button className="btn" style={{ color: 'var(--primary)' }} onClick={() => {
-                                            setForm({
-                                                subject: viewMsg.subject || '',
-                                                content: viewMsg.content || '',
-                                                priority: viewMsg.priority || 'normal',
-                                                category_id: viewMsg.category_id ? String(viewMsg.category_id) : '',
-                                                target_hub_id: viewMsg.target_hub_id ? String(viewMsg.target_hub_id) : '',
-                                            });
-                                            setViewMsg(null);
-                                            setShowCompose(true);
-                                        }}>
-                                            <RotateCcw size={15} /> Resend
-                                        </button>
-                                    )}
-                                    {!viewSent && viewMsg.status === 'pending' && (
-                                        <button
-                                            className="btn"
-                                            style={{ color: 'var(--success)' }}
-                                            disabled={ackSending}
-                                            onClick={() => handleSendAck(viewMsg)}
+                                <div className="flex justify-between items-center" style={{ marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+                                    <div className="flex items-center gap-2">
+                                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Change Status:</span>
+                                        <select
+                                            className="input"
+                                            style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', width: 'auto', minWidth: '100px' }}
+                                            value={viewMsg.status}
+                                            onChange={e => handleStatusChange(viewMsg.id, e.target.value)}
                                         >
-                                            <CheckCircle size={15} />
-                                            {ackSending ? 'Sending...' : 'Send Acknowledgement'}
+                                            <option value="pending">Pending</option>
+                                            <option value="delivered">Delivered</option>
+                                            <option value="read">Read</option>
+                                            <option value="published">Published</option>
+                                            <option value="rejected">Rejected</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button className="btn btn-sm" style={{ color: 'var(--danger)', border: '1px solid var(--danger)' }} onClick={() => { handleDelete(viewMsg.id); setViewMsg(null); }}>
+                                            <Trash2 size={14} /> Delete
                                         </button>
-                                    )}
-                                    <button className="btn" onClick={() => setViewMsg(null)}>Close</button>
+                                        {viewSent && (
+                                            <button className="btn btn-sm" style={{ color: 'var(--primary)', border: '1px solid var(--primary)' }} onClick={() => {
+                                                setForm({
+                                                    subject: viewMsg.subject || '',
+                                                    content: viewMsg.content || '',
+                                                    priority: viewMsg.priority || 'normal',
+                                                    category_id: viewMsg.category_id ? String(viewMsg.category_id) : '',
+                                                    target_hub_id: viewMsg.target_hub_id ? String(viewMsg.target_hub_id) : '',
+                                                });
+                                                setViewMsg(null);
+                                                setShowCompose(true);
+                                            }}>
+                                                <RotateCcw size={14} /> Resend
+                                            </button>
+                                        )}
+                                        {!viewSent && viewMsg.status === 'pending' && (
+                                            <button
+                                                className="btn btn-sm"
+                                                style={{ color: 'var(--success)', border: '1px solid var(--success)' }}
+                                                disabled={ackSending}
+                                                onClick={() => handleSendAck(viewMsg)}
+                                            >
+                                                <CheckCircle size={14} />
+                                                {ackSending ? 'Sending...' : 'Ack'}
+                                            </button>
+                                        )}
+                                        <button className="btn btn-sm" onClick={() => setViewMsg(null)}>Close</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

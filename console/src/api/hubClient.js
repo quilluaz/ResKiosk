@@ -23,12 +23,10 @@ hubClient.interceptors.request.use((config) => {
 hubClient.interceptors.response.use(
     response => response,
     error => {
-        if (error.response?.status === 401) {
+        if (error.response?.status === 401 && !error.config.url.includes('/login')) {
             localStorage.removeItem('reskiosk_token');
             localStorage.removeItem('reskiosk_user');
-            if (!window.location.pathname.includes('/login')) {
-                window.location.href = '/console/login';
-            }
+            window.location.reload();
         }
         console.error('Hub API Error:', error);
         return Promise.reject(error);

@@ -11,10 +11,16 @@ function KBViewer() {
     const [search, setSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedArticle, setSelectedArticle] = useState(null);
+    const [sortField, setSortField] = useState('last_updated');
+    const [sortOrder, setSortOrder] = useState('desc');
     const itemsPerPage = 10;
     const location = useLocation();
     const navigate = useNavigate();
 
+<<<<<<< Updated upstream
+=======
+    // View (detail) modal state
+>>>>>>> Stashed changes
     const openViewModal = (article) => setSelectedArticle(article);
     const closeViewModal = () => setSelectedArticle(null);
 
@@ -74,6 +80,7 @@ function KBViewer() {
         try {
             await hubClient.delete(`/admin/article/${id}`);
             loadArticles();
+            await modal.alert("Article deleted successfully.", "Success");
         } catch (e) {
             await modal.alert("Delete failed");
         }
@@ -89,8 +96,40 @@ function KBViewer() {
         return true;
     });
 
-    const totalPages = Math.ceil(filtered.length / itemsPerPage);
-    const paginatedArticles = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    const handleSort = (field) => {
+        if (sortField === field) {
+            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortField(field);
+            setSortOrder('asc');
+        }
+    };
+
+    const getSortIcon = (field) => {
+        if (sortField !== field) return <ChevronsUpDown size={14} className="inline ml-1" style={{ opacity: 0.4 }} />;
+        return sortOrder === 'asc' ? <ChevronUp size={14} className="inline ml-1" /> : <ChevronDown size={14} className="inline ml-1" />;
+    };
+
+    const sortedArticles = [...filtered].sort((a, b) => {
+        if (!sortField) return 0;
+        let valA = a[sortField];
+        let valB = b[sortField];
+        
+        if (['question', 'category', 'created_by', 'updated_by'].includes(sortField)) {
+            valA = (valA || '').toLowerCase();
+            valB = (valB || '').toLowerCase();
+        } else if (sortField === 'last_updated') {
+            valA = valA || 0;
+            valB = valB || 0;
+        }
+
+        if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+        if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    const totalPages = Math.ceil(sortedArticles.length / itemsPerPage);
+    const paginatedArticles = sortedArticles.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
     const selectedArticleBody =
         selectedArticle?.answer ||
         selectedArticle?.content ||
@@ -140,8 +179,10 @@ function KBViewer() {
         try {
             if (formData.id) {
                 await hubClient.put(`/admin/article/${formData.id}`, formData);
+                await modal.alert("Article updated successfully.", "Success");
             } else {
                 await hubClient.post('/admin/article', formData);
+                await modal.alert("Article created successfully.", "Success");
             }
             closeNewModal();
             loadArticles();
@@ -307,9 +348,9 @@ function KBViewer() {
                             <th onClick={() => handleSort('question')} style={{ cursor: 'pointer', userSelect: 'none' }}>Question {getSortIcon('question')}</th>
                             <th onClick={() => handleSort('category')} style={{ cursor: 'pointer', userSelect: 'none' }}>Category {getSortIcon('category')}</th>
                             <th>Status</th>
-                            <th>Created By</th>
-                            <th>Updated By</th>
-                            <th>Last Updated</th>
+                            <th onClick={() => handleSort('created_by')} style={{ cursor: 'pointer', userSelect: 'none' }}>Created By {getSortIcon('created_by')}</th>
+                            <th onClick={() => handleSort('updated_by')} style={{ cursor: 'pointer', userSelect: 'none' }}>Updated By {getSortIcon('updated_by')}</th>
+                            <th onClick={() => handleSort('last_updated')} style={{ cursor: 'pointer', userSelect: 'none' }}>Last Updated {getSortIcon('last_updated')}</th>
                             <th style={{ width: '5rem' }}>Actions</th>
                         </tr>
                     </thead>
@@ -388,7 +429,7 @@ function KBViewer() {
             {/* ─── Article Detail (View) Modal ─── */}
             {selectedArticle && (
                 <div className="modal-overlay" onClick={closeViewModal}>
-                    <div className="modal-content" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
+                    <div className="modal-content" style={{ maxWidth: '600px', backgroundColor: 'var(--bg-color)', backgroundImage: 'none', backdropFilter: 'none' }} onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
                             <h2 className="modal-title">Article Details</h2>
                             <button className="btn-icon" onClick={closeViewModal}><X size={18} /></button>
@@ -484,7 +525,7 @@ function KBViewer() {
 
             {/* ─── New Article Modal ─── */}
             {showNewModal && (
-                <div className="modal-overlay" onClick={closeNewModal}>
+                <div className="modal-overlay">
                     <div className="modal-content" style={{ maxWidth: '560px' }} onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
                             <h2 className="modal-title">{formData.id ? 'Edit Article' : 'New Article'}</h2>
