@@ -124,19 +124,38 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                 history_str = json.dumps(session_history[query.session_id][-3:], ensure_ascii=False)
             article_json = json.dumps(result["article_data"], ensure_ascii=False)
             try:
-                include_intro = bool(query.session_id) and (query.session_id not in session_history) and not query.is_retry
                 answer_text = await asyncio.to_thread(
                     formatter.format_response,
                     article_json,
                     text,
                     history_str,
-                    include_intro=include_intro,
+                    include_intro=False,
                 )
             except Exception as e:
                 logger.error(f"[Query] Formatter error: {e}")
                 answer_text = result["article_data"].get("answer", result["answer_text"])
         else:
             answer_text = result.get("answer_text") or ""
+
+        # For compound queries, emit a single assistant message:
+        # primary answer + inline yes/no follow-up question.
+        if (
+            answer_type == "DIRECT_MATCH"
+            and not query.is_retry
+            and follow_up_prompt
+            and answer_text
+        ):
+            contextual_follow_up = follow_up_prompt
+            try:
+                contextual_follow_up = await asyncio.to_thread(
+                    formatter.generate_follow_up_prompt,
+                    text,
+                    follow_up_intent or "",
+                    follow_up_prompt,
+                )
+            except Exception as e:
+                logger.warning(f"[Query] Follow-up prompt generation failed: {e}")
+            answer_text = f"{answer_text.strip()}\n\n{contextual_follow_up.strip()}"
 
         if not (answer_text and answer_text.strip()):
             answer_text = "I am here to answer questions about registration, food, medical help, sleeping areas, transportation, safety, and other services in this shelter. Please ask about one of these topics or see a volunteer for more help."

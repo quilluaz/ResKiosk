@@ -16,6 +16,15 @@ Rules:
 - If you don't know the answer, say so honestly and suggest asking a volunteer.
 - Respond in plain conversational English only - no bullet points, no lists, no markdown."""
 
+FOLLOW_UP_PROMPT_SYSTEM = """You generate exactly one short follow-up question for a shelter kiosk assistant.
+Rules:
+- One sentence only.
+- Ask a yes/no question.
+- Acknowledge the user's other topic from their query in natural wording.
+- Do NOT introduce yourself.
+- Do NOT answer the question yet.
+- Do NOT use markdown or bullet points."""
+
 
 def direct_answer(query: str) -> str:
     """
@@ -150,3 +159,55 @@ def check_ollama_available() -> bool:
     except Exception:
         print(f"[Formatter] WARNING: Ollama not reachable at {OLLAMA_URL}")
         return False
+
+
+def generate_follow_up_prompt(user_query: str, secondary_intent: str, fallback_prompt: str) -> str:
+    """
+    Generate a contextual yes/no follow-up question from the user's query.
+    Falls back to deterministic prompt if LLM fails.
+    """
+    if not user_query:
+        return fallback_prompt
+
+    payload = {
+        "model": MODEL_NAME,
+        "messages": [
+            {"role": "system", "content": FOLLOW_UP_PROMPT_SYSTEM},
+            {
+                "role": "user",
+                "content": (
+                    f"User query: {user_query}\n"
+                    f"Secondary intent to follow up: {secondary_intent}\n\n"
+                    "Generate the follow-up question now."
+                ),
+            },
+        ],
+        "stream": False,
+        "options": {
+            "temperature": 0.2,
+            "num_predict": 48,
+            "top_p": 0.9,
+        },
+    }
+
+    try:
+        response = requests.post(
+            f"{OLLAMA_URL}/api/chat",
+            json=payload,
+            timeout=12,
+        )
+        response.raise_for_status()
+        result = response.json()
+        text = result.get("message", {}).get("content", "").strip()
+        if not text:
+            return fallback_prompt
+        text = " ".join(text.replace("\n", " ").split())
+        # Keep exactly one short sentence and ensure it's a question.
+        if "?" in text:
+            text = text.split("?")[0].strip() + "?"
+        else:
+            text = text.rstrip(".! ") + "?"
+        return text
+    except Exception as e:
+        print(f"[Formatter] Follow-up prompt generation failed ({e}), using fallback.")
+        return fallback_prompt

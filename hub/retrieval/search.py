@@ -352,8 +352,21 @@ def retrieve(
             f"[Retrieve] compound=True primary={intent}({intent_confidence:.4f}) secondary={compound_secondary_intent}"
         )
 
+    retry_category_intent = None
+    if is_retry and selected_category:
+        retry_category_intent = CLARIFICATION_CATEGORY_TO_INTENT.get((selected_category or "").strip().lower())
+        if retry_category_intent:
+            intent = retry_category_intent
+            intent_confidence = max(intent_confidence, INTENT_ACTION_THRESHOLD)
+            second_intent = None
+            second_confidence = 0.0
+            compound_secondary_intent = None
+            is_compound = False
+            logger.info(f"[Retrieve] retry category override -> intent={intent}")
+
     # 3a. Short-circuit for simple conversational intents (no KB lookup)
-    if intent != "unclear" and intent_confidence >= INTENT_ACTION_THRESHOLD:
+    # Skip short-circuits when retry + selected category is forcing a secondary intent answer.
+    if intent != "unclear" and intent_confidence >= INTENT_ACTION_THRESHOLD and not (is_retry and retry_category_intent):
         if intent == "greeting":
             return {
                 "answer_text": "Hello. I can help you with questions about registration, food, medical help, sleeping areas, transportation, safety, and other services in this shelter. What would you like to ask?",
@@ -367,7 +380,7 @@ def retrieve(
             }
         if intent == "identity":
             return {
-                "answer_text": "I'm ResKiosk, an information kiosk for this evacuation center. I can answer questions about registration, food and water, medical help, sleeping areas, transportation, safety, and other basic services.",
+                "answer_text": "This is ResKiosk, an information kiosk for this evacuation center. It can answer questions about registration, food and water, medical help, sleeping areas, transportation, safety, and other basic services.",
                 "answer_type": "DIRECT_MATCH",
                 "confidence": float(intent_confidence),
                 "source_id": None,

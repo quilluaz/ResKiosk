@@ -61,7 +61,10 @@ enum class ChatMode {
 
 private data class PendingFollowUp(
     val intent: String,
-    val prompt: String? = null
+    val prompt: String? = null,
+    val baseQueryEnglish: String,
+    val baseQueryOriginal: String,
+    val primarySourceId: Int? = null,
 )
 
 // Data class for Chat Frame
@@ -196,6 +199,7 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
                 Log.e("KioskVM", "Failed to load punctuation model", e)
             }
         }
+
     }
 
     private fun startHeartbeat() {
@@ -291,6 +295,7 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
             tts = SherpaTtsEngine.forLanguage(getApplication(), langCode)
             withContext(kotlinx.coroutines.Dispatchers.Main) {
                 _isChangingLanguage.value = false
+                validateCurrentLanguageTts()
                 Log.i("KioskVM", "Language engines ready for: $langCode")
             }
         }
@@ -315,6 +320,10 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
     private val recorder = AudioRecorder()
     private var stt: SherpaSttEngine? = SherpaSttEngine.forLanguage(application, _selectedLanguage.value)
     private var tts: SherpaTtsEngine? = SherpaTtsEngine.forLanguage(application, _selectedLanguage.value)
+
+    init {
+        validateCurrentLanguageTts()
+    }
 
     // State
     private var recordedSamples: MutableList<Float> = Collections.synchronizedList(mutableListOf())
@@ -768,34 +777,19 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
             resetInactivityTimer()
             stt?.beginStream()
             var skipNextChunk = isBatchLanguage(_selectedLanguage.value)
-            val lang = _selectedLanguage.value
             recorder.startRecording { chunk ->
                 if (skipNextChunk) {
                     skipNextChunk = false
                     return@startRecording
                 }
-                // Chunk-based confirmation for batch: add "Listening..." on first real chunk only (on Main)
-                if (isBatchLanguage(lang) && !hasReceivedRealAudio) {
-                    hasReceivedRealAudio = true
-                    viewModelScope.launch(Dispatchers.Main) {
-                        removeListeningPlaceholderIfAny()
-                        val listeningText = EmergencyStrings.get("listening", _selectedLanguage.value)
-                        _chatHistory.value = _chatHistory.value.filter { it.text != listeningText }
-                        val listeningId = UUID.randomUUID().toString()
-                        currentListeningPlaceholderId = listeningId
-                        _chatHistory.value = _chatHistory.value + ChatMessage(isUser = true, text = listeningText, id = listeningId)
-                    }
-                }
+                // No live transcript/placeholder streaming in chat while recording.
                 synchronized(recordedSamples) {
                     if (recordedSamples.size < 16000 * 300) {
                         recordedSamples.addAll(chunk.toList())
                     }
                 }
                 updateVoiceLevels(chunk)
-                val partialRaw = stt?.feedAndDecodeStream(chunk)
-                if (!partialRaw.isNullOrBlank()) {
-                    _transcript.value = partialRaw.toSentenceCase()
-                }
+                stt?.feedAndDecodeStream(chunk)
             }
         }
     }
@@ -1416,7 +1410,7 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
                 withContext(Dispatchers.Main) {
                     removeListeningPlaceholderIfAny()
                     clearLoadingOverlay()
-                    handleError("System Error: ${e.message}")
+                    handleError(EmergencyStrings.get("err_system", _selectedLanguage.value))
                 }
             }
         }
@@ -1436,6 +1430,9 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 var effectiveIsRetry = isRetry
                 var effectiveCategory = category
+                var effectiveQueryEnglish = queryEnglish
+                var effectiveQueryOriginal = queryOriginal
+                val effectiveExcludeSourceIds = (excludeSourceIds ?: emptyList()).toMutableSet()
                 val followUp = pendingFollowUp
                 var followUpAccepted = false
                 if (!isRetry && category == null && followUp != null) {
@@ -1444,6 +1441,9 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
                         if (mappedCategory != null) {
                             effectiveIsRetry = true
                             effectiveCategory = mappedCategory
+                            effectiveQueryEnglish = followUp.baseQueryEnglish
+                            effectiveQueryOriginal = followUp.baseQueryOriginal
+                            followUp.primarySourceId?.let { effectiveExcludeSourceIds.add(it) }
                             followUpAccepted = true
                             Log.i("KioskVM", "Follow-up accepted. Auto-answering secondary intent=${followUp.intent}")
                         }
@@ -1455,7 +1455,7 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
                 if (hubUrl.isNullOrBlank()) {
                     withContext(Dispatchers.Main) {
                         clearLoadingOverlay()
-                        handleError("Hub URL is not configured correctly. Please reconnect to the Hub.")
+                        handleError(EmergencyStrings.get("hub_not_configured", _selectedLanguage.value))
                     }
                     return@launch
                 }
@@ -1465,8 +1465,8 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
                 val payload = mutableMapOf<String, Any?>(
                     "center_id" to "center_1",
                     "kiosk_id" to kioskId,
-                    "transcript_original" to queryOriginal,
-                    "transcript_english" to queryEnglish,
+                    "transcript_original" to effectiveQueryOriginal,
+                    "transcript_english" to effectiveQueryEnglish,
                     "language" to _selectedLanguage.value,
                     "kb_version" to 1,
                     "is_retry" to effectiveIsRetry,
@@ -1475,12 +1475,12 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 if (effectiveCategory != null) payload["selected_category"] = effectiveCategory
                 if (_sessionId.value != null) payload["session_id"] = _sessionId.value!!
-                if (!excludeSourceIds.isNullOrEmpty()) {
-                    payload["exclude_source_ids"] = excludeSourceIds
+                if (effectiveExcludeSourceIds.isNotEmpty()) {
+                    payload["exclude_source_ids"] = effectiveExcludeSourceIds.toList()
                 }
                 payload["follow_up_token"] = null
 
-                Log.i("KioskVM", "Sending query to hub: ${queryEnglish.take(80)}")
+                Log.i("KioskVM", "Sending query to hub: ${effectiveQueryEnglish.take(80)}")
                 val queryStart = System.currentTimeMillis()
                 val api = HubApiClient.getService(hubUrl)
                 val response = api.query(payload)
@@ -1494,7 +1494,7 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
                         if (placeholderId != null) {
                             _chatHistory.value = _chatHistory.value.filter { it.id != placeholderId }
                         }
-                        val clarificationQuestion = "Which category are you asking?"
+                        val clarificationQuestion = EmergencyStrings.get("clarification_question", _selectedLanguage.value)
                         _uiState.value = KioskState.Clarification(
                             clarificationQuestion,
                             response.clarificationCategories ?: emptyList()
@@ -1506,13 +1506,21 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
                         if (followUpAccepted) {
                             Log.i("KioskVM", "Follow-up answer returned successfully.")
                         }
-                        val finalAnswer = response.answerTextLocalized
-                            ?: response.answerTextEn
-                            ?: "I'm sorry, I couldn't find an answer."
+                        val finalAnswer = if (_selectedLanguage.value == "ja") {
+                            response.answerTextLocalized
+                                ?: EmergencyStrings.get("no_answer_found", _selectedLanguage.value)
+                        } else {
+                            response.answerTextLocalized
+                                ?: response.answerTextEn
+                                ?: EmergencyStrings.get("no_answer_found", _selectedLanguage.value)
+                        }
                         pendingFollowUp = response.followUpIntent?.let {
                             PendingFollowUp(
                                 intent = it,
-                                prompt = response.followUpPrompt
+                                prompt = response.followUpPrompt,
+                                baseQueryEnglish = effectiveQueryEnglish,
+                                baseQueryOriginal = effectiveQueryOriginal,
+                                primarySourceId = response.sourceId
                             )
                         }
 
@@ -1524,9 +1532,9 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
                                         id = placeholderId, // keep same id
                                         queryLogId = response.queryLogId,
                                         sourceId = response.sourceId,
-                                        queryTextEnglish = queryEnglish,
-                                        queryTextOriginal = queryOriginal,
-                                        excludeSourceIds = excludeSourceIds
+                                        queryTextEnglish = effectiveQueryEnglish,
+                                        queryTextOriginal = effectiveQueryOriginal,
+                                        excludeSourceIds = effectiveExcludeSourceIds.toList()
                                 ) else it
                             }
                         } else {
@@ -1537,21 +1545,10 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
                                 id = UUID.randomUUID().toString(),
                                 queryLogId = response.queryLogId,
                                 sourceId = response.sourceId,
-                                queryTextEnglish = queryEnglish,
-                                queryTextOriginal = queryOriginal,
-                                excludeSourceIds = excludeSourceIds
+                                queryTextEnglish = effectiveQueryEnglish,
+                                queryTextOriginal = effectiveQueryOriginal,
+                                excludeSourceIds = effectiveExcludeSourceIds.toList()
                             ))
-                            _chatHistory.value = newList
-                        }
-                        if (!response.followUpPrompt.isNullOrBlank()) {
-                            val newList = _chatHistory.value.toMutableList()
-                            newList.add(
-                                ChatMessage(
-                                    isUser = false,
-                                    text = response.followUpPrompt,
-                                    id = UUID.randomUUID().toString()
-                                )
-                            )
                             _chatHistory.value = newList
                         }
                         speakAndShow(finalAnswer)
@@ -1565,11 +1562,11 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
                         _chatHistory.value = _chatHistory.value.filter { it.id != placeholderId }
                     }
                     val friendlyMsg = when {
-                        e is java.net.ConnectException -> "Cannot reach the Hub. Please check your WiFi connection."
-                        e is java.net.SocketTimeoutException -> "The Hub is taking too long to respond. Please try again."
-                        e.message?.contains("failed to connect", ignoreCase = true) == true -> "Cannot reach the Hub. Please check your WiFi connection."
-                        e.message?.contains("timeout", ignoreCase = true) == true -> "Connection timed out. Please try again."
-                        else -> "Something went wrong. Please try again."
+                        e is java.net.ConnectException -> EmergencyStrings.get("err_hub_unreachable", _selectedLanguage.value)
+                        e is java.net.SocketTimeoutException -> EmergencyStrings.get("err_hub_timeout", _selectedLanguage.value)
+                        e.message?.contains("failed to connect", ignoreCase = true) == true -> EmergencyStrings.get("err_hub_unreachable", _selectedLanguage.value)
+                        e.message?.contains("timeout", ignoreCase = true) == true -> EmergencyStrings.get("err_connection_timeout", _selectedLanguage.value)
+                        else -> EmergencyStrings.get("err_generic", _selectedLanguage.value)
                     }
                     handleError(friendlyMsg)
                 }
@@ -1585,6 +1582,27 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
         // Auto-reset to Idle after 3s so user can record again
         viewModelScope.launch {
             delay(3000L)
+            if (_uiState.value is KioskState.Error) {
+                _uiState.value = KioskState.Idle
+                performPendingRecorderRestartIfNeeded()
+            }
+        }
+    }
+
+    private fun validateCurrentLanguageTts() {
+        if (_selectedLanguage.value != "ja") return
+        viewModelScope.launch {
+            delay(900L)
+            if (_selectedLanguage.value != "ja") return@launch
+            if (tts?.hasRequiredVoice() == true) return@launch
+            showNonBlockingWarning(EmergencyStrings.get("ja_tts_missing", _selectedLanguage.value))
+        }
+    }
+
+    private fun showNonBlockingWarning(msg: String) {
+        _uiState.value = KioskState.Error(msg)
+        viewModelScope.launch {
+            delay(3200L)
             if (_uiState.value is KioskState.Error) {
                 _uiState.value = KioskState.Idle
                 performPendingRecorderRestartIfNeeded()

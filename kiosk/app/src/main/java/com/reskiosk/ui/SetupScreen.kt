@@ -1,69 +1,86 @@
 package com.reskiosk.ui
 
-import android.content.Context
-import androidx.compose.animation.core.animateFloatAsState
+import android.util.Log
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.reskiosk.ModelConstants
 import com.reskiosk.utils.ModelDownloader
 import kotlinx.coroutines.launch
-import com.reskiosk.ModelConstants
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.foundation.shape.RoundedCornerShape
-import android.util.Log
 import java.io.File
 
 @Composable
 fun SetupScreen(onSetupComplete: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    
-    // Paths (from ModelConstants — single source of truth)
+
     val modelsDir = File(context.filesDir, ModelConstants.MODELS_BASE_DIR)
-    // Only the 5 supported languages (en, ja, es, de, fr) and their dependencies
+    // JA TTS uses Android system voice and is not part of the download list.
     val requiredDirs = listOf(
         "English STT" to File(modelsDir, ModelConstants.STT_DIR_BILINGUAL),
         "Japanese STT" to File(modelsDir, ModelConstants.STT_DIR_JA),
         "Whisper STT" to File(modelsDir, ModelConstants.STT_DIR_WHISPER),
         "English Voice" to File(modelsDir, ModelConstants.TTS_DIR_EN),
-        "Japanese Voice" to File(modelsDir, ModelConstants.TTS_DIR_JA),
         "Spanish Voice" to File(modelsDir, ModelConstants.TTS_DIR_ES),
         "German Voice" to File(modelsDir, ModelConstants.TTS_DIR_DE),
         "French Voice" to File(modelsDir, ModelConstants.TTS_DIR_FR),
         "Punctuation" to File(modelsDir, ModelConstants.PUNCTUATION_DIR)
     )
-    
+
     var modelsExist by remember { mutableStateOf(requiredDirs.all { (_, dir) -> dir.exists() && (dir.list()?.isNotEmpty() ?: false) }) }
     var downloadProgress by remember { mutableStateOf(0f) }
     var isDownloading by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("Welcome to ResKiosk") }
-    
+
     val downloads = listOf(
         "English STT" to ModelConstants.STT_URL_BILINGUAL,
         "Japanese STT" to ModelConstants.STT_URL_JA,
         "Whisper STT" to ModelConstants.STT_URL_WHISPER,
         "English Voice" to ModelConstants.TTS_URL_EN,
-        "Japanese Voice" to ModelConstants.TTS_URL_JA,
         "Spanish Voice" to ModelConstants.TTS_URL_ES,
         "German Voice" to ModelConstants.TTS_URL_DE,
         "French Voice" to ModelConstants.TTS_URL_FR,
         "Punctuation" to ModelConstants.PUNCTUATION_URL
     )
 
-    // Animate displayed progress toward actual progress so the bar moves smoothly
     val animatedProgress by animateFloatAsState(
         targetValue = downloadProgress,
         animationSpec = tween(durationMillis = 400, easing = LinearEasing),
         label = "progress"
     )
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -93,7 +110,6 @@ fun SetupScreen(onSetupComplete: () -> Unit) {
             Spacer(modifier = Modifier.height(32.dp))
 
             if (isDownloading) {
-                // Status block: step name + status line, constrained width for readable alignment
                 Card(
                     modifier = Modifier
                         .fillMaxWidth(0.9f)
@@ -117,7 +133,6 @@ fun SetupScreen(onSetupComplete: () -> Unit) {
                 }
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Animated progress bar
                 Column(modifier = Modifier.fillMaxWidth(0.9f)) {
                     LinearProgressIndicator(
                         progress = animatedProgress,
@@ -163,8 +178,7 @@ fun SetupScreen(onSetupComplete: () -> Unit) {
                         for ((index, item) in downloads.withIndex()) {
                             val (name, url) = item
                             val targetDir = requiredDirs.find { it.first == name }?.second
-                            
-                            // Incremental check: Skip if directory exists and is not empty
+
                             if (targetDir != null && targetDir.exists() && (targetDir.list()?.isNotEmpty() ?: false)) {
                                 Log.i("SetupScreen", "Skipping $name, already installed.")
                                 downloadProgress = (index + 1).toFloat() / downloads.size
@@ -199,7 +213,6 @@ fun SetupScreen(onSetupComplete: () -> Unit) {
                     Text(if (requiredDirs.any { (_, dir) -> dir.exists() }) "Resume Setup" else "Download Offline Models")
                 }
             } else {
-                // Models exist
                 Text(
                     "Models Found.",
                     style = MaterialTheme.typography.bodyLarge,

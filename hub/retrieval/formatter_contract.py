@@ -13,7 +13,7 @@ Rules:
 - Use calm, reassuring language appropriate for stressed evacuees.
 - Respond in plain conversational English only - no bullet points, no lists, no markdown.
 - Keep the response to 2-3 sentences maximum.
-- If include_intro is true, start with a short intro like "I'm Reze." and then give the answer.
+- Do NOT introduce yourself or add identity lines (for example: "I'm Reze.").
 - If the text is already short and clear, return it with minimal changes."""
 
 
@@ -27,4 +27,3 @@ def build_user_prompt(kb_article_json: str, query: str, history_str: str, includ
         "Formatted spoken response:"
     )
     return prompt_content
-

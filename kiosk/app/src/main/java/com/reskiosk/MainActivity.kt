@@ -71,7 +71,6 @@ class MainActivity : ComponentActivity() {
                         File(modelsDir, ModelConstants.STT_DIR_JA),
                         File(modelsDir, ModelConstants.STT_DIR_WHISPER),
                         File(modelsDir, ModelConstants.TTS_DIR_EN),
-                        File(modelsDir, ModelConstants.TTS_DIR_JA),
                         File(modelsDir, ModelConstants.TTS_DIR_ES),
                         File(modelsDir, ModelConstants.TTS_DIR_DE),
                         File(modelsDir, ModelConstants.TTS_DIR_FR),
