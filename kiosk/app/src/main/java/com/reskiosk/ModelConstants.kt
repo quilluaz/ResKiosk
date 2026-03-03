@@ -36,7 +36,9 @@ object ModelConstants {
     const val TTS_DIR_FR = "vits-piper-fr_FR-siwis-medium"
     const val TTS_URL_FR = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-fr_FR-siwis-medium.tar.bz2"
 
-    // No dedicated Japanese Piper TTS model exists upstream; JA TTS falls back to English.
+    // Japanese Kokoro (multilingual) voice. Required for native Japanese TTS output.
+    const val TTS_DIR_JA = "kokoro-multi-lang-v1_0"
+    const val TTS_URL_JA = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2"
 
     // ── Punctuation Models ──
     const val PUNCTUATION_DIR = "sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12"

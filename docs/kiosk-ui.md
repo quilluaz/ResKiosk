@@ -97,6 +97,10 @@ Important audio handling:
 - A short delay is applied before starting capture.
 - Voice waveform levels come from RMS-based smoothing in `updateVoiceLevels()`.
 
+Emergency detection guard:
+- Generic informational "help" is not treated as SOS by itself.
+- Informational queries like "where is the doctor?" stay in Q&A unless critical emergency phrases/keywords are present.
+
 ## Header Controls
 
 During active session, top-right controls are shown:
@@ -152,6 +156,15 @@ Reachability probing:
 - Tries `GET /admin/ping` first.
 - Falls back to `GET /health`.
 - If `ping` fails but `health` succeeds, kiosk also sends `POST /register_kiosk` heartbeat to keep hub-side kiosk presence accurate.
+
+## Compound Follow-Up Auto-Answer
+
+When the hub returns a primary answer with `follow_up_prompt` + `follow_up_intent`:
+
+- Kiosk stores the follow-up context for exactly one next turn.
+- If next user message is an agreement phrase (EN/ES/DE/FR/JA plus shelter variants like `opo`, `sige`, `oo`), kiosk automatically triggers retrieval for the secondary intent.
+- If next message is not agreement, context is cleared and query runs normally.
+- Follow-up context always expires after one turn.
 
 ## Emergency UI Screens
 

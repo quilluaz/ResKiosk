@@ -30,6 +30,7 @@ Intent classification happens inside `hub/retrieval/search.py` during `retrieve(
 5. **Enrich query** with intent keywords (if confident; can use top-2 intents).
 6. **Embed + search** across KB embeddings.
 7. **Clarification gating** (if intent is unclear + low score).
+8. **Compound follow-up** (single primary answer + optional secondary follow-up prompt).
 
 
 ## Intent Classifier
@@ -43,12 +44,18 @@ Intent classification happens inside `hub/retrieval/search.py` during `retrieve(
   - `(intent, score)` if score >= `UNCLEAR_THRESHOLD`
   - `("unclear", score)` if below threshold
 
-### Top-2 Classification (Dual Enrichment)
+### Top-2 Classification (Dual Enrichment + Compound Detection)
 
 The classifier also supports a **top-2** variant used by retrieval:
 
 - `classify_top2()` returns `(best_intent, best_score, second_intent, second_score)`.
-- If both top intents score >= `INTENT_ACTION_THRESHOLD`, both enrichment strings are appended.
+- Compound mode is enabled when:
+  - `best_score >= RESKIOSK_COMPOUND_INTENT_MIN`
+  - `second_score >= RESKIOSK_COMPOUND_INTENT_MIN`
+  - `abs(best_score - second_score) <= RESKIOSK_COMPOUND_GAP_MAX`
+- If compound mode is active, the system applies safety-first arbitration:
+  - `safety/emergency > medical > children/special_needs > other service intents`
+- The winner becomes `primary_intent`; the other becomes `secondary_intent`.
 
 ### Intent Labels
 
@@ -154,6 +161,7 @@ Clarification is only triggered when:
 
 - `intent == "unclear"` **and**
 - best retrieval score `< CLARIFICATION_FLOOR`
+- no valid compound pair is active
 
 Additional guardrails:
 
@@ -169,6 +177,29 @@ def needs_clarification(query, top_k, intent, intent_conf):
     best_score = top_k[0].score if top_k else 0.0
     return intent == "unclear" and best_score < CLARIFICATION_FLOOR
 ```
+
+## Follow-Up Auto-Answer (Intent v2.1)
+
+When compound mode is active and the hub can still return a strong single article answer, it also emits:
+
+- `follow_up_prompt`
+- `follow_up_intent`
+
+The kiosk stores that follow-up context for **one next user turn only**.
+
+- If next user input is an agreement phrase (`yes`, `yes please`, `opo`, `sige`, etc., including localized sets), kiosk automatically requests retrieval for the secondary intent.
+- If next user input is not an agreement, follow-up context is cleared and query is handled normally.
+- The follow-up context expires after that one turn.
+
+This preserves one-article responses while still covering mixed-intent questions.
+
+## Emergency Disambiguation (Kiosk Guard)
+
+Emergency auto-trigger no longer uses generic informational "help" terms by themselves.
+
+- Explicit critical emergency phrases still trigger emergency flow.
+- Tier-2 emergency keywords still use confirmation flow.
+- Informational medical/location questions (for example: "Help, where is the doctor?") stay in normal Q&A unless critical emergency terms are also present.
 
 
 ## Clarification Category Mapping
@@ -256,6 +287,10 @@ These are the main config values used in retrieval and classification:
   - Non-English direct-match threshold.
 - `RESKIOSK_NON_EN_CLARIFICATION_FLOOR` (default `0.38`)
   - Non-English clarification threshold.
+- `RESKIOSK_COMPOUND_INTENT_MIN` (default `0.35`)
+  - Minimum confidence for both top intents before compound mode is considered.
+- `RESKIOSK_COMPOUND_GAP_MAX` (default `0.08`)
+  - Maximum allowed confidence gap between top-1 and top-2 intents for compound mode.
 
 ### RLHF / Bias Tuning
 

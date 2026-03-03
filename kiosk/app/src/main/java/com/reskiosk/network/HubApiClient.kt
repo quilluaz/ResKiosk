@@ -25,7 +25,9 @@ data class HubQueryResponse(
     @SerializedName("source_id") val sourceId: Int?,
     @SerializedName("query_log_id") val queryLogId: Int?,
     @SerializedName("rlhf_top_source_id") val rlhfTopSourceId: Int?,
-    @SerializedName("rlhf_top_score") val rlhfTopScore: Float?
+    @SerializedName("rlhf_top_score") val rlhfTopScore: Float?,
+    @SerializedName("follow_up_prompt") val followUpPrompt: String?,
+    @SerializedName("follow_up_intent") val followUpIntent: String?
 )
 
 data class PingResponse(

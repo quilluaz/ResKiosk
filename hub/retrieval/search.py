@@ -50,6 +50,29 @@ NON_EN_CLARIFICATION_FLOOR = float(os.environ.get("RESKIOSK_NON_EN_CLARIFICATION
 
 # Intent action threshold (enrichment + short-circuit + clarification suppression)
 INTENT_ACTION_THRESHOLD = 0.35
+COMPOUND_INTENT_MIN = float(os.environ.get("RESKIOSK_COMPOUND_INTENT_MIN", 0.35))
+COMPOUND_GAP_MAX = float(os.environ.get("RESKIOSK_COMPOUND_GAP_MAX", 0.08))
+
+INTENT_PRIORITY = {
+    "safety": 100,
+    "emergency": 100,
+    "medical": 90,
+    "children": 80,
+    "special_needs": 80,
+}
+
+FOLLOW_UP_PROMPT_BY_INTENT = {
+    "medical": "I can also help with medical support. Do you want that too?",
+    "children": "I can also help with child-related support. Do you want that too?",
+    "special_needs": "I can also help with special-needs support. Do you want that too?",
+    "safety": "I can also help with safety guidance. Do you want that too?",
+    "registration": "I can also help with registration steps. Do you want that too?",
+    "sleeping": "I can also help with sleeping area information. Do you want that too?",
+    "food": "I can also help with food and water schedules. Do you want that too?",
+    "facilities": "I can also help with facilities information. Do you want that too?",
+    "transportation": "I can also help with transportation details. Do you want that too?",
+    "lost_person": "I can also help with missing-person reporting. Do you want that too?",
+}
 
 CLARIFICATION_CATEGORY_TO_INTENT = {
     "food & water": "food",
@@ -117,14 +140,42 @@ def needs_clarification(
     top_k: List[RetrievalResult],
     intent: str,
     intent_confidence: float,
+    is_compound: bool = False,
 ) -> bool:
     """Only clarify when intent is unclear and best retrieval score is below CLARIFICATION_FLOOR."""
+    if is_compound and intent_confidence >= INTENT_ACTION_THRESHOLD:
+        return False
     if intent != "unclear" and intent_confidence >= INTENT_ACTION_THRESHOLD:
         return False
     if intent in ("greeting", "identity", "capability", "small_talk", "goodbye"):
         return False
     best_retrieval_score = top_k[0].score if top_k else 0.0
     return intent == "unclear" and best_retrieval_score < CLARIFICATION_FLOOR
+
+
+def _intent_priority(intent: Optional[str]) -> int:
+    if not intent:
+        return 0
+    return INTENT_PRIORITY.get(intent, 10)
+
+
+def _resolve_compound_intents(
+    top_intent: str,
+    top_conf: float,
+    second_intent: Optional[str],
+    second_conf: float,
+) -> tuple[str, float, Optional[str], float, bool]:
+    if (
+        second_intent
+        and second_intent != top_intent
+        and top_conf >= COMPOUND_INTENT_MIN
+        and second_conf >= COMPOUND_INTENT_MIN
+        and abs(top_conf - second_conf) <= COMPOUND_GAP_MAX
+    ):
+        if _intent_priority(second_intent) > _intent_priority(top_intent):
+            return second_intent, second_conf, top_intent, top_conf, True
+        return top_intent, top_conf, second_intent, second_conf, True
+    return top_intent, top_conf, None, 0.0, False
 
 
 # --- Fix 6: In-memory corpus cache ---
@@ -275,6 +326,8 @@ def retrieve(
     # 3. Classify intent and optionally enrich query
     intent, intent_confidence = "unclear", 0.0
     second_intent, second_confidence = None, 0.0
+    compound_secondary_intent = None
+    is_compound = False
     if _intent_classifier:
         try:
             if hasattr(_intent_classifier, "classify_top2"):
@@ -287,6 +340,17 @@ def retrieve(
                 logger.info(f"[Retrieve] intent={intent} confidence={intent_confidence:.4f}")
         except Exception as e:
             logger.warning(f"[Retrieve] Intent classification failed: {e}")
+
+    intent, intent_confidence, compound_secondary_intent, _, is_compound = _resolve_compound_intents(
+        intent,
+        intent_confidence,
+        second_intent,
+        second_confidence,
+    )
+    if is_compound:
+        logger.info(
+            f"[Retrieve] compound=True primary={intent}({intent_confidence:.4f}) secondary={compound_secondary_intent}"
+        )
 
     # 3a. Short-circuit for simple conversational intents (no KB lookup)
     if intent != "unclear" and intent_confidence >= INTENT_ACTION_THRESHOLD:
@@ -349,9 +413,11 @@ def retrieve(
     search_query = normalized_query
     if intent != "unclear" and intent_confidence >= INTENT_ACTION_THRESHOLD and intent in INTENT_ENRICHMENT:
         search_query = f"{normalized_query} {INTENT_ENRICHMENT[intent]}"
-        if second_intent and second_intent != intent and second_confidence >= INTENT_ACTION_THRESHOLD:
-            if second_intent in INTENT_ENRICHMENT:
-                search_query = f"{search_query} {INTENT_ENRICHMENT[second_intent]}"
+        enrichment_secondary = compound_secondary_intent
+        if not enrichment_secondary and second_intent and second_intent != intent and second_confidence >= INTENT_ACTION_THRESHOLD:
+            enrichment_secondary = second_intent
+        if enrichment_secondary and enrichment_secondary in INTENT_ENRICHMENT:
+            search_query = f"{search_query} {INTENT_ENRICHMENT[enrichment_secondary]}"
     if is_retry and selected_category:
         mapped = CLARIFICATION_CATEGORY_TO_INTENT.get((selected_category or "").strip().lower())
         if mapped and mapped in INTENT_ENRICHMENT:
@@ -483,11 +549,19 @@ def retrieve(
     # 5. Clarification gating (intent-aware)
     clarify = False
     if not is_retry:
-        clarify = needs_clarification(normalized_query, top_k_results, intent, intent_confidence)
+        clarify = needs_clarification(
+            normalized_query,
+            top_k_results,
+            intent,
+            intent_confidence,
+            is_compound=is_compound,
+        )
 
     threshold, clarification_floor = _thresholds_for_language(query_language)
     # 6. Gating: >= threshold DIRECT_MATCH; clarify below floor; else NO_MATCH
     if best.score >= threshold:
+        follow_up_intent = compound_secondary_intent if is_compound else None
+        follow_up_prompt = FOLLOW_UP_PROMPT_BY_INTENT.get(follow_up_intent) if follow_up_intent else None
         return {
             "answer_text": best.article["answer"],
             "answer_type": "DIRECT_MATCH",
@@ -505,6 +579,9 @@ def retrieve(
             "intent_confidence": intent_confidence,
             "rlhf_top_source_id": rlhf_top_source_id,
             "rlhf_top_score": rlhf_top_score,
+            "is_compound": is_compound,
+            "follow_up_prompt": follow_up_prompt,
+            "follow_up_intent": follow_up_intent,
         }
 
     if best.score >= clarification_floor and clarify:
@@ -524,10 +601,15 @@ def retrieve(
             "intent_confidence": intent_confidence,
             "rlhf_top_source_id": rlhf_top_source_id,
             "rlhf_top_score": rlhf_top_score,
+            "is_compound": is_compound,
+            "follow_up_prompt": None,
+            "follow_up_intent": None,
         }
 
     # 0.45-0.65: use best match; < 0.45 or no clarify: fixed fallback
     if best.score >= clarification_floor:
+        follow_up_intent = compound_secondary_intent if is_compound else None
+        follow_up_prompt = FOLLOW_UP_PROMPT_BY_INTENT.get(follow_up_intent) if follow_up_intent else None
         return {
             "answer_text": best.article["answer"],
             "answer_type": "DIRECT_MATCH",
@@ -545,6 +627,9 @@ def retrieve(
             "intent_confidence": intent_confidence,
             "rlhf_top_source_id": rlhf_top_source_id,
             "rlhf_top_score": rlhf_top_score,
+            "is_compound": is_compound,
+            "follow_up_prompt": follow_up_prompt,
+            "follow_up_intent": follow_up_intent,
         }
 
     return {
@@ -559,4 +644,7 @@ def retrieve(
         "intent_confidence": intent_confidence,
         "rlhf_top_source_id": rlhf_top_source_id,
         "rlhf_top_score": rlhf_top_score,
+        "is_compound": is_compound,
+        "follow_up_prompt": None,
+        "follow_up_intent": None,
     }

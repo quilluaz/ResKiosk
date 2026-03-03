@@ -46,6 +46,7 @@ object EmergencyStrings {
         "start_subtitle_line_1" to "Ask by voice or type a message.",
         "start_subtitle_line_2" to "Reze is ready to help.",
         "start_button" to "Start Session",
+        "session_start_welcome" to "Hi, I'm Reze. How can I help you today? Tap the button to get started.",
         "mode_voice_only" to "Voice",
         "mode_text_voice" to "Text",
         "keyboard_open" to "Keyboard",
@@ -83,6 +84,7 @@ object EmergencyStrings {
         "start_subtitle_line_1" to "Pregunta por voz o escribe un mensaje.",
         "start_subtitle_line_2" to "Reze esta lista para ayudar.",
         "start_button" to "Iniciar sesion",
+        "session_start_welcome" to "Hola, soy Reze. Como puedo ayudarte hoy? Toca el boton para comenzar.",
         "mode_voice_only" to "Voz",
         "mode_text_voice" to "Texto",
         "keyboard_open" to "Teclado",
@@ -107,6 +109,7 @@ object EmergencyStrings {
     private val de = en + mapOf(
         "start_subtitle_line_1" to "Frage per Sprache oder tippe eine Nachricht.",
         "start_subtitle_line_2" to "Reze ist bereit zu helfen.",
+        "session_start_welcome" to "Hallo, ich bin Reze. Wie kann ich dir heute helfen? Tippe auf die Schaltflache, um zu starten.",
         "mode_voice_only" to "Sprache",
         "mode_text_voice" to "Text",
         "text_only_hint" to "Nutze die Tastatur unten fur deine Frage.",
@@ -118,6 +121,7 @@ object EmergencyStrings {
     private val fr = en + mapOf(
         "start_subtitle_line_1" to "Posez votre question a la voix ou par texte.",
         "start_subtitle_line_2" to "Reze est prete a aider.",
+        "session_start_welcome" to "Bonjour, je suis Reze. Comment puis-je vous aider aujourd'hui ? Touchez le bouton pour commencer.",
         "mode_voice_only" to "Voix",
         "mode_text_voice" to "Texte",
         "text_only_hint" to "Utilisez le clavier ci-dessous pour poser une question.",
@@ -129,6 +133,7 @@ object EmergencyStrings {
     private val ja = en + mapOf(
         "start_subtitle_line_1" to "Ask by voice or type a message.",
         "start_subtitle_line_2" to "Reze is ready to help.",
+        "session_start_welcome" to "こんにちは、Rezeです。今日はどのようにお手伝いできますか？開始するにはボタンを押してください。",
         "mode_voice_only" to "Voice",
         "mode_text_voice" to "Text",
         "text_only_hint" to "Use the keyboard below to ask a question.",
