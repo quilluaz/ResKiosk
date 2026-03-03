@@ -151,6 +151,8 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
     private val _emergencyCooldownActive = MutableStateFlow(false)
     val emergencyCooldownActive = _emergencyCooldownActive.asStateFlow()
 
+    private val _faqSuggestions = MutableStateFlow<List<com.reskiosk.network.FaqSuggestion>>(emptyList())
+    val faqSuggestions = _faqSuggestions.asStateFlow()
 
     // Inactivity auto-timeout
     private var inactivityJob: Job? = null
@@ -620,6 +622,7 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
         recorder.setNoiseSuppressionEnabled(_selectedLanguage.value == "en" || _selectedLanguage.value == "ja")
         recorder.startContinuousListening(viewModelScope)
 
+        fetchFaqSuggestions()
         val welcome = EmergencyStrings.get("session_start_welcome", _selectedLanguage.value)
         tts?.stop()
         tts?.speak(welcome)
@@ -653,6 +656,7 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
         emergencyResolvedAutoEndJob?.cancel()
         emergencyCooldownUntil = 0L
         _emergencyCooldownActive.value = false
+        _faqSuggestions.value = emptyList()
 
         if (currentSession != null && !hasSpokenSessionEnding) {
             hasSpokenSessionEnding = true
@@ -677,6 +681,45 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
+    }
+
+    // --- FAQ Suggestions ---
+
+    private fun fetchFaqSuggestions() {
+        val hubUrl = normalizeHubUrl(getHubUrl()) ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val api = HubApiClient.getService(hubUrl)
+                val items = api.faqSuggestions(limit = 5)
+                withContext(Dispatchers.Main) {
+                    _faqSuggestions.value = items
+                }
+            } catch (e: Exception) {
+                Log.w("KioskVM", "Failed to fetch FAQ suggestions: ${e.message}")
+            }
+        }
+    }
+
+    fun selectFaqSuggestion(question: String) {
+        _faqSuggestions.value = emptyList()
+        resetInactivityTimer()
+
+        val msgId = UUID.randomUUID().toString()
+        _chatHistory.value = _chatHistory.value + ChatMessage(
+            isUser = true,
+            text = question,
+            id = msgId
+        )
+
+        _uiState.value = KioskState.Processing
+        _loadingTitle.value = EmergencyStrings.get("searching", _selectedLanguage.value)
+        _loadingSubtitle.value = ""
+
+        performQuery(
+            queryEnglish = question,
+            queryOriginal = question,
+            isRetry = false
+        )
     }
 
     // --- Inputs ---

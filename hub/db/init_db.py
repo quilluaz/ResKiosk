@@ -4,7 +4,12 @@ from hub.db.session import Base, SessionLocal, engine
 
 
 _MIGRATIONS = [
-    ("hub", "device_id", "TEXT"),
+    ("hub",  "device_id",      "TEXT"),
+    ("user", "username",       "TEXT"),
+    ("user", "is_first_login", "INTEGER NOT NULL DEFAULT 1"),
+    ("user", "created_at",     "INTEGER"),
+    ("kb_articles", "created_by", "TEXT DEFAULT 'System Generated'"),
+    ("kb_articles", "updated_by", "TEXT"),
 ]
 
 

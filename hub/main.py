@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from hub.api import routes_system, routes_kb, routes_admin, routes_query, routes_network, routes_emergency, routes_messages, routes_lora
+from hub.api import routes_system, routes_kb, routes_admin, routes_query, routes_network, routes_emergency, routes_messages, routes_lora, routes_auth
 from hub.db.init_db import init_db
 
 app = FastAPI(title="ResKiosk Hub", version="0.2")
@@ -137,7 +137,7 @@ def get_base_path():
     return Path(__file__).parent.parent
 
 
-# Include routers
+app.include_router(routes_auth.router)
 app.include_router(routes_system.router)
 app.include_router(routes_network.router)
 app.include_router(routes_kb.router)

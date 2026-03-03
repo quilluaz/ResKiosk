@@ -9,6 +9,7 @@ from hub.db import schema
 from hub.models import api_models
 from hub.retrieval.embedder import load_embedder, serialize_embedding, get_embeddable_text
 from hub.retrieval.search import invalidate_corpus_cache, invalidate_shelter_config_cache
+from hub.api.routes_auth import get_optional_user, get_current_user
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -177,6 +178,15 @@ def _embed_article(db: Session, article: schema.KBArticle):
         print(f"[Embedder] WARNING: Failed to embed article {article.id}: {e}")
 
 
+def _user_display_name(user: schema.User | None) -> str:
+    """Return 'Fname Lname' for a logged-in user, or 'System Generated'."""
+    if user and (user.fname or user.lname):
+        return f"{user.fname or ''} {user.lname or ''}".strip()
+    if user and user.username:
+        return user.username
+    return "System Generated"
+
+
 # ─── KB Articles ────────────────────────────────────────────────────────────
 
 @router.post("/admin/article", response_model=api_models.ArticleResponse, status_code=status.HTTP_201_CREATED)
@@ -184,6 +194,7 @@ async def create_article(
     article: api_models.ArticleCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    current_user: schema.User = Depends(get_current_user),
 ):
     db_article = schema.KBArticle(
         question=article.question,
@@ -195,6 +206,7 @@ async def create_article(
         source="manual",
         created_at=int(time.time()),
         last_updated=int(time.time()),
+        created_by=_user_display_name(current_user),
     )
     db.add(db_article)
     _increment_kb_version(db)
@@ -211,6 +223,7 @@ async def update_article(
     update: api_models.ArticleUpdate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    current_user: schema.User = Depends(get_current_user),
 ):
     db_article = db.query(schema.KBArticle).filter(schema.KBArticle.id == id).first()
     if not db_article:
@@ -235,6 +248,7 @@ async def update_article(
         db_article.status = update.status
 
     db_article.last_updated = int(time.time())
+    db_article.updated_by = _user_display_name(current_user)
     _increment_kb_version(db)
     db.commit()
     db.refresh(db_article)
@@ -434,7 +448,11 @@ async def publish_kb(db: Session = Depends(get_db)):
 # ─── Bulk Import ─────────────────────────────────────────────────────────────
 
 @router.post("/admin/import")
-async def import_articles(payload: dict, db: Session = Depends(get_db)):
+async def import_articles(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: schema.User | None = Depends(get_optional_user),
+):
     """Bulk import articles. Expects: { "articles": [{question, answer, category, tags, enabled}, ...] }"""
     articles_data = payload.get("articles", [])
     if not isinstance(articles_data, list) or len(articles_data) == 0:
@@ -470,6 +488,7 @@ async def import_articles(payload: dict, db: Session = Depends(get_db)):
                 source=data.get("source", "import"),
                 created_at=now,
                 last_updated=now,
+                created_by=_user_display_name(current_user),
             )
 
             if embedder:

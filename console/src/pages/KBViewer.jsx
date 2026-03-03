@@ -15,6 +15,12 @@ function KBViewer() {
     const location = useLocation();
     const navigate = useNavigate();
 
+    // View (detail) modal state
+    const [selectedArticle, setSelectedArticle] = useState(null);
+
+    const openViewModal = (article) => setSelectedArticle(article);
+    const closeViewModal = () => setSelectedArticle(null);
+
     // New-article modal state
     const [showNewModal, setShowNewModal] = useState(false);
     const [formData, setFormData] = useState({
@@ -39,7 +45,7 @@ function KBViewer() {
         try {
             const res = await hubClient.get('/kb/snapshot');
             setArticles(res.data.articles || []);
-            
+
             // Check if we need to open the edit modal for a specific article
             if (location.state?.editArticle) {
                 const articleId = location.state.editArticle;
@@ -57,7 +63,7 @@ function KBViewer() {
                     });
                     setShowNewModal(true);
                 }
-                
+
                 // Clear the state so it doesn't re-trigger on refresh
                 navigate('.', { replace: true, state: {} });
             }
@@ -304,6 +310,8 @@ function KBViewer() {
                             <th>Question</th>
                             <th>Category</th>
                             <th>Status</th>
+                            <th>Created By</th>
+                            <th>Updated By</th>
                             <th>Last Updated</th>
                             <th style={{ width: '5rem' }}>Actions</th>
                         </tr>
@@ -312,9 +320,8 @@ function KBViewer() {
                         {paginatedArticles.map(a => (
                             <tr
                                 key={a.id}
-                                className="kb-row-clickable"
-                                onClick={() => setSelectedArticle(a)}
-                                title="View full article"
+                                onClick={() => openViewModal(a)}
+                                style={{ cursor: 'pointer' }}
                             >
                                 <td style={{ fontWeight: 500 }}>{a.question}</td>
                                 <td className="text-muted">{a.category}</td>
@@ -323,8 +330,10 @@ function KBViewer() {
                                         {(a.status || 'draft').toUpperCase()}
                                     </span>
                                 </td>
+                                <td className="text-muted text-sm">{a.created_by || 'System Generated'}</td>
+                                <td className="text-muted text-sm">{a.updated_by || '—'}</td>
                                 <td className="text-muted text-sm">{a.last_updated ? new Date(a.last_updated * 1000).toLocaleString() : '—'}</td>
-                                <td>
+                                <td onClick={e => e.stopPropagation()}>
                                     {a.source === 'evac_sync' ? (
                                         <span className="badge badge-info" style={{ fontSize: '0.65rem', opacity: 0.7 }} title="Managed via Shelter Config">
                                             Shelter Config
@@ -344,7 +353,7 @@ function KBViewer() {
                         ))}
                         {filtered.length === 0 && (
                             <tr>
-                                <td colSpan="5" className="empty-state">No articles found.</td>
+                                <td colSpan="7" className="empty-state">No articles found.</td>
                             </tr>
                         )}
                     </tbody>
@@ -358,8 +367,8 @@ function KBViewer() {
                         Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filtered.length)} of {filtered.length} entries
                     </span>
                     <div className="flex gap-2">
-                        <button 
-                            className="btn btn-sm" 
+                        <button
+                            className="btn btn-sm"
                             disabled={currentPage === 1}
                             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                         >
@@ -368,13 +377,110 @@ function KBViewer() {
                         <div className="flex items-center px-3 text-sm font-medium bg-[var(--bg-secondary)] rounded-md border border-[var(--border)]">
                             {currentPage} / {totalPages}
                         </div>
-                        <button 
-                            className="btn btn-sm" 
+                        <button
+                            className="btn btn-sm"
                             disabled={currentPage === totalPages}
                             onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                         >
                             Next
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {/* ─── Article Detail (View) Modal ─── */}
+            {selectedArticle && (
+                <div className="modal-overlay" onClick={closeViewModal}>
+                    <div className="modal-content" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2 className="modal-title">Article Details</h2>
+                            <button className="btn-icon" onClick={closeViewModal}><X size={18} /></button>
+                        </div>
+                        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+
+                            {/* Question */}
+                            <div>
+                                <div className="text-sm text-muted" style={{ marginBottom: '0.25rem' }}>Question</div>
+                                <div style={{ fontWeight: 600, fontSize: '1rem' }}>{selectedArticle.question}</div>
+                            </div>
+
+                            {/* Answer */}
+                            <div>
+                                <div className="text-sm text-muted" style={{ marginBottom: '0.25rem' }}>Answer</div>
+                                <div style={{
+                                    background: 'var(--bg-secondary)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '0.5rem',
+                                    padding: '0.75rem 1rem',
+                                    fontSize: '0.9rem',
+                                    lineHeight: 1.6,
+                                    whiteSpace: 'pre-wrap'
+                                }}>{selectedArticle.answer}</div>
+                            </div>
+
+                            {/* Meta row */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                                <div>
+                                    <div className="text-sm text-muted" style={{ marginBottom: '0.25rem' }}>Category</div>
+                                    <div className="text-sm">{selectedArticle.category || 'General'}</div>
+                                </div>
+                                <div>
+                                    <div className="text-sm text-muted" style={{ marginBottom: '0.25rem' }}>Status</div>
+                                    <span className={`badge ${selectedArticle.status === 'published' ? 'badge-success' : 'badge-warning'}`}>
+                                        {(selectedArticle.status || 'draft').toUpperCase()}
+                                    </span>
+                                </div>
+                                <div>
+                                    <div className="text-sm text-muted" style={{ marginBottom: '0.25rem' }}>Enabled</div>
+                                    <div className="text-sm">{selectedArticle.enabled ? 'Yes' : 'No'}</div>
+                                </div>
+                                <div>
+                                    <div className="text-sm text-muted" style={{ marginBottom: '0.25rem' }}>Source</div>
+                                    <div className="text-sm">{selectedArticle.source === 'evac_sync' ? 'Shelter Config' : 'Manual'}</div>
+                                </div>
+                                <div>
+                                    <div className="text-sm text-muted" style={{ marginBottom: '0.25rem' }}>Created By</div>
+                                    <div className="text-sm">{selectedArticle.created_by || 'System Generated'}</div>
+                                </div>
+                                <div>
+                                    <div className="text-sm text-muted" style={{ marginBottom: '0.25rem' }}>Updated By</div>
+                                    <div className="text-sm">{selectedArticle.updated_by || '—'}</div>
+                                </div>
+                                <div>
+                                    <div className="text-sm text-muted" style={{ marginBottom: '0.25rem' }}>Last Updated</div>
+                                    <div className="text-sm">{selectedArticle.last_updated ? new Date(selectedArticle.last_updated * 1000).toLocaleString() : '—'}</div>
+                                </div>
+                                {(selectedArticle.tags || []).length > 0 && (
+                                    <div>
+                                        <div className="text-sm text-muted" style={{ marginBottom: '0.25rem' }}>Tags</div>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                                            {selectedArticle.tags.map((t, i) => (
+                                                <span key={i} style={{
+                                                    background: 'var(--bg-secondary)',
+                                                    border: '1px solid var(--border)',
+                                                    borderRadius: '9999px',
+                                                    padding: '0.1rem 0.6rem',
+                                                    fontSize: '0.75rem'
+                                                }}>{t}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Footer actions */}
+                            <div className="flex justify-end gap-3" style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+                                <button onClick={closeViewModal} className="btn">Close</button>
+                                {selectedArticle.source !== 'evac_sync' && (
+                                    <button
+                                        onClick={() => { closeViewModal(); openEditModal(selectedArticle); }}
+                                        className="btn btn-primary"
+                                    >
+                                        <Edit size={15} /> Edit
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
@@ -434,28 +540,28 @@ function KBViewer() {
                                     </div>
                                 </div>
 
-                            <div className="grid-2" style={{ marginBottom: '1.5rem' }}>
-                                <div>
-                                    <label>Status</label>
-                                    <select
-                                        className="input"
-                                        value={formData.status}
-                                        onChange={e => setFormData({ ...formData, status: e.target.value })}
-                                    >
-                                        <option value="draft">Draft</option>
-                                        <option value="published">Published</option>
-                                    </select>
+                                <div className="grid-2" style={{ marginBottom: '1.5rem' }}>
+                                    <div>
+                                        <label>Status</label>
+                                        <select
+                                            className="input"
+                                            value={formData.status}
+                                            onChange={e => setFormData({ ...formData, status: e.target.value })}
+                                        >
+                                            <option value="draft">Draft</option>
+                                            <option value="published">Published</option>
+                                        </select>
+                                    </div>
+                                    <div className="checkbox-row" style={{ marginBottom: 0, alignItems: 'center' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.enabled}
+                                            onChange={e => setFormData({ ...formData, enabled: e.target.checked })}
+                                            id="enabled"
+                                        />
+                                        <label htmlFor="enabled">Enabled</label>
+                                    </div>
                                 </div>
-                                <div className="checkbox-row" style={{ marginBottom: 0, alignItems: 'center' }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.enabled}
-                                        onChange={e => setFormData({ ...formData, enabled: e.target.checked })}
-                                        id="enabled"
-                                    />
-                                    <label htmlFor="enabled">Enabled</label>
-                                </div>
-                            </div>
 
                                 <div className="flex justify-end gap-3" style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
                                     <button type="button" onClick={closeNewModal} className="btn">Cancel</button>

@@ -55,6 +55,8 @@ class ArticleResponse(BaseModel):
     created_at: Optional[int] = None
     last_updated: Optional[int] = None
     status: Optional[str] = None
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
@@ -328,5 +330,45 @@ class FAQTrackerItem(BaseModel):
     last_asked_at: Optional[int] = None
     kiosk_id: Optional[str] = None
     answer_type: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class FaqSuggestionItem(BaseModel):
+    source_id: int
+    question: str
+    count: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ─── Auth ────────────────────────────────────────────────────────────────────
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    token: str
+    user_id: int
+    username: str
+    fname: Optional[str] = None
+    lname: Optional[str] = None
+    is_first_login: bool
+
+
+class ProfileSetupRequest(BaseModel):
+    first_name: str
+    last_name: str
+    new_password: str
+
+
+class UserResponse(BaseModel):
+    user_id: int
+    username: str
+    fname: Optional[str] = None
+    lname: Optional[str] = None
+    is_first_login: bool
 
     model_config = ConfigDict(from_attributes=True)
