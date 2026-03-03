@@ -84,8 +84,14 @@ def sync_evac_to_kb(db: Session):
                     art.answer = value
                     art.tags = tags
                     art.enabled = 1
+                    art.status = "published"
                     art.last_updated = now
                     art.embedding = None  # Will be re-embedded below
+                    changed_articles.append(art)
+                elif art.status != "published":
+                    # Keep Shelter Config synced articles in published state.
+                    art.status = "published"
+                    art.last_updated = now
                     changed_articles.append(art)
             else:
                 # Create new article
@@ -95,6 +101,7 @@ def sync_evac_to_kb(db: Session):
                     category=EVAC_CATEGORY,
                     tags=tags,
                     enabled=1,
+                    status="published",
                     source=EVAC_SOURCE,
                     created_at=now,
                     last_updated=now,
