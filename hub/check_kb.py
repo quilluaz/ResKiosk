@@ -13,14 +13,14 @@ def check_kb():
     articles = db.query(schema.KBArticle).all()
     print(f"Total articles in KB: {len(articles)}")
     for art in articles:
-        print(f"ID: {art.id} | Title: {art.title} | Category: {art.category} | Status: {art.status}")
-    
-    meta = db.query(schema.KBMeta).first()
-    if meta:
-        print(f"KB Version: {meta.kb_version} | Updated At: {meta.updated_at}")
+        print(f"ID: {art.id} | Question: {art.question} | Category: {art.category} | Enabled: {art.enabled}")
+
+    sv = db.query(schema.SystemVersion).first()
+    if sv:
+        print(f"KB Version: {sv.kb_version} | Last Published: {sv.last_published}")
     else:
-        print("KB Meta not found.")
-    
+        print("SystemVersion not found.")
+
     db.close()
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 [
     {
-        "title": "What do I do if someone is not breathing?",
-        "body": "Call for medical help immediately. If the person is not breathing and has no pulse, begin CPR. Place the heel of your hand on the center of their chest and push down hard and fast about 100 to 120 times per minute. Continue until medical help arrives or the person starts breathing.",
+        "question": "What do I do if someone is not breathing?",
+        "answer": "Call for medical help immediately. If the person is not breathing and has no pulse, begin CPR. Place the heel of your hand on the center of their chest and push down hard and fast about 100 to 120 times per minute. Continue until medical help arrives or the person starts breathing.",
         "category": "First Aid",
         "tags": [
             "not breathing",
@@ -14,8 +14,8 @@
         "enabled": true
     },
     {
-        "title": "How do I do CPR?",
-        "body": "Lay the person flat on their back. Place the heel of one hand on the center of their chest, put your other hand on top, and press down hard about 5 to 6 centimeters. Push at a rate of 100 to 120 times per minute. After every 30 compressions, give 2 rescue breaths if you are trained. Continue until help arrives.",
+        "question": "How do I do CPR?",
+        "answer": "Lay the person flat on their back. Place the heel of one hand on the center of their chest, put your other hand on top, and press down hard about 5 to 6 centimeters. Push at a rate of 100 to 120 times per minute. After every 30 compressions, give 2 rescue breaths if you are trained. Continue until help arrives.",
         "category": "First Aid",
         "tags": [
             "CPR",
@@ -27,8 +27,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone is choking?",
-        "body": "If the person can cough, encourage them to keep coughing. If they cannot cough, speak, or breathe, stand behind them, wrap your arms around their waist, make a fist just above the navel, and thrust inward and upward sharply. Repeat until the object comes out. For infants, use back blows and chest thrusts. Call for medical help immediately.",
+        "question": "What do I do if someone is choking?",
+        "answer": "If the person can cough, encourage them to keep coughing. If they cannot cough, speak, or breathe, stand behind them, wrap your arms around their waist, make a fist just above the navel, and thrust inward and upward sharply. Repeat until the object comes out. For infants, use back blows and chest thrusts. Call for medical help immediately.",
         "category": "First Aid",
         "tags": [
             "choking",
@@ -41,8 +41,8 @@
         "enabled": true
     },
     {
-        "title": "How do I stop heavy bleeding?",
-        "body": "Apply firm and steady pressure directly on the wound using a clean cloth or bandage. Do not remove the cloth even if it soaks through — add more on top. Keep pressing for at least 10 minutes without lifting. If possible, raise the injured area above the level of the heart. Seek medical help immediately for severe bleeding.",
+        "question": "How do I stop heavy bleeding?",
+        "answer": "Apply firm and steady pressure directly on the wound using a clean cloth or bandage. Do not remove the cloth even if it soaks through — add more on top. Keep pressing for at least 10 minutes without lifting. If possible, raise the injured area above the level of the heart. Seek medical help immediately for severe bleeding.",
         "category": "First Aid",
         "tags": [
             "bleeding",
@@ -55,8 +55,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do for a minor cut or scrape?",
-        "body": "Rinse the wound gently with clean water to remove dirt. Apply gentle pressure with a clean cloth to stop any bleeding. Once bleeding stops, cover the wound with a clean bandage. Change the bandage daily and keep the wound dry. Go to the medical station if the wound is deep, won't stop bleeding, or shows signs of infection.",
+        "question": "What do I do for a minor cut or scrape?",
+        "answer": "Rinse the wound gently with clean water to remove dirt. Apply gentle pressure with a clean cloth to stop any bleeding. Once bleeding stops, cover the wound with a clean bandage. Change the bandage daily and keep the wound dry. Go to the medical station if the wound is deep, won't stop bleeding, or shows signs of infection.",
         "category": "First Aid",
         "tags": [
             "cut",
@@ -69,8 +69,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone has a burn?",
-        "body": "For minor burns, cool the area immediately by running cool water over it for at least 10 minutes. Do not use ice, butter, or toothpaste. Cover the burn loosely with a clean bandage or cloth. For large burns, burns on the face, or burns from chemicals or electricity, go to the medical station immediately without trying to treat it yourself.",
+        "question": "What do I do if someone has a burn?",
+        "answer": "For minor burns, cool the area immediately by running cool water over it for at least 10 minutes. Do not use ice, butter, or toothpaste. Cover the burn loosely with a clean bandage or cloth. For large burns, burns on the face, or burns from chemicals or electricity, go to the medical station immediately without trying to treat it yourself.",
         "category": "First Aid",
         "tags": [
             "burn",
@@ -83,8 +83,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone is having a seizure?",
-        "body": "Keep the person safe by clearing hard or sharp objects away from them. Do not hold them down or put anything in their mouth. Gently turn them onto their side if possible. Time the seizure. Stay with them and speak calmly. After the seizure, help them rest and go to the medical station. Call for help immediately if the seizure lasts more than 5 minutes.",
+        "question": "What do I do if someone is having a seizure?",
+        "answer": "Keep the person safe by clearing hard or sharp objects away from them. Do not hold them down or put anything in their mouth. Gently turn them onto their side if possible. Time the seizure. Stay with them and speak calmly. After the seizure, help them rest and go to the medical station. Call for help immediately if the seizure lasts more than 5 minutes.",
         "category": "First Aid",
         "tags": [
             "seizure",
@@ -97,8 +97,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone faints?",
-        "body": "Lay the person flat on their back and raise their legs about 30 centimeters to help blood flow to the brain. Loosen any tight clothing around the neck or waist. Check if they are breathing. If they do not regain consciousness within 1 to 2 minutes, go to the medical station immediately.",
+        "question": "What do I do if someone faints?",
+        "answer": "Lay the person flat on their back and raise their legs about 30 centimeters to help blood flow to the brain. Loosen any tight clothing around the neck or waist. Check if they are breathing. If they do not regain consciousness within 1 to 2 minutes, go to the medical station immediately.",
         "category": "First Aid",
         "tags": [
             "fainting",
@@ -111,8 +111,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone is having a heart attack?",
-        "body": "Have the person sit or lie down in a comfortable position. Loosen tight clothing. If they are conscious and not allergic, give them aspirin to chew if available. Do not give food or water. Go to the medical station immediately or send someone to call for emergency medical help. Stay with the person and keep them calm.",
+        "question": "What do I do if someone is having a heart attack?",
+        "answer": "Have the person sit or lie down in a comfortable position. Loosen tight clothing. If they are conscious and not allergic, give them aspirin to chew if available. Do not give food or water. Go to the medical station immediately or send someone to call for emergency medical help. Stay with the person and keep them calm.",
         "category": "First Aid",
         "tags": [
             "heart attack",
@@ -125,8 +125,8 @@
         "enabled": true
     },
     {
-        "title": "What are the signs of a heart attack?",
-        "body": "Signs of a heart attack include chest pain or pressure that may spread to the arm, neck, or jaw, shortness of breath, sweating, nausea, and feeling faint or lightheaded. These symptoms may come on suddenly or build up slowly. If you or someone near you has these signs, go to the medical station immediately.",
+        "question": "What are the signs of a heart attack?",
+        "answer": "Signs of a heart attack include chest pain or pressure that may spread to the arm, neck, or jaw, shortness of breath, sweating, nausea, and feeling faint or lightheaded. These symptoms may come on suddenly or build up slowly. If you or someone near you has these signs, go to the medical station immediately.",
         "category": "First Aid",
         "tags": [
             "heart attack",
@@ -139,8 +139,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone has a stroke?",
-        "body": "Remember FAST: Face drooping, Arm weakness, Speech difficulty, Time to call for help. If you notice any of these signs, go to the medical station or call for emergency help immediately. Do not give the person anything to eat or drink. Keep them calm, do not leave them alone, and note the time the symptoms started.",
+        "question": "What do I do if someone has a stroke?",
+        "answer": "Remember FAST: Face drooping, Arm weakness, Speech difficulty, Time to call for help. If you notice any of these signs, go to the medical station or call for emergency help immediately. Do not give the person anything to eat or drink. Keep them calm, do not leave them alone, and note the time the symptoms started.",
         "category": "First Aid",
         "tags": [
             "stroke",
@@ -154,8 +154,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone has heat stroke?",
-        "body": "Move the person to a cool or shaded area immediately. Remove excess clothing. Cool them down quickly using wet cloths on the neck, armpits, and groin, or fan them. Give cool water to drink only if they are fully conscious. Go to the medical station immediately — heat stroke is a medical emergency.",
+        "question": "What do I do if someone has heat stroke?",
+        "answer": "Move the person to a cool or shaded area immediately. Remove excess clothing. Cool them down quickly using wet cloths on the neck, armpits, and groin, or fan them. Give cool water to drink only if they are fully conscious. Go to the medical station immediately — heat stroke is a medical emergency.",
         "category": "First Aid",
         "tags": [
             "heat stroke",
@@ -168,8 +168,8 @@
         "enabled": true
     },
     {
-        "title": "What are the signs of heat exhaustion?",
-        "body": "Signs of heat exhaustion include heavy sweating, weakness, cold or pale and clammy skin, fast or weak pulse, nausea, and fainting. Move the person to a cool shaded area, give cool water to drink, and apply cool wet cloths to the skin. If symptoms do not improve within 30 minutes, go to the medical station.",
+        "question": "What are the signs of heat exhaustion?",
+        "answer": "Signs of heat exhaustion include heavy sweating, weakness, cold or pale and clammy skin, fast or weak pulse, nausea, and fainting. Move the person to a cool shaded area, give cool water to drink, and apply cool wet cloths to the skin. If symptoms do not improve within 30 minutes, go to the medical station.",
         "category": "First Aid",
         "tags": [
             "heat exhaustion",
@@ -182,8 +182,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone is drowning or has swallowed a lot of water?",
-        "body": "Get the person out of the water safely. Check if they are breathing. If not, begin CPR immediately. If they are breathing, lay them on their side to let water drain from the mouth. Keep them warm and go to the medical station even if they seem to have recovered — complications can develop hours later.",
+        "question": "What do I do if someone is drowning or has swallowed a lot of water?",
+        "answer": "Get the person out of the water safely. Check if they are breathing. If not, begin CPR immediately. If they are breathing, lay them on their side to let water drain from the mouth. Keep them warm and go to the medical station even if they seem to have recovered — complications can develop hours later.",
         "category": "First Aid",
         "tags": [
             "drowning",
@@ -196,8 +196,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone has a sprained ankle?",
-        "body": "Use the RICE method: Rest the ankle, apply Ice or a cold cloth for 20 minutes, Compress with a bandage, and Elevate the foot above heart level. Do not put weight on the ankle. Go to the medical station if the pain is severe, the area is very swollen, or you cannot move the ankle at all.",
+        "question": "What do I do if someone has a sprained ankle?",
+        "answer": "Use the RICE method: Rest the ankle, apply Ice or a cold cloth for 20 minutes, Compress with a bandage, and Elevate the foot above heart level. Do not put weight on the ankle. Go to the medical station if the pain is severe, the area is very swollen, or you cannot move the ankle at all.",
         "category": "First Aid",
         "tags": [
             "sprain",
@@ -210,8 +210,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if I think someone has a broken bone?",
-        "body": "Do not try to straighten or move the injured area. Keep the person still and as comfortable as possible. If the bone is sticking out of the skin, cover it with a clean cloth but do not push it in. Support the injured area with padding or improvised splints. Go to the medical station immediately.",
+        "question": "What do I do if I think someone has a broken bone?",
+        "answer": "Do not try to straighten or move the injured area. Keep the person still and as comfortable as possible. If the bone is sticking out of the skin, cover it with a clean cloth but do not push it in. Support the injured area with padding or improvised splints. Go to the medical station immediately.",
         "category": "First Aid",
         "tags": [
             "broken bone",
@@ -224,8 +224,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone has a head injury?",
-        "body": "Keep the person still and do not move them unless they are in immediate danger. Do not remove any object that is stuck in the head. Apply gentle pressure around the wound but not directly on it. Go to the medical station immediately. Watch for warning signs like loss of consciousness, vomiting, confusion, or unequal pupil size.",
+        "question": "What do I do if someone has a head injury?",
+        "answer": "Keep the person still and do not move them unless they are in immediate danger. Do not remove any object that is stuck in the head. Apply gentle pressure around the wound but not directly on it. Go to the medical station immediately. Watch for warning signs like loss of consciousness, vomiting, confusion, or unequal pupil size.",
         "category": "First Aid",
         "tags": [
             "head injury",
@@ -238,8 +238,8 @@
         "enabled": true
     },
     {
-        "title": "What are the signs of a concussion?",
-        "body": "Signs of a concussion include headache, confusion, dizziness, memory problems, nausea, vomiting, sensitivity to light or noise, and feeling foggy or slow. Even a mild bump to the head can cause a concussion. The person should rest and be taken to the medical station for evaluation.",
+        "question": "What are the signs of a concussion?",
+        "answer": "Signs of a concussion include headache, confusion, dizziness, memory problems, nausea, vomiting, sensitivity to light or noise, and feeling foggy or slow. Even a mild bump to the head can cause a concussion. The person should rest and be taken to the medical station for evaluation.",
         "category": "First Aid",
         "tags": [
             "concussion",
@@ -252,8 +252,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone has a nosebleed?",
-        "body": "Have the person sit upright and lean slightly forward. Pinch the soft part of the nose firmly and hold for 10 to 15 minutes without releasing. Breathe through the mouth. Do not tilt the head back as this causes blood to flow down the throat. If bleeding does not stop after 20 minutes, go to the medical station.",
+        "question": "What do I do if someone has a nosebleed?",
+        "answer": "Have the person sit upright and lean slightly forward. Pinch the soft part of the nose firmly and hold for 10 to 15 minutes without releasing. Breathe through the mouth. Do not tilt the head back as this causes blood to flow down the throat. If bleeding does not stop after 20 minutes, go to the medical station.",
         "category": "First Aid",
         "tags": [
             "nosebleed",
@@ -265,8 +265,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone has diarrhea?",
-        "body": "Make sure the person drinks plenty of fluids to prevent dehydration. Oral rehydration salts mixed with clean water are available at the medical station and are the best treatment. Encourage small frequent sips rather than large amounts at once. Go to the medical station if diarrhea is severe, contains blood, or lasts more than two days.",
+        "question": "What do I do if someone has diarrhea?",
+        "answer": "Make sure the person drinks plenty of fluids to prevent dehydration. Oral rehydration salts mixed with clean water are available at the medical station and are the best treatment. Encourage small frequent sips rather than large amounts at once. Go to the medical station if diarrhea is severe, contains blood, or lasts more than two days.",
         "category": "First Aid",
         "tags": [
             "diarrhea",
@@ -279,8 +279,8 @@
         "enabled": true
     },
     {
-        "title": "What are the signs of dehydration?",
-        "body": "Signs of dehydration include dry mouth, feeling very thirsty, dark yellow urine, dizziness, headache, feeling tired, and in severe cases, confusion or no urination at all. Drink clean water and oral rehydration salts immediately. Go to the medical station if symptoms are severe, especially in young children and the elderly.",
+        "question": "What are the signs of dehydration?",
+        "answer": "Signs of dehydration include dry mouth, feeling very thirsty, dark yellow urine, dizziness, headache, feeling tired, and in severe cases, confusion or no urination at all. Drink clean water and oral rehydration salts immediately. Go to the medical station if symptoms are severe, especially in young children and the elderly.",
         "category": "First Aid",
         "tags": [
             "dehydration",
@@ -293,8 +293,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone vomits repeatedly?",
-        "body": "Have the person rest and take small sips of clean water or oral rehydration solution to replace lost fluids. Do not give solid food until vomiting has stopped for at least 2 hours. Keep the person sitting up or on their side to prevent choking. Go to the medical station if vomiting is severe, contains blood, or the person cannot keep any fluids down.",
+        "question": "What do I do if someone vomits repeatedly?",
+        "answer": "Have the person rest and take small sips of clean water or oral rehydration solution to replace lost fluids. Do not give solid food until vomiting has stopped for at least 2 hours. Keep the person sitting up or on their side to prevent choking. Go to the medical station if vomiting is severe, contains blood, or the person cannot keep any fluids down.",
         "category": "First Aid",
         "tags": [
             "vomiting",
@@ -307,8 +307,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do for a high fever?",
-        "body": "Have the person rest in a cool area. Give plenty of fluids. Apply a cool damp cloth to the forehead, neck, and armpits. Fever-reducing medicine such as paracetamol is available at the medical station. Go to the medical station immediately if the fever is above 39 degrees Celsius, if the person is a child under 5, or if the person is confused or having difficulty breathing.",
+        "question": "What do I do for a high fever?",
+        "answer": "Have the person rest in a cool area. Give plenty of fluids. Apply a cool damp cloth to the forehead, neck, and armpits. Fever-reducing medicine such as paracetamol is available at the medical station. Go to the medical station immediately if the fever is above 39 degrees Celsius, if the person is a child under 5, or if the person is confused or having difficulty breathing.",
         "category": "First Aid",
         "tags": [
             "fever",
@@ -321,8 +321,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone has an allergic reaction?",
-        "body": "For mild reactions such as hives, redness, or itching, go to the medical station for antihistamine medication. For severe reactions including difficulty breathing, swelling of the face or throat, or collapse, go to the medical station immediately — this is a medical emergency. Do not leave the person alone.",
+        "question": "What do I do if someone has an allergic reaction?",
+        "answer": "For mild reactions such as hives, redness, or itching, go to the medical station for antihistamine medication. For severe reactions including difficulty breathing, swelling of the face or throat, or collapse, go to the medical station immediately — this is a medical emergency. Do not leave the person alone.",
         "category": "First Aid",
         "tags": [
             "allergy",
@@ -335,8 +335,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone is stung by an insect?",
-        "body": "Remove the stinger by scraping it sideways with a flat surface like a card — do not squeeze it. Wash the area with soap and water. Apply a cold cloth to reduce swelling. Go to the medical station if the person is allergic, has difficulty breathing, or develops severe swelling beyond the sting site.",
+        "question": "What do I do if someone is stung by an insect?",
+        "answer": "Remove the stinger by scraping it sideways with a flat surface like a card — do not squeeze it. Wash the area with soap and water. Apply a cold cloth to reduce swelling. Go to the medical station if the person is allergic, has difficulty breathing, or develops severe swelling beyond the sting site.",
         "category": "First Aid",
         "tags": [
             "insect sting",
@@ -349,8 +349,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone is bitten by a dog or animal?",
-        "body": "Wash the wound thoroughly with soap and clean water for at least 5 minutes. Apply a clean bandage and go to the medical station immediately. Animal bites carry a risk of rabies and infection and must be assessed by a nurse or doctor. Do not try to treat a deep animal bite on your own.",
+        "question": "What do I do if someone is bitten by a dog or animal?",
+        "answer": "Wash the wound thoroughly with soap and clean water for at least 5 minutes. Apply a clean bandage and go to the medical station immediately. Animal bites carry a risk of rabies and infection and must be assessed by a nurse or doctor. Do not try to treat a deep animal bite on your own.",
         "category": "First Aid",
         "tags": [
             "dog bite",
@@ -363,8 +363,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone steps on a nail or sharp object?",
-        "body": "If the nail or object is still in the foot, do not remove it yourself — go to the medical station immediately. If the object has been removed, wash the wound with clean water and soap, cover with a clean bandage, and go to the medical station. Wounds from nails and sharp metal carry a risk of tetanus and must be checked by a nurse.",
+        "question": "What do I do if someone steps on a nail or sharp object?",
+        "answer": "If the nail or object is still in the foot, do not remove it yourself — go to the medical station immediately. If the object has been removed, wash the wound with clean water and soap, cover with a clean bandage, and go to the medical station. Wounds from nails and sharp metal carry a risk of tetanus and must be checked by a nurse.",
         "category": "First Aid",
         "tags": [
             "nail",
@@ -377,8 +377,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone has a toothache?",
-        "body": "Rinse the mouth with warm salt water. A pain reliever such as paracetamol available at the medical station can help reduce the pain temporarily. Do not place aspirin directly on the gum or tooth. Go to the medical station and ask if dental assistance is available at the evacuation center.",
+        "question": "What do I do if someone has a toothache?",
+        "answer": "Rinse the mouth with warm salt water. A pain reliever such as paracetamol available at the medical station can help reduce the pain temporarily. Do not place aspirin directly on the gum or tooth. Go to the medical station and ask if dental assistance is available at the evacuation center.",
         "category": "First Aid",
         "tags": [
             "toothache",
@@ -391,8 +391,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone has an eye injury?",
-        "body": "Do not rub the eye. If a chemical got in the eye, flush it with clean water for at least 15 minutes. If there is an object stuck in the eye, do not try to remove it — cover the eye loosely with a clean cloth and go to the medical station immediately. All eye injuries should be checked by medical personnel.",
+        "question": "What do I do if someone has an eye injury?",
+        "answer": "Do not rub the eye. If a chemical got in the eye, flush it with clean water for at least 15 minutes. If there is an object stuck in the eye, do not try to remove it — cover the eye loosely with a clean cloth and go to the medical station immediately. All eye injuries should be checked by medical personnel.",
         "category": "First Aid",
         "tags": [
             "eye injury",
@@ -405,8 +405,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone has difficulty breathing?",
-        "body": "Have the person sit upright and try to stay calm. Loosen any tight clothing around the neck or chest. Remove them from smoke, dust, or other irritants if possible. Go to the medical station immediately — difficulty breathing can quickly become a life-threatening emergency.",
+        "question": "What do I do if someone has difficulty breathing?",
+        "answer": "Have the person sit upright and try to stay calm. Loosen any tight clothing around the neck or chest. Remove them from smoke, dust, or other irritants if possible. Go to the medical station immediately — difficulty breathing can quickly become a life-threatening emergency.",
         "category": "First Aid",
         "tags": [
             "breathing",
@@ -419,8 +419,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone has an asthma attack?",
-        "body": "Help the person sit upright and stay calm. If they have a rescue inhaler, help them use it according to their instructions. Move them away from triggers such as smoke or dust. If they do not improve after using the inhaler, or if they do not have an inhaler, go to the medical station immediately.",
+        "question": "What do I do if someone has an asthma attack?",
+        "answer": "Help the person sit upright and stay calm. If they have a rescue inhaler, help them use it according to their instructions. Move them away from triggers such as smoke or dust. If they do not improve after using the inhaler, or if they do not have an inhaler, go to the medical station immediately.",
         "category": "First Aid",
         "tags": [
             "asthma",
@@ -433,8 +433,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone swallowed something they should not have?",
-        "body": "Do not induce vomiting unless specifically instructed by a medical professional. Bring the person to the medical station immediately and if possible bring the container or packaging of what was swallowed. Note the time it was swallowed and the amount. This information will help the medical team treat the person correctly.",
+        "question": "What do I do if someone swallowed something they should not have?",
+        "answer": "Do not induce vomiting unless specifically instructed by a medical professional. Bring the person to the medical station immediately and if possible bring the container or packaging of what was swallowed. Note the time it was swallowed and the amount. This information will help the medical team treat the person correctly.",
         "category": "First Aid",
         "tags": [
             "swallowed",
@@ -447,8 +447,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone has a back or spine injury?",
-        "body": "Do not move the person unless they are in immediate danger. Keep them still and calm. Support the head and neck in the position you found them and do not try to straighten it. Send someone to the medical station for help immediately. Moving a person with a spine injury incorrectly can cause permanent damage.",
+        "question": "What do I do if someone has a back or spine injury?",
+        "answer": "Do not move the person unless they are in immediate danger. Keep them still and calm. Support the head and neck in the position you found them and do not try to straighten it. Send someone to the medical station for help immediately. Moving a person with a spine injury incorrectly can cause permanent damage.",
         "category": "First Aid",
         "tags": [
             "back injury",
@@ -461,8 +461,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone has a dislocated joint?",
-        "body": "Do not try to pop the joint back into place yourself. Keep the joint still in the position it is in. Support it with padding or clothing. Apply a cold cloth to reduce swelling. Go to the medical station immediately. Forcing a dislocated joint can cause serious damage to nerves and blood vessels.",
+        "question": "What do I do if someone has a dislocated joint?",
+        "answer": "Do not try to pop the joint back into place yourself. Keep the joint still in the position it is in. Support it with padding or clothing. Apply a cold cloth to reduce swelling. Go to the medical station immediately. Forcing a dislocated joint can cause serious damage to nerves and blood vessels.",
         "category": "First Aid",
         "tags": [
             "dislocation",
@@ -475,8 +475,8 @@
         "enabled": true
     },
     {
-        "title": "How do I know if a wound is infected?",
-        "body": "Signs of an infected wound include increasing redness or warmth around the wound, swelling, yellow or green discharge, a bad smell, increasing pain after the first day, and fever. If you see any of these signs, go to the medical station right away. Do not wait for the infection to get worse.",
+        "question": "How do I know if a wound is infected?",
+        "answer": "Signs of an infected wound include increasing redness or warmth around the wound, swelling, yellow or green discharge, a bad smell, increasing pain after the first day, and fever. If you see any of these signs, go to the medical station right away. Do not wait for the infection to get worse.",
         "category": "First Aid",
         "tags": [
             "infection",
@@ -489,8 +489,8 @@
         "enabled": true
     },
     {
-        "title": "How do I clean and dress a wound properly?",
-        "body": "Wash your hands first. Rinse the wound with clean running water for at least 1 minute to remove dirt. Gently clean around the wound with soap but do not put soap directly inside the wound. Pat dry with a clean cloth. Cover with a sterile bandage. Change the bandage daily or whenever it gets wet or dirty.",
+        "question": "How do I clean and dress a wound properly?",
+        "answer": "Wash your hands first. Rinse the wound with clean running water for at least 1 minute to remove dirt. Gently clean around the wound with soap but do not put soap directly inside the wound. Pat dry with a clean cloth. Cover with a sterile bandage. Change the bandage daily or whenever it gets wet or dirty.",
         "category": "First Aid",
         "tags": [
             "wound care",
@@ -503,8 +503,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if a child swallows a small object?",
-        "body": "If the child is coughing or choking, use back blows and chest thrusts for infants or abdominal thrusts for older children to help dislodge the object. If the child is not choking but you know they swallowed something, go to the medical station immediately. Do not give food or water and do not try to induce vomiting.",
+        "question": "What do I do if a child swallows a small object?",
+        "answer": "If the child is coughing or choking, use back blows and chest thrusts for infants or abdominal thrusts for older children to help dislodge the object. If the child is not choking but you know they swallowed something, go to the medical station immediately. Do not give food or water and do not try to induce vomiting.",
         "category": "First Aid",
         "tags": [
             "child",
@@ -517,8 +517,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone has cramps in their legs?",
-        "body": "Gently stretch the cramped muscle by straightening the leg and flexing the foot upward toward the shin. Massage the muscle with firm strokes. Drink water with a small amount of salt or an oral rehydration solution as cramps are often caused by dehydration or salt loss. If cramps are severe or recurring, go to the medical station.",
+        "question": "What do I do if someone has cramps in their legs?",
+        "answer": "Gently stretch the cramped muscle by straightening the leg and flexing the foot upward toward the shin. Massage the muscle with firm strokes. Drink water with a small amount of salt or an oral rehydration solution as cramps are often caused by dehydration or salt loss. If cramps are severe or recurring, go to the medical station.",
         "category": "First Aid",
         "tags": [
             "cramp",
@@ -531,8 +531,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone has chest pain?",
-        "body": "Have the person sit or lie down in a comfortable position. Loosen tight clothing. Do not give food or water. Go to the medical station immediately — chest pain can be a sign of a serious condition including a heart attack. Do not wait to see if the pain goes away on its own.",
+        "question": "What do I do if someone has chest pain?",
+        "answer": "Have the person sit or lie down in a comfortable position. Loosen tight clothing. Do not give food or water. Go to the medical station immediately — chest pain can be a sign of a serious condition including a heart attack. Do not wait to see if the pain goes away on its own.",
         "category": "First Aid",
         "tags": [
             "chest pain",
@@ -545,8 +545,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone has a stomach ache?",
-        "body": "Have the person rest in a comfortable position. Do not give food. Small sips of clean water may help. If the pain is severe, comes with fever, vomiting, or diarrhea, or if the stomach feels hard or rigid, go to the medical station immediately. Mild stomach aches may improve with rest and fluid.",
+        "question": "What do I do if someone has a stomach ache?",
+        "answer": "Have the person rest in a comfortable position. Do not give food. Small sips of clean water may help. If the pain is severe, comes with fever, vomiting, or diarrhea, or if the stomach feels hard or rigid, go to the medical station immediately. Mild stomach aches may improve with rest and fluid.",
         "category": "First Aid",
         "tags": [
             "stomach ache",
@@ -559,8 +559,8 @@
         "enabled": true
     },
     {
-        "title": "How do I prevent the spread of sickness in the evacuation center?",
-        "body": "Wash your hands often with soap and clean water, especially before eating and after using the comfort room. Cover your mouth and nose when coughing or sneezing. Do not share utensils, cups, or water bottles. Dispose of waste in proper bins. If you feel sick, go to the medical station and avoid close contact with others.",
+        "question": "How do I prevent the spread of sickness in the evacuation center?",
+        "answer": "Wash your hands often with soap and clean water, especially before eating and after using the comfort room. Cover your mouth and nose when coughing or sneezing. Do not share utensils, cups, or water bottles. Dispose of waste in proper bins. If you feel sick, go to the medical station and avoid close contact with others.",
         "category": "First Aid",
         "tags": [
             "hygiene",
@@ -573,8 +573,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if a baby will not stop crying and seems unwell?",
-        "body": "Check if the baby is hungry, wet, or too hot or too cold. If the baby has a fever, is vomiting, has difficulty breathing, has not urinated in several hours, or has an unusual cry, go to the medical station immediately. Infants can become seriously ill very quickly and should be assessed by a medical professional without delay.",
+        "question": "What do I do if a baby will not stop crying and seems unwell?",
+        "answer": "Check if the baby is hungry, wet, or too hot or too cold. If the baby has a fever, is vomiting, has difficulty breathing, has not urinated in several hours, or has an unusual cry, go to the medical station immediately. Infants can become seriously ill very quickly and should be assessed by a medical professional without delay.",
         "category": "First Aid",
         "tags": [
             "baby",
@@ -587,8 +587,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone has a jellyfish sting?",
-        "body": "Do not rub the affected area. Rinse the sting site with sea water or clean water — not fresh water, which can worsen the sting. Remove any visible tentacles using tweezers or a stick, not bare hands. Apply a cold compress to reduce pain. Go to the medical station if the sting covers a large area, causes difficulty breathing, or the person feels faint.",
+        "question": "What do I do if someone has a jellyfish sting?",
+        "answer": "Do not rub the affected area. Rinse the sting site with sea water or clean water — not fresh water, which can worsen the sting. Remove any visible tentacles using tweezers or a stick, not bare hands. Apply a cold compress to reduce pain. Go to the medical station if the sting covers a large area, causes difficulty breathing, or the person feels faint.",
         "category": "First Aid",
         "tags": [
             "jellyfish",
@@ -601,8 +601,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do for a bad headache?",
-        "body": "Have the person rest in a quiet and dark area if possible. Pain relievers such as paracetamol are available at the medical station. Make sure the person is drinking enough water as dehydration is a common cause of headaches. Go to the medical station immediately if the headache is sudden and severe, is the worst headache ever, or comes with fever, stiff neck, confusion, or vision changes.",
+        "question": "What do I do for a bad headache?",
+        "answer": "Have the person rest in a quiet and dark area if possible. Pain relievers such as paracetamol are available at the medical station. Make sure the person is drinking enough water as dehydration is a common cause of headaches. Go to the medical station immediately if the headache is sudden and severe, is the worst headache ever, or comes with fever, stiff neck, confusion, or vision changes.",
         "category": "First Aid",
         "tags": [
             "headache",
@@ -615,8 +615,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone has a skin rash?",
-        "body": "Keep the area clean and dry. Do not scratch the rash as this can cause infection. Avoid using any cream or lotion on the rash unless prescribed by medical personnel. Go to the medical station to have the rash assessed. Some rashes in evacuation centers can be a sign of a communicable disease that needs to be identified quickly.",
+        "question": "What do I do if someone has a skin rash?",
+        "answer": "Keep the area clean and dry. Do not scratch the rash as this can cause infection. Avoid using any cream or lotion on the rash unless prescribed by medical personnel. Go to the medical station to have the rash assessed. Some rashes in evacuation centers can be a sign of a communicable disease that needs to be identified quickly.",
         "category": "First Aid",
         "tags": [
             "rash",
@@ -629,8 +629,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone has a foot blister?",
-        "body": "Do not pop or puncture the blister if possible — the skin protects against infection. Keep the area clean and cover with a bandage to prevent rubbing. If the blister pops on its own, clean the area with water, apply a clean bandage, and watch for signs of infection. Go to the medical station if the blister is very large, painful, or shows signs of infection.",
+        "question": "What do I do if someone has a foot blister?",
+        "answer": "Do not pop or puncture the blister if possible — the skin protects against infection. Keep the area clean and cover with a bandage to prevent rubbing. If the blister pops on its own, clean the area with water, apply a clean bandage, and watch for signs of infection. Go to the medical station if the blister is very large, painful, or shows signs of infection.",
         "category": "First Aid",
         "tags": [
             "blister",
@@ -643,8 +643,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone has low blood sugar?",
-        "body": "If the person is conscious, give them something sweet to eat or drink immediately such as sugar dissolved in water, juice, or candy. Have them sit or lie down. They should feel better within 15 minutes. If they do not improve, lose consciousness, or you are unsure, go to the medical station immediately. Persons with diabetes are at higher risk.",
+        "question": "What do I do if someone has low blood sugar?",
+        "answer": "If the person is conscious, give them something sweet to eat or drink immediately such as sugar dissolved in water, juice, or candy. Have them sit or lie down. They should feel better within 15 minutes. If they do not improve, lose consciousness, or you are unsure, go to the medical station immediately. Persons with diabetes are at higher risk.",
         "category": "First Aid",
         "tags": [
             "low blood sugar",
@@ -657,8 +657,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do for a splinter?",
-        "body": "Clean the area and clean a pair of tweezers with alcohol or clean water. Grasp the splinter as close to the skin as possible and pull it out in the same direction it went in. Clean the wound again after removal and cover with a small bandage. Go to the medical station if the splinter is deep, cannot be removed, or the area shows signs of infection.",
+        "question": "What do I do for a splinter?",
+        "answer": "Clean the area and clean a pair of tweezers with alcohol or clean water. Grasp the splinter as close to the skin as possible and pull it out in the same direction it went in. Clean the wound again after removal and cover with a small bandage. Go to the medical station if the splinter is deep, cannot be removed, or the area shows signs of infection.",
         "category": "First Aid",
         "tags": [
             "splinter",
@@ -671,8 +671,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone has a very bad cough?",
-        "body": "Have the person rest and drink plenty of clean fluids. Warm water with a small amount of salt can soothe the throat. Go to the medical station if the cough produces blood, comes with high fever, makes breathing difficult, or has lasted more than a week. In an evacuation center, a persistent cough should always be checked by medical personnel to rule out communicable illness.",
+        "question": "What do I do if someone has a very bad cough?",
+        "answer": "Have the person rest and drink plenty of clean fluids. Warm water with a small amount of salt can soothe the throat. Go to the medical station if the cough produces blood, comes with high fever, makes breathing difficult, or has lasted more than a week. In an evacuation center, a persistent cough should always be checked by medical personnel to rule out communicable illness.",
         "category": "First Aid",
         "tags": [
             "cough",
@@ -685,8 +685,8 @@
         "enabled": true
     },
     {
-        "title": "What do I do if someone has been struck by lightning?",
-        "body": "It is safe to touch a person struck by lightning — they do not carry an electrical charge. Move them to a safe area away from the storm. Check if they are breathing and begin CPR if needed. Go to the medical station immediately. Lightning strike victims may have internal burns, heart irregularities, and other injuries that are not visible from the outside.",
+        "question": "What do I do if someone has been struck by lightning?",
+        "answer": "It is safe to touch a person struck by lightning — they do not carry an electrical charge. Move them to a safe area away from the storm. Check if they are breathing and begin CPR if needed. Go to the medical station immediately. Lightning strike victims may have internal burns, heart irregularities, and other injuries that are not visible from the outside.",
         "category": "First Aid",
         "tags": [
             "lightning",
@@ -699,8 +699,8 @@
         "enabled": true
     },
     {
-        "title": "What is oral rehydration solution and how do I make it?",
-        "body": "Oral rehydration solution replaces fluids and salts lost through diarrhea, vomiting, or sweating. Pre-made packets are available at the medical station. If no packet is available, you can make a basic version by dissolving 6 level teaspoons of sugar and half a teaspoon of salt in 1 liter of clean drinking water. Give small frequent sips, not large amounts at once.",
+        "question": "What is oral rehydration solution and how do I make it?",
+        "answer": "Oral rehydration solution replaces fluids and salts lost through diarrhea, vomiting, or sweating. Pre-made packets are available at the medical station. If no packet is available, you can make a basic version by dissolving 6 level teaspoons of sugar and half a teaspoon of salt in 1 liter of clean drinking water. Give small frequent sips, not large amounts at once.",
         "category": "First Aid",
         "tags": [
             "ORS",

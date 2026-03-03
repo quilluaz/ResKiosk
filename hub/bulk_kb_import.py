@@ -41,29 +41,34 @@ def bulk_import(file_path: str):
 
     for data in articles_data:
         try:
-            # Validate required fields
-            if "title" not in data or "body" not in data:
-                print(f"Skipping article missing title or body: {data.get('title', 'Unknown')}")
+            if "question" not in data or "answer" not in data:
+                print(f"Skipping article missing question or answer: {data.get('question', 'Unknown')}")
                 error_count += 1
                 continue
 
-            article = schema.KBArticle(
-                title=data["title"],
-                body=data["body"],
-                category=data.get("category", "General"),
-                status=data.get("status", "published"),
-                enabled=data.get("enabled", True)
-            )
-            article.set_tags(data.get("tags", []))
+            import time as _time
+            now = int(_time.time())
+            tags_raw = data.get("tags", [])
+            tags_str = ",".join(tags_raw) if isinstance(tags_raw, list) else (tags_raw or "")
 
-            # Generate embedding
+            article = schema.KBArticle(
+                question=data["question"],
+                answer=data["answer"],
+                category=data.get("category", "General"),
+                tags=tags_str,
+                enabled=1 if data.get("enabled", True) else 0,
+                source=data.get("source", "import"),
+                created_at=now,
+                last_updated=now,
+            )
+
             if embedder:
                 try:
                     text = get_embeddable_text(article)
                     vec = embedder.embed_text(text)
                     article.embedding = serialize_embedding(vec)
                 except Exception as e:
-                    print(f"Warning: Failed to embed article '{article.title}': {e}")
+                    print(f"Warning: Failed to embed article '{article.question}': {e}")
 
             db.add(article)
             imported_count += 1
@@ -71,21 +76,22 @@ def bulk_import(file_path: str):
                 print(f"Processed {imported_count} articles...")
 
         except Exception as e:
-            print(f"Error importing article '{data.get('title', 'Unknown')}': {e}")
+            print(f"Error importing article '{data.get('question', 'Unknown')}': {e}")
             error_count += 1
 
-    # Update KB Meta version
+    # Bump SystemVersion
     try:
-        meta = db.query(schema.KBMeta).first()
-        if not meta:
-            meta = schema.KBMeta(kb_version=1)
-            db.add(meta)
+        import time as _time
+        sv = db.query(schema.SystemVersion).first()
+        if not sv:
+            sv = schema.SystemVersion(kb_version=1, last_published=int(_time.time()))
+            db.add(sv)
         else:
-            meta.kb_version += 1
-            meta.updated_at = datetime.utcnow()
-        db.add(meta)
+            sv.kb_version = (sv.kb_version or 0) + 1
+            sv.last_published = int(_time.time())
+        db.add(sv)
     except Exception as e:
-        print(f"Warning: Could not update KB version info: {e}")
+        print(f"Warning: Could not update SystemVersion: {e}")
 
     db.commit()
     db.close()

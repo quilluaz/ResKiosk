@@ -30,7 +30,7 @@ interface HubApi {
 
 // Data Classes
 data class PingResponse(val status: String, val hub_version: String)
-data class KbVersionResponse(val kb_version: Int, val updated_at: String)
+data class KbVersionResponse(val kb_version: Int, val updated_at: Long?)
 data class KbSnapshotResponse(val kb_version: Int, val articles: List<Any>, val structured_config: Any)
 data class NetworkInfoResponse(val hub_ip: String, val network_mode: String, val connected_kiosks: Int)
 data class QueryResponse(

@@ -43,6 +43,11 @@ Extract inside assets:
 - `en_US-amy-low.onnx.json`
 - `tokens.txt`
 
+### Japanese TTS
+Japanese speech now uses Android System TTS (not a Sherpa model download).
+- Install Japanese voice data on the tablet in Android Text-to-Speech settings.
+- If Japanese voice data is missing, Japanese text still works but voice output is disabled.
+
 ## Permissions
 Ensure `AndroidManifest.xml` has:
 - `<uses-permission android:name="android.permission.INTERNET" />` (For Hub comms)

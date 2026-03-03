@@ -23,8 +23,8 @@
         }
     },
     "admin_create_article": {
-        "title": "New Policy",
-        "body": "This is the policy.",
+        "question": "New Policy",
+        "answer": "This is the policy.",
         "category": "legal",
         "tags": [
             "policy"

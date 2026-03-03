@@ -24,6 +24,9 @@ class AudioRecorder {
     // Continuous background listening job
     private var listeningJob: Job? = null
     
+    // Noise suppression: disabled for batch/Whisper languages (es, de, fr) to avoid OEM suppression of non-English speech
+    @Volatile private var useNoiseSuppression = true
+
     // State flag
     @Volatile private var isActivelyRecordingForStt = false
     
@@ -79,6 +82,15 @@ class AudioRecorder {
     }
 
     /**
+     * Enable or disable hardware noise suppression. When false, NoiseSuppressor is not
+     * attached to the AudioRecord session. Call before startContinuousListening() or
+     * restart the continuous session (stop then start) for the change to take effect.
+     */
+    fun setNoiseSuppressionEnabled(enabled: Boolean) {
+        useNoiseSuppression = enabled
+    }
+
+    /**
      * Starts continuous background listening. This keeps the AudioRecord HAL open and actively
      * reading data into our rolling ring buffer. This completely eliminates hardware startup latency
      * and captures the speech *before* the user's tap registers.
@@ -107,16 +119,20 @@ class AudioRecorder {
                     return@launch
                 }
 
-                try {
-                    val ns = NoiseSuppressor.create(rec.audioSessionId)
-                    if (ns != null) {
-                        ns.enabled = true
-                        Log.i("AudioRecorder", "Hardware NoiseSuppressor enabled on sessionId ${rec.audioSessionId}")
-                    } else {
-                        Log.w("AudioRecorder", "NoiseSuppressor not available on this device")
+                if (useNoiseSuppression) {
+                    try {
+                        val ns = NoiseSuppressor.create(rec.audioSessionId)
+                        if (ns != null) {
+                            ns.enabled = true
+                            Log.i("AudioRecorder", "Hardware NoiseSuppressor enabled on sessionId ${rec.audioSessionId}")
+                        } else {
+                            Log.w("AudioRecorder", "NoiseSuppressor not available on this device")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("AudioRecorder", "Failed to initialize NoiseSuppressor", e)
                     }
-                } catch (e: Exception) {
-                    Log.e("AudioRecorder", "Failed to initialize NoiseSuppressor", e)
+                } else {
+                    Log.i("AudioRecorder", "NoiseSuppressor disabled (batch/Whisper language)")
                 }
 
                 Log.i("AudioRecorder", "Started continuous background listening (ring buffer active)")
@@ -154,6 +170,24 @@ class AudioRecorder {
                 } catch (e: Exception) {}
             }
         }
+    }
+
+    /**
+     * Stop the continuous listening loop and release the AudioRecord session.
+     * Call before startContinuousListening() again to apply a new NS setting (e.g. after language change).
+     */
+    fun stopContinuousListening() {
+        isActivelyRecordingForStt = false
+        activeCallback = null
+        listeningJob?.cancel()
+        listeningJob = null
+        try {
+            if (recorder?.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
+                recorder?.stop()
+            }
+            recorder?.release()
+        } catch (e: Exception) { /* ignore */ }
+        recorder = null
     }
 
     /**

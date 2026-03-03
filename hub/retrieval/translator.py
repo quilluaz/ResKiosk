@@ -5,11 +5,10 @@ Loaded from local hub_models/nllb/ directory — fully offline.
 
 import os
 import logging
-from typing import Optional
+from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-_pipeline = None
 _tokenizer = None
 _model = None
 
@@ -40,34 +39,40 @@ def get_nllb_model_path() -> str:
     return path
 
 
-def _load_pipeline():
-    """Lazy-load NLLB pipeline once."""
-    global _pipeline
-    if _pipeline is not None:
-        return _pipeline
+def _load_model() -> Tuple[Optional["AutoModelForSeq2SeqLM"], Optional["NllbTokenizer"]]:
+    """
+    Lazy-load NLLB model and tokenizer once.
 
-    from transformers import pipeline as hf_pipeline
+    We avoid the generic transformers.pipeline(\"translation\") here because
+    NLLB-200 expects a task name like \"translation_XX_to_YY\". Instead we load
+    the model/tokenizer directly and control src/tgt via language codes.
+    """
+    global _model, _tokenizer
+    if _model is not None and _tokenizer is not None:
+        return _model, _tokenizer
+
+    from transformers import AutoModelForSeq2SeqLM, NllbTokenizer
 
     model_path = get_nllb_model_path()
     if not os.path.exists(model_path):
         logger.warning(f"NLLB model not found at {model_path}. Translation unavailable.")
-        return None
+        return None, None
 
     logger.info(f"Loading NLLB-200 from {model_path}...")
     try:
-        _pipeline = hf_pipeline(
-            "translation",
-            model=model_path,
-            tokenizer=model_path,
-            device=-1,           # CPU
-            local_files_only=True,
-        )
+        # Some transformers versions have incomplete AutoTokenizer mappings for
+        # m2m_100 / NLLB, which can surface as a NoneType.replace error. Use the
+        # concrete NllbTokenizer class directly to avoid that path.
+        _tokenizer = NllbTokenizer.from_pretrained(model_path, local_files_only=True)
+        _model = AutoModelForSeq2SeqLM.from_pretrained(model_path, local_files_only=True)
+        _model.eval()
         logger.info("NLLB-200 loaded successfully.")
     except Exception as e:
         logger.error(f"Failed to load NLLB model: {e}")
-        _pipeline = None
+        _model = None
+        _tokenizer = None
 
-    return _pipeline
+    return _model, _tokenizer
 
 
 def translate(text: str, src_lang: str, tgt_lang: str, max_length: int = 512) -> str:
@@ -86,20 +91,34 @@ def translate(text: str, src_lang: str, tgt_lang: str, max_length: int = 512) ->
         logger.warning(f"Unsupported language pair: {src_lang} -> {tgt_lang}. Returning original.")
         return text
 
-    pipe = _load_pipeline()
-    if pipe is None:
+    model, tokenizer = _load_model()
+    if model is None or tokenizer is None:
         return text
 
     try:
-        # NLLB requires src_lang and tgt_lang in the pipeline call
-        result = pipe(
+        # Configure source and target languages explicitly for NLLB-200
+        tokenizer.src_lang = src_nllb
+        inputs = tokenizer(
             text,
-            src_lang=src_nllb,
-            tgt_lang=tgt_nllb,
-            max_length=max_length
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+            max_length=max_length,
         )
-        translated = result[0]["translation_text"].strip()
-        logger.info(f"Translated ({src_lang}->{tgt_lang}): '{text[:50]}...' -> '{translated[:50]}...'")
+        forced_bos_token_id = tokenizer.convert_tokens_to_ids(tgt_nllb)
+        generated_tokens = model.generate(
+            **inputs,
+            forced_bos_token_id=forced_bos_token_id,
+            max_new_tokens=max_length,
+        )
+        translated = tokenizer.batch_decode(
+            generated_tokens, skip_special_tokens=True
+        )[0].strip()
+        if not translated:
+            return text
+        logger.info(
+            f"Translated ({src_lang}->{tgt_lang}): '{text[:50]}...' -> '{translated[:50]}...'"
+        )
         return translated
     except Exception as e:
         logger.error(f"Translation error ({src_lang}->{tgt_lang}): {e}")

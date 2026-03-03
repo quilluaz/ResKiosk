@@ -5,7 +5,7 @@ package com.reskiosk.stt
  *
  * Analyzes the final 1000ms of audio by comparing ZCR in two 500ms windows.
  * Rising ZCR in the final window correlates with rising fundamental frequency
- * (F0), which indicates a question in English, Filipino, and most languages.
+ * (F0), which indicates a question in English and most languages.
  *
  * No external model or library required — pure signal processing.
  */

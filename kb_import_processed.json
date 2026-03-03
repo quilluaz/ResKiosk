@@ -1,0 +1,1923 @@
+{
+  "articles": [
+    {
+      "question": "Who are you?",
+      "answer": "Hi there! I'm Reze, your shelter assistant. I'm here to help you find information, answer your questions, and make your time here as comfortable as possible. Please don't hesitate to ask me anything — no question is too small.",
+      "category": "Basic Interactions",
+      "tags": [
+        "identity",
+        "intro"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What can you help me with?",
+      "answer": "I can help you find food and water, locate medical services, understand registration steps, find your sleeping area, get updates on announcements, and answer general questions about the shelter. Just ask!",
+      "category": "Basic Interactions",
+      "tags": [
+        "identity",
+        "capabilities"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I find my family?",
+      "answer": "I understand how worrying that must feel. Please go to the Registration Desk right away — staff there keep a list of all registered evacuees and can help you search. You can also ask any shelter staff member for assistance.",
+      "category": "Basic Interactions",
+      "tags": [
+        "family",
+        "registration"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "Is this place safe?",
+      "answer": "Yes, this shelter is staffed and monitored around the clock. Security personnel are present at all entrances. If you ever feel unsafe or see something concerning, please tell any staff member immediately.",
+      "category": "Basic Interactions",
+      "tags": [
+        "safety",
+        "security"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "I'm scared. What should I do?",
+      "answer": "It's completely understandable to feel scared right now — you've been through a lot. Please take a slow breath. You are safe here. If you'd like to speak with a counselor or just need someone to talk to, let a staff member know and they'll arrange support for you.",
+      "category": "Basic Interactions",
+      "tags": [
+        "mental_health",
+        "emotional_support"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "I don't speak English well. Can you still help me?",
+      "answer": "Absolutely. I'm here to help everyone. Please let a staff member know which language you're most comfortable with and we'll do our best to assist you. You are welcome here no matter what language you speak.",
+      "category": "Basic Interactions",
+      "tags": [
+        "language",
+        "accessibility"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "Where do I sleep?",
+      "answer": "Sleeping areas are assigned at the Registration Desk. If you haven't registered yet, please head there first. Staff will assign you a cot or sleeping zone and give you everything you need.",
+      "category": "Basic Interactions",
+      "tags": [
+        "sleeping",
+        "registration"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "Where is the bathroom?",
+      "answer": "Restrooms are located throughout the shelter. Please ask any staff member near you and they'll point you to the nearest one. Hygiene stations with soap and water are also available.",
+      "category": "Basic Interactions",
+      "tags": [
+        "hygiene",
+        "facilities"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "I need clean clothes.",
+      "answer": "A clothing distribution area is available in the shelter. Please speak with a staff member who can direct you there and help find something in your size. Items are provided free of charge.",
+      "category": "Basic Interactions",
+      "tags": [
+        "supplies",
+        "clothing"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "Can I charge my phone?",
+      "answer": "Yes! Charging stations are set up in the shelter. Ask a staff member for the nearest location. Having a charged phone helps you stay in contact with family, so please make use of it.",
+      "category": "Basic Interactions",
+      "tags": [
+        "facilities",
+        "communication"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "Is there Wi-Fi?",
+      "answer": "Wi-Fi availability depends on the shelter's current resources. Please ask a staff member — they'll let you know if it's available and share the network details.",
+      "category": "Basic Interactions",
+      "tags": [
+        "facilities",
+        "communication"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "I lost my medication. What do I do?",
+      "answer": "Please go to the Medical Station right away. Describe your medication to the medical staff — they may be able to provide a replacement dose or contact a pharmacy on your behalf. Don't wait if it's urgent.",
+      "category": "Basic Interactions",
+      "tags": [
+        "medical",
+        "medication"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "I need to make a phone call.",
+      "answer": "If your phone is out of battery or you don't have one, please speak to a staff member. Emergency phone access is available for evacuees who need to contact family or emergency services.",
+      "category": "Basic Interactions",
+      "tags": [
+        "communication",
+        "facilities"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "Can I leave the shelter?",
+      "answer": "You are free to leave, but please be aware of any active safety advisories in the area before you do. Check with staff for the latest updates on road conditions or hazards outside. If you leave, please inform staff so your space can be managed.",
+      "category": "Basic Interactions",
+      "tags": [
+        "safety",
+        "movement"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How long will I have to stay here?",
+      "answer": "That depends on how the situation outside develops. Staff receive regular updates and will announce any changes. I know waiting is hard — please feel free to ask staff for the latest information at any time.",
+      "category": "Basic Interactions",
+      "tags": [
+        "shelter",
+        "timeline"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "I have children with me. Is there a place for them?",
+      "answer": "Yes! There is a dedicated children's area with activities and supervision available. Please ask a staff member to show you the family section — it's a safe, friendly space for kids.",
+      "category": "Basic Interactions",
+      "tags": [
+        "children",
+        "family",
+        "facilities"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "I have a pet. Can I bring it inside?",
+      "answer": "Pet policies vary by shelter. Please speak with a staff member immediately — they'll let you know about designated pet areas or nearby facilities that can care for your animal.",
+      "category": "Basic Interactions",
+      "tags": [
+        "pets",
+        "policy"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "I need diapers or baby formula.",
+      "answer": "Baby supplies including diapers, formula, and wipes are available. Please speak with a staff member at the supply distribution area and they'll help you right away.",
+      "category": "Basic Interactions",
+      "tags": [
+        "supplies",
+        "children",
+        "baby"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "Can I get food now?",
+      "answer": "Yes! Meals and snacks are provided. Please check with a staff member for the current meal schedule and the location of the food distribution area. No one goes hungry here.",
+      "category": "Basic Interactions",
+      "tags": [
+        "food",
+        "meals"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "Is the food free?",
+      "answer": "Yes, all food provided at this shelter is completely free of charge. Please eat without worry.",
+      "category": "Basic Interactions",
+      "tags": [
+        "food",
+        "cost"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "I have a dietary restriction or allergy.",
+      "answer": "Please let food service staff know about your dietary needs right away. We will do our best to accommodate allergies, religious dietary requirements, and medical restrictions. Your health is important to us.",
+      "category": "Basic Interactions",
+      "tags": [
+        "food",
+        "allergy",
+        "dietary"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "Where can I get water?",
+      "answer": "Clean drinking water is available at distribution points throughout the shelter. Staff can point you to the nearest one. Please stay hydrated — it's important especially during stressful times.",
+      "category": "Basic Interactions",
+      "tags": [
+        "water",
+        "hydration"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "I feel sick.",
+      "answer": "Please go to the Medical Station immediately. Medical staff are on duty and ready to help. If you're unable to walk there, tell the nearest staff member and someone will come to you.",
+      "category": "Basic Interactions",
+      "tags": [
+        "medical",
+        "illness"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "I think I'm having a panic attack.",
+      "answer": "You're safe. Try to breathe slowly — in through your nose for 4 counts, hold for 4, out through your mouth for 4. I'm going to connect you with a staff member right now. You don't have to go through this alone.",
+      "category": "Basic Interactions",
+      "tags": [
+        "mental_health",
+        "panic",
+        "emotional_support"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "I haven't slept. Can you help?",
+      "answer": "I understand — it can be very hard to sleep after everything you've been through. Please ask a staff member about quieter rest areas or availability of ear plugs or eye masks. A counselor can also offer support if anxiety is keeping you awake.",
+      "category": "Basic Interactions",
+      "tags": [
+        "sleep",
+        "mental_health",
+        "facilities"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "I need to register. Where do I go?",
+      "answer": "The Registration Desk is the first place to go. Staff there will record your information, assign your sleeping area, and make sure you're connected to the right services. Please head there as soon as you can.",
+      "category": "Basic Interactions",
+      "tags": [
+        "registration"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What documents do I need to register?",
+      "answer": "Don't worry if you don't have documents — many evacuees arrive without them. Staff will still register you. Any ID you do have is helpful, but it is not required to receive shelter and assistance.",
+      "category": "Basic Interactions",
+      "tags": [
+        "registration",
+        "documents"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "I have a disability. Can you accommodate me?",
+      "answer": "Absolutely. Please inform a staff member about your needs and they will ensure you have accessible facilities, appropriate sleeping arrangements, and any additional support required. Everyone is welcome and cared for here.",
+      "category": "Basic Interactions",
+      "tags": [
+        "accessibility",
+        "disability"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "I'm elderly and need extra help.",
+      "answer": "Of course. Please let a staff member know and they will make sure you're comfortable, have accessible facilities, and receive any priority assistance you need. You matter and we're here for you.",
+      "category": "Basic Interactions",
+      "tags": [
+        "elderly",
+        "accessibility"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "Can I speak to a counselor?",
+      "answer": "Yes. Mental health and emotional support counselors are available here. Please ask any staff member and they will connect you with someone who can talk with you privately and compassionately.",
+      "category": "Basic Interactions",
+      "tags": [
+        "mental_health",
+        "counseling"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "I witnessed something traumatic. I don't know what to do.",
+      "answer": "I'm so sorry you experienced that. What you're feeling is a completely normal response to an abnormal situation. Please speak with a counselor — talking about it with a trained professional can really help. Just ask any staff member to connect you.",
+      "category": "Basic Interactions",
+      "tags": [
+        "mental_health",
+        "trauma",
+        "counseling"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "Are there any announcements I should know about?",
+      "answer": "Shelter announcements are made over the PA system regularly. You can also ask any staff member for the latest updates. I'll share any announcements that have been entered into the system as well.",
+      "category": "Basic Interactions",
+      "tags": [
+        "announcements",
+        "information"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "When will power be restored outside?",
+      "answer": "I don't have real-time information on infrastructure repairs. Staff receive regular updates from local authorities — please ask them for the most current news on power restoration.",
+      "category": "Basic Interactions",
+      "tags": [
+        "utilities",
+        "information"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "Is my neighborhood safe to return to?",
+      "answer": "I understand you want to go home. Please check with shelter staff — they receive updates from local authorities about which areas have been cleared for return. Do not return to an area that hasn't been officially cleared.",
+      "category": "Basic Interactions",
+      "tags": [
+        "safety",
+        "evacuation",
+        "return"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What's the situation outside?",
+      "answer": "Staff receive regular briefings from local emergency management. Please ask a staff member for the latest situation update. I'll also share any information that has been officially entered into the shelter system.",
+      "category": "Basic Interactions",
+      "tags": [
+        "situation",
+        "information"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "I need legal help.",
+      "answer": "Legal aid services may be available through the shelter or connected partner organizations. Please ask a staff member — they can connect you with legal assistance for issues like lost documents, housing, or insurance claims.",
+      "category": "Basic Interactions",
+      "tags": [
+        "legal",
+        "assistance"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "I need financial assistance.",
+      "answer": "Disaster relief financial assistance may be available through government agencies or NGO partners. Staff can guide you to the right resources. Please ask at the information desk.",
+      "category": "Basic Interactions",
+      "tags": [
+        "financial",
+        "assistance",
+        "relief"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I report a problem in the shelter?",
+      "answer": "Please speak directly with any staff member or go to the shelter manager's office. Every concern is taken seriously. You can also speak to me and I'll make sure the right person is informed.",
+      "category": "Basic Interactions",
+      "tags": [
+        "feedback",
+        "safety",
+        "reporting"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "I saw someone being harassed.",
+      "answer": "Thank you for telling me. Please report this to a staff member or security immediately. Everyone deserves to feel safe here and this kind of behavior is not tolerated.",
+      "category": "Basic Interactions",
+      "tags": [
+        "safety",
+        "security",
+        "harassment"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "Is there a curfew?",
+      "answer": "Some shelters have quiet hours rather than curfews. Please check with staff for the specific rules at this location. Rules are in place to help everyone rest and stay safe.",
+      "category": "Basic Interactions",
+      "tags": [
+        "rules",
+        "policy"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "Can I receive mail or packages here?",
+      "answer": "In some cases, yes. Please ask a staff member about the shelter's policy for receiving mail or deliveries. They'll let you know the address and any restrictions.",
+      "category": "Basic Interactions",
+      "tags": [
+        "communication",
+        "mail",
+        "policy"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "I need glasses or contacts.",
+      "answer": "Please speak to medical staff — they may be able to assist or connect you with vision care resources. Basic visual aids may be available through relief supply donations.",
+      "category": "Basic Interactions",
+      "tags": [
+        "medical",
+        "vision",
+        "supplies"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "My child is having a hard time. What should I do?",
+      "answer": "It's very normal for children to struggle after a disaster. The children's area has staff trained to support kids emotionally. A counselor can also speak with both of you together if that would help. You're doing great by asking.",
+      "category": "Basic Interactions",
+      "tags": [
+        "children",
+        "mental_health",
+        "family"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "I want to help. Can I volunteer?",
+      "answer": "That's wonderful — thank you! Please speak with the shelter coordinator. Volunteers are always appreciated and there are many ways to contribute, from helping with meals to supporting other evacuees.",
+      "category": "Basic Interactions",
+      "tags": [
+        "volunteer",
+        "community"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What time is it?",
+      "answer": "I'm Reze, your shelter assistant — I don't have access to a live clock, but you can ask any staff member or check the display boards around the shelter for the current time and schedule.",
+      "category": "Basic Interactions",
+      "tags": [
+        "general",
+        "time"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "Thank you for your help.",
+      "answer": "You're very welcome. I'm here whenever you need me. Please take care of yourself and don't hesitate to ask if anything else comes up. You're going to get through this.",
+      "category": "Basic Interactions",
+      "tags": [
+        "general",
+        "gratitude"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "I don't know what to do next.",
+      "answer": "That's okay — let's figure it out together. The most important first step is registering at the Registration Desk if you haven't already. From there, staff will walk you through everything. You don't have to navigate this alone.",
+      "category": "Basic Interactions",
+      "tags": [
+        "general",
+        "guidance",
+        "registration"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "Am I going to be okay?",
+      "answer": "Yes. You are in a safe place right now with people who are here to help you. It won't always feel this overwhelming. Please reach out to staff or a counselor anytime you need support. One step at a time — you've got this.",
+      "category": "Basic Interactions",
+      "tags": [
+        "emotional_support",
+        "mental_health"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What is this place?",
+      "answer": "This is an emergency evacuation shelter — a safe place set up to provide food, water, shelter, and support to people affected by the current situation. You are welcome here for as long as you need.",
+      "category": "Basic Interactions",
+      "tags": [
+        "general",
+        "identity",
+        "shelter"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I find out about my house or property?",
+      "answer": "Damage assessments are conducted by local government and relief agencies after an emergency. Staff can help connect you with the right agency for property status updates. Please ask at the information desk.",
+      "category": "Basic Interactions",
+      "tags": [
+        "property",
+        "damage",
+        "information"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I stop bleeding from a wound?",
+      "answer": "Apply firm, direct pressure to the wound using a clean cloth or bandage. Keep pressing for at least 10 minutes without lifting the cloth. If blood soaks through, add more material on top — do not remove the first layer. Elevate the injured limb above heart level if possible. Seek medical help immediately for deep or severe wounds.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "bleeding",
+        "wound",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What is a tourniquet and when should I use it?",
+      "answer": "A tourniquet is a tight band applied to a limb to stop severe, life-threatening bleeding. Use it only when direct pressure fails and bleeding is uncontrolled. Apply 2–3 inches above the wound, tighten until bleeding stops, and note the time applied. Do not remove it — get emergency medical help immediately.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "bleeding",
+        "tourniquet",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat a nosebleed?",
+      "answer": "Sit upright and lean slightly forward. Pinch the soft part of your nose just below the bony bridge firmly. Breathe through your mouth and hold for 10–15 minutes without checking. Do not tilt your head back. If bleeding continues beyond 20 minutes or follows a head injury, seek medical attention.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "bleeding",
+        "nosebleed",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if a wound is very deep or won't stop bleeding?",
+      "answer": "Keep firm pressure on the wound with a clean cloth and do not remove it. If on a limb, apply a tourniquet above the wound. Keep the person still and calm. Get to the medical station or emergency services as fast as possible — deep wounds may involve arteries or tendons.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "bleeding",
+        "wound",
+        "emergency"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat a minor burn?",
+      "answer": "Cool the burn immediately under cool (not cold) running water for at least 10–20 minutes. Do not use ice, butter, or toothpaste. Cover loosely with a clean non-stick bandage or cloth. Take a pain reliever if needed. Seek medical help if the burn is larger than a palm, on the face, hands, feet, or genitals, or if blisters form.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "burns",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What should I do for a severe burn?",
+      "answer": "Do not remove clothing stuck to the burned area. Cool the burn with cool water if possible, but do not over-cool a large burn area due to risk of hypothermia. Do not break blisters. Cover loosely with a clean dry dressing. Seek emergency medical care immediately. Watch for shock — keep the person warm and lying down.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "burns",
+        "severe",
+        "emergency"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat a chemical burn?",
+      "answer": "Remove the chemical immediately by flushing with large amounts of cool running water for at least 20 minutes. Remove contaminated clothing while flushing — wear gloves if available. Do not try to neutralize the chemical with another substance. Seek emergency medical care after flushing.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "burns",
+        "chemical",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I perform CPR on an adult?",
+      "answer": "Check for responsiveness and call for help. Lay the person on their back on a firm surface. Place the heel of one hand on the center of the chest, place your other hand on top, and press down hard and fast — at least 2 inches deep, 100–120 compressions per minute. If trained, give 2 rescue breaths after every 30 compressions. Continue until help arrives or the person recovers.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "cpr",
+        "cardiac",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I perform CPR on a child?",
+      "answer": "Use one or two hands depending on the child's size. Compress the chest about 2 inches deep at 100–120 compressions per minute. Give 2 gentle rescue breaths after every 30 compressions. Call for emergency help immediately.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "cpr",
+        "children",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I perform CPR on an infant?",
+      "answer": "Use two fingers on the center of the chest, just below the nipple line. Compress about 1.5 inches deep at 100–120 times per minute. Give 2 gentle puffs of air covering the infant's mouth and nose after every 30 compressions. Get emergency help right away.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "cpr",
+        "infant",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What is the recovery position?",
+      "answer": "The recovery position keeps an unconscious but breathing person safe. Roll them gently onto their side, extend the lower arm forward, tilt the head back slightly to keep the airway open, and bend the top knee for stability. Monitor breathing and check them regularly until help arrives.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "recovery_position",
+        "unconscious",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if someone is choking?",
+      "answer": "Ask 'Are you choking?' If they can cough or speak, encourage coughing. If they cannot breathe, cough, or speak, stand behind them, give 5 firm back blows between the shoulder blades with the heel of your hand, then give 5 abdominal thrusts. Alternate until the object is dislodged or they lose consciousness.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "choking",
+        "airway",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I perform the Heimlich maneuver?",
+      "answer": "Stand behind the person. Make a fist and place it just above the navel, below the breastbone. Grab your fist with the other hand and give quick, upward thrusts into the abdomen. Repeat until the object is expelled. If the person is pregnant or obese, use chest thrusts instead.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "choking",
+        "heimlich",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if a baby is choking?",
+      "answer": "Hold the infant face-down on your forearm, supporting the head. Give 5 firm back blows between the shoulder blades. Flip to face-up and give 5 chest thrusts with two fingers on the center of the chest. Alternate until the airway is clear. Call for emergency help immediately.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "choking",
+        "infant",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I know if a bone is broken?",
+      "answer": "Signs of a fracture include pain, swelling, bruising, deformity, inability to use the limb, and sometimes an audible crack at the time of injury. If you suspect a fracture, immobilize the area, do not try to straighten it, apply ice wrapped in cloth, and seek medical attention.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "fracture",
+        "bone",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I immobilize a broken bone?",
+      "answer": "Use a splint — a rigid or padded support. Extend the splint beyond the joints above and below the fracture. Secure it with bandages or cloth, firm but not tight enough to cut off circulation. Check for numbness, tingling, or color changes in fingers or toes. Seek medical care.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "fracture",
+        "splint",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat a sprained ankle?",
+      "answer": "Follow RICE: Rest the ankle, apply Ice wrapped in cloth for 20 minutes every 2 hours, use Compression with a bandage, and Elevate the foot above heart level. Avoid walking on it. If the pain is severe or you cannot bear any weight, it may be fractured — seek medical care.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "sprain",
+        "ankle",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What are the signs of a concussion?",
+      "answer": "Signs include headache, confusion, dizziness, nausea or vomiting, blurred vision, slurred speech, memory loss, and feeling foggy. Do not leave the person alone. Keep them awake and monitor closely. Seek medical attention — concussions must be evaluated by a health professional.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "concussion",
+        "head_injury",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if someone is knocked unconscious?",
+      "answer": "Do not move them unless there is immediate danger. Check for breathing and pulse. If not breathing, start CPR. If breathing, place in the recovery position. Do not give food or water. Get emergency medical help immediately.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "unconscious",
+        "head_injury",
+        "emergency"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What signs after a head injury mean I need emergency care?",
+      "answer": "Seek emergency care immediately for: loss of consciousness, seizure, repeated vomiting, unequal pupils, confusion, blood or fluid from the nose or ears, severe worsening headache, or weakness in an arm or leg.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "head_injury",
+        "emergency",
+        "warning_signs"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What are the signs of a heart attack?",
+      "answer": "Signs include chest pain or pressure, pain spreading to the arm, neck, jaw, or back, shortness of breath, cold sweat, nausea, and lightheadedness. Call for emergency help immediately. Have the person sit or lie comfortably. If not allergic and conscious, they may chew one regular aspirin while waiting.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "heart_attack",
+        "cardiac",
+        "emergency"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What are the signs of a stroke?",
+      "answer": "Use FAST: Face drooping, Arm weakness, Speech difficulty, Time to call emergency services immediately. Do not give food or water. Lay them on their side if unconscious. Note the time symptoms started — this is critical for treatment.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "stroke",
+        "emergency",
+        "fast"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I help someone who may be having a stroke?",
+      "answer": "Call for emergency help immediately. Keep the person calm and still. Loosen tight clothing. If unconscious and breathing, place in recovery position. Note the time symptoms started. Do not give medication, food, or water.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "stroke",
+        "emergency",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What are the signs of shock?",
+      "answer": "Signs include pale, cold, clammy skin; rapid weak pulse; rapid shallow breathing; dizziness or fainting; confusion or anxiety; and nausea. Shock is life-threatening — call for emergency help immediately.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "shock",
+        "emergency",
+        "warning_signs"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat someone in shock?",
+      "answer": "Lay the person down and elevate their legs about 12 inches unless there's a head, neck, or leg injury. Keep them warm. Do not give food or water. Loosen tight clothing. Keep them calm and still. Get emergency medical help as fast as possible.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "shock",
+        "emergency",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What are the signs of a severe allergic reaction?",
+      "answer": "Signs include swelling of the face, lips, or throat, hives, difficulty breathing, rapid weak pulse, dizziness, nausea, and loss of consciousness. Anaphylaxis is life-threatening. Use an epinephrine auto-injector if available and call for emergency help immediately.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "anaphylaxis",
+        "allergy",
+        "emergency"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I use an EpiPen?",
+      "answer": "Remove the blue safety cap. Press the orange tip firmly against the outer thigh — it can go through clothing. Hold for 10 seconds. Remove and massage the area for 10 seconds. Call for emergency medical help even after using it — effects are temporary.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "anaphylaxis",
+        "epipen",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if someone stops breathing?",
+      "answer": "Call for emergency help immediately. Tilt the head back and lift the chin to open the airway. Check for breathing for no more than 10 seconds. If not breathing, begin CPR — 30 chest compressions followed by 2 rescue breaths if trained.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "breathing",
+        "cpr",
+        "emergency"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I help someone having an asthma attack?",
+      "answer": "Keep them calm and sitting upright. Help them use their rescue inhaler — usually 1 puff every 30–60 seconds, up to 4 puffs. Encourage slow, steady breathing. If symptoms don't improve after 4 puffs or worsen, call for emergency help.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "asthma",
+        "breathing",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if someone is hyperventilating?",
+      "answer": "Stay calm and reassure them. Encourage slow, steady breathing — in through the nose for 4 counts, out through the mouth for 6 counts. Do not use a paper bag. If symptoms don't improve or there is chest pain, seek medical care.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "hyperventilation",
+        "breathing",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if someone has nearly drowned?",
+      "answer": "Get them out of the water safely. If not breathing, start CPR immediately. Even if they seem fine, all near-drowning victims must be evaluated by medical personnel — delayed complications can occur hours later.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "drowning",
+        "cpr",
+        "emergency"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if someone swallows poison?",
+      "answer": "Call emergency services immediately. Do not make the person vomit unless specifically told to by a medical professional. Keep them calm. Have the container available to describe to medical staff. If unconscious, place in recovery position.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "poisoning",
+        "emergency",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if someone inhales a toxic substance?",
+      "answer": "Move the person to fresh air immediately. If they are not breathing, begin CPR. Call emergency services. Do not re-enter a toxic environment without protection. Loosen tight clothing and keep them warm.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "poisoning",
+        "inhalation",
+        "emergency"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What are the signs of heat exhaustion?",
+      "answer": "Signs include heavy sweating, pale or moist skin, weakness, dizziness, nausea, headache, and muscle cramps. Move to a cool shaded area, remove excess clothing, apply cool wet cloths, and give cool water if conscious. Seek emergency care if symptoms worsen.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "heat",
+        "exhaustion",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What are the signs of heat stroke?",
+      "answer": "Heat stroke is a medical emergency. Signs include body temperature above 40°C/104°F, hot dry skin, confusion, rapid pulse, and loss of consciousness. Call emergency help immediately. Cool rapidly with water, fan them, and move to shade.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "heat_stroke",
+        "emergency",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What are the signs of hypothermia?",
+      "answer": "Signs include intense shivering, confusion, slurred speech, slow shallow breathing, weak pulse, and loss of coordination. Move to a warm dry location, remove wet clothing, wrap in blankets starting with the core, and give warm (not hot) beverages if conscious.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "hypothermia",
+        "cold",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat frostbite?",
+      "answer": "Move to a warm environment. Do not rub the affected area. Immerse in warm water (37–39°C). Do not rewarm if there is a risk of refreezing. Do not walk on frostbitten feet unless absolutely necessary. Seek medical care.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "frostbite",
+        "cold",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I clean a wound properly?",
+      "answer": "Rinse under clean running water for 5–10 minutes. Gently remove debris with a clean cloth or gauze. Apply antiseptic if available. Cover with a clean bandage. Watch for signs of infection: redness, warmth, swelling, pus, or fever.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "wound",
+        "infection_prevention",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What are the signs of a wound infection?",
+      "answer": "Signs include increasing redness or warmth, swelling, pus or cloudy discharge, bad smell, red streaks spreading from the wound, fever, or swollen lymph nodes. Seek medical care — infections can spread quickly.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "wound",
+        "infection",
+        "warning_signs"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do for a puncture wound?",
+      "answer": "Allow minor puncture wounds to bleed briefly. Clean thoroughly with water. Do not probe or remove deeply embedded objects — stabilize and seek medical care. Puncture wounds carry a high risk of tetanus.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "wound",
+        "puncture",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat blisters?",
+      "answer": "Do not pop blisters unless painful and interfering with movement. If you must drain one, sterilize a needle, puncture the edge, press gently, leave the skin intact as a cover, apply antiseptic, and bandage. Watch for infection.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "blister",
+        "wound",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if bitten by a snake?",
+      "answer": "Keep the person calm and still — movement spreads venom. Immobilize the bitten limb at or below heart level. Remove constricting items. Call for emergency help immediately. Do not cut the wound, apply a tourniquet, suck out venom, or apply ice.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "snake_bite",
+        "venom",
+        "emergency"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do for a dog or animal bite?",
+      "answer": "Wash the wound thoroughly with soap and water for at least 5 minutes. Apply antiseptic. Seek medical care immediately — animal bites have high infection risk and may require rabies evaluation.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "animal_bite",
+        "wound",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do for a bee or wasp sting?",
+      "answer": "Remove the stinger by scraping sideways. Wash the area. Apply a cold pack. Watch for signs of allergic reaction — hives, swelling, difficulty breathing. If these occur, use an EpiPen if available and seek emergency help.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "sting",
+        "allergy",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if something is in my eye?",
+      "answer": "Do not rub the eye. Blink rapidly. Rinse with clean water for 15–20 minutes. If a chemical entered the eye, rinse continuously for at least 20 minutes. If the object is embedded or vision is affected, seek medical care immediately.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "eye",
+        "injury",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do for a knocked-out tooth?",
+      "answer": "Pick up the tooth by the crown, not the root. Rinse gently — do not scrub. Replace in the socket if possible, or store in milk or between the cheek and gum. See a dentist immediately — time is critical.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "dental",
+        "tooth",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if someone goes into labor at the shelter?",
+      "answer": "Alert medical staff or call emergency services immediately. Keep the person calm and comfortable. Do not try to deliver the baby yourself unless birth is imminent and no help is available. Time contractions and report to medical staff.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "childbirth",
+        "labor",
+        "emergency"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if someone with diabetes is unresponsive?",
+      "answer": "If conscious and able to swallow, give something sweet — sugar, juice, or candy. If unconscious, do not give anything by mouth. Place in recovery position and call for emergency help immediately.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "diabetes",
+        "blood_sugar",
+        "emergency"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if someone has a seizure?",
+      "answer": "Stay calm. Clear the area of anything dangerous. Do not hold the person down or put anything in their mouth. Turn them gently on their side. Time the seizure. Call for emergency help if it lasts more than 5 minutes or if it's their first seizure.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "seizure",
+        "neurological",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if someone says they want to hurt themselves?",
+      "answer": "Take it seriously — always. Stay calm and listen without judgment. Do not leave them alone. Alert a staff member or mental health counselor immediately. Remove any nearby dangerous objects if safely possible.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "mental_health",
+        "self_harm",
+        "crisis"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I find safe drinking water in an emergency?",
+      "answer": "Collect rainwater or water from flowing streams. Boil water for at least 1 minute to kill pathogens. If boiling isn't possible, use purification tablets or a filter. Avoid stagnant water and do not drink floodwater.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "water",
+        "survival",
+        "purification"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I purify water without purification tablets?",
+      "answer": "Boiling is the most reliable method — bring to a rolling boil for at least 1 minute. You can layer grass, sand, gravel, and charcoal to filter sediment but this does not kill pathogens — always boil after filtering. In bright sunlight, leave clear water in a clear bottle for 6 hours (SODIS method).",
+      "category": "First Aid & Survival",
+      "tags": [
+        "water",
+        "purification",
+        "survival"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I signal for rescue?",
+      "answer": "Use a whistle — three blasts is the universal distress signal. Use a mirror or reflective surface to flash sunlight. Build a signal fire with green vegetation for visible smoke. Spell SOS in large letters on open ground. Stay in one place if possible.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "rescue",
+        "signaling",
+        "survival"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I build an emergency shelter?",
+      "answer": "Find a dry, elevated location. Use leaves, branches, or a tarp to create a lean-to. Insulate from the ground with dry leaves or grass — the ground draws body heat rapidly. Make it small enough to retain body heat. Ensure ventilation if using fire inside.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "shelter",
+        "survival",
+        "construction"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I start a fire safely for warmth or signaling?",
+      "answer": "Choose a sheltered, dry spot away from dry vegetation. Create a tinder nest of dry grass and leaves, then add kindling, then larger sticks in a teepee shape. Light the tinder at the base. Never leave a fire unattended. Extinguish completely with water before leaving.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "fire",
+        "survival",
+        "warmth"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What are the signs of dehydration and how do I treat it?",
+      "answer": "Signs include dark yellow urine, dry mouth, dizziness, fatigue, headache. Drink water steadily. For severe cases, use oral rehydration salts (ORS). Make emergency ORS: 6 teaspoons sugar and 1/2 teaspoon salt in 1 liter of clean water.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "dehydration",
+        "hydration",
+        "survival"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I protect myself from the sun in an emergency?",
+      "answer": "Seek shade during peak hours (10 AM–4 PM). Cover skin with light-colored loose clothing. Use a wide-brimmed hat. Apply sunscreen if available. Stay hydrated. Wet cloth on the neck and forehead helps cool the body.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "sun",
+        "heat",
+        "survival"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat diarrhea in an emergency without medicine?",
+      "answer": "Prevent dehydration with ORS. If unavailable, mix 6 teaspoons sugar and 1/2 teaspoon salt in 1 liter of clean boiled water. Eat bland foods. Avoid dairy, fatty, or spicy foods. Seek medical care if diarrhea is bloody, severe, or lasts more than 2 days.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "diarrhea",
+        "hydration",
+        "survival"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What should be in a basic emergency first aid kit?",
+      "answer": "Sterile gauze and bandages, adhesive tape, scissors and tweezers, antiseptic wipes and solution, disposable gloves, thermometer, pain relievers, oral rehydration salts, emergency blanket, CPR face shield, whistle, and first aid manual. Customize for known medical conditions.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "first_aid_kit",
+        "preparation",
+        "survival"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat a sprained wrist?",
+      "answer": "Apply RICE: Rest, Ice wrapped in cloth for 20 minutes every 2 hours, Compression bandage, Elevate above heart level. Avoid using the wrist. If there is significant swelling, numbness, or inability to move, it may be fractured — seek medical care.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "sprain",
+        "wrist",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I remove a splinter safely?",
+      "answer": "Clean the skin and sterilize a needle or tweezers with alcohol. Use the needle to expose one end of the splinter, grip with tweezers and pull in the same direction it entered. Clean the wound and apply antiseptic. Seek medical care if the splinter is deep, in the eye, or causes swelling.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "splinter",
+        "wound",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do for a dislocated joint?",
+      "answer": "Do not try to push the joint back in. Immobilize in the position it's in using a splint or sling. Apply ice wrapped in cloth. Seek emergency medical care immediately — professional relocation prevents nerve and tissue damage.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "dislocation",
+        "joint",
+        "emergency"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat sunburn?",
+      "answer": "Move out of the sun immediately. Cool the skin with cool water or damp cloths for 15–20 minutes. Apply aloe vera or moisturizing lotion. Take a pain reliever. Do not pop blisters. Stay hydrated. Seek care if severe, covers large areas, or is accompanied by fever or confusion.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "sunburn",
+        "skin",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if someone is struck by lightning?",
+      "answer": "It is safe to touch a lightning strike victim. Call emergency help immediately. Check for breathing and pulse and begin CPR if needed. Treat for shock. Lightning strikes commonly cause cardiac arrest, burns, and blast injuries — all victims need emergency evaluation.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "lightning",
+        "emergency",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat a jellyfish sting?",
+      "answer": "Do not rub the sting. Rinse with seawater — not fresh water. Use tweezers or a card to remove visible tentacles. Soak in hot water (as hot as tolerable) for 20 minutes for pain relief. Seek medical care for severe reactions.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "jellyfish",
+        "sting",
+        "marine",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if someone is trapped under debris?",
+      "answer": "Do not attempt to pull them out if there is collapse risk. Call for emergency help immediately. Reassure them and keep them talking. Protect the head and neck. If you must move due to immediate danger, support the head and spine as a unit.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "debris",
+        "rescue",
+        "emergency"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I help someone who has swallowed a foreign object?",
+      "answer": "If coughing forcefully, encourage continued coughing. If they cannot breathe, cough, or speak, treat as choking and perform the Heimlich maneuver. If the object was swallowed and they can breathe normally, seek medical evaluation.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "choking",
+        "swallowed_object",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I prevent infection in a wound without antiseptic?",
+      "answer": "Clean thoroughly with clean running water for at least 5–10 minutes. Diluted honey or packed sugar has natural antimicrobial properties. Cover with the cleanest material available. Change covering regularly. Watch for signs of infection and seek medical care.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "wound",
+        "infection_prevention",
+        "survival"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat a dislocated shoulder?",
+      "answer": "Do not try to relocate it yourself. Immobilize the arm in a sling. Apply ice wrapped in cloth. Take a pain reliever if available. Seek emergency medical care — professional relocation prevents nerve and vessel damage.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "dislocation",
+        "shoulder",
+        "emergency"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What should I do if I smell gas?",
+      "answer": "Do not turn on or off any electrical switches. Leave the building immediately, leaving doors open. Call emergency services from outside. Do not re-enter until cleared by professionals.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "gas",
+        "hazard",
+        "emergency"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat exposure to tear gas or pepper spray?",
+      "answer": "Move to fresh air immediately. Do not touch your face with unwashed hands. Flush eyes and skin with large amounts of clean water for 15–20 minutes. Remove and bag contaminated clothing. Symptoms improve within 30–60 minutes. Seek medical care if severe.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "tear_gas",
+        "chemical_exposure",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if someone falls from a height?",
+      "answer": "Do not move them — assume spinal injury. Call for emergency help immediately. Keep them still and calm. If moved, support the entire spine and head as a rigid unit. Check consciousness and breathing. Monitor until help arrives.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "fall",
+        "spinal",
+        "emergency"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I perform mouth-to-mouth resuscitation?",
+      "answer": "Tilt the head back and lift the chin. Pinch the nose closed. Seal your mouth over theirs. Give a slow breath over 1 second, watching for the chest to rise. Give 2 breaths after every 30 chest compressions. If uncomfortable, hands-only CPR is still effective.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "cpr",
+        "rescue_breathing",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if I am alone and choking?",
+      "answer": "Cough forcefully. Make a fist above your navel, grasp with your other hand, and thrust inward and upward. Alternatively, thrust your upper abdomen against a hard edge like the back of a chair. Continue until the object is dislodged.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "choking",
+        "self_rescue",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I stay calm in an emergency?",
+      "answer": "Focus on your breathing — slow deliberate breaths reduce panic. Focus on only the next one action, not the entire situation. Talk to yourself or others calmly and clearly. Your ability to think clearly is your most valuable survival tool.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "mental_resilience",
+        "emergency",
+        "survival"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat an eye injury from a blunt object?",
+      "answer": "Do not rub or apply pressure to the eye. Apply a cold pack gently around the eye. Cover loosely with a clean cloth. Seek medical evaluation immediately — even injuries that seem minor can cause internal damage or vision loss.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "eye",
+        "injury",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if someone swallows batteries or magnets?",
+      "answer": "This is a medical emergency, especially for children. Do not induce vomiting. Go to emergency medical care immediately. Button batteries and strong magnets can cause severe internal burns and perforations within hours.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "foreign_object",
+        "emergency",
+        "children"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat a black eye?",
+      "answer": "Apply ice wrapped in cloth for 15–20 minutes every hour for the first 24 hours. Keep the head elevated. Take a pain reliever. Seek medical care if vision is blurred, if there is severe pain, or if the eyeball appears injured.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "eye",
+        "bruise",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if someone is electrocuted?",
+      "answer": "Do not touch the person until the power source is off. Turn off power at the breaker or use a dry non-conductive object to move them. Call emergency help. Check for breathing and begin CPR if needed. All electrical injury victims require medical evaluation.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "electrocution",
+        "emergency",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat a cut on the scalp?",
+      "answer": "Scalp wounds bleed heavily — this is normal. Apply firm direct pressure with a clean cloth for at least 10 minutes. Add more cloth if soaked — do not remove the first layer. Seek medical care for deep or wide scalp lacerations as they often require closure.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "wound",
+        "scalp",
+        "bleeding",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if a fishhook is embedded in skin?",
+      "answer": "Do not pull backward — the barb prevents this without more damage. If the barb is near the surface, push it through, cut off the barb, then back the hook out. Otherwise immobilize, cover, and seek medical care. All fishhook wounds require tetanus evaluation.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "wound",
+        "fishhook",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat infected gums or a tooth abscess without a dentist?",
+      "answer": "Rinse with warm salt water several times a day. Take pain relievers for discomfort. A dental abscess is serious — it can spread to the jaw, neck, and brain if untreated. Seek medical or dental care as soon as possible.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "dental",
+        "infection",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if someone is bitten by a spider?",
+      "answer": "Clean with soap and water. Apply a cold pack. Seek medical care immediately if from a known dangerous species or if symptoms develop including severe pain, muscle cramps, fever, nausea, or spreading rash.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "spider_bite",
+        "venom",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat a tick bite?",
+      "answer": "Use fine-tipped tweezers to grasp the tick as close to the skin as possible. Pull straight upward with steady pressure — do not twist. Clean with alcohol or soap and water. Monitor for rash or flu-like symptoms over the following weeks.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "tick_bite",
+        "first_aid",
+        "infection"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if someone has carbon monoxide poisoning?",
+      "answer": "Move to fresh air immediately. Call for emergency help. Do not re-enter the building. If unconscious, check for breathing and begin CPR if needed. All suspected CO poisoning requires emergency evaluation even if the person seems to recover.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "carbon_monoxide",
+        "poisoning",
+        "emergency"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I make an improvised stretcher?",
+      "answer": "Use two sturdy poles and a blanket or tarp. Fold each long edge of the material around a pole so the patient's weight locks it in place. Test before use. Use at least 4 people. Keep the person as still as possible and the stretcher level.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "stretcher",
+        "rescue",
+        "survival"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat food poisoning in a shelter environment?",
+      "answer": "Drink plenty of fluids to prevent dehydration. Rest. Avoid solid food until vomiting stops, then introduce bland foods. Seek medical care immediately if symptoms include bloody stool, high fever, severe dehydration, or if the person is very young, elderly, or immunocompromised.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "food_poisoning",
+        "illness",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if someone is having a bee sting anaphylaxis without an EpiPen?",
+      "answer": "Keep the person calm and still. Remove the stinger. Lay them down with legs elevated if faint. Give antihistamine tablets if available. Apply cold compress. Loosen tight clothing. Call emergency help immediately — anaphylaxis without epinephrine is life-threatening.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "anaphylaxis",
+        "bee_sting",
+        "emergency"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if someone is having a diabetic emergency and I don't know if it's high or low blood sugar?",
+      "answer": "If conscious and able to swallow, give something sweet — sugar, juice, or candy. This is safe either way: if low, it helps immediately; if high, a small amount won't cause a crisis. If they don't improve in 15 minutes or lose consciousness, call emergency help.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "diabetes",
+        "blood_sugar",
+        "emergency"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I prioritize multiple injured people when alone?",
+      "answer": "Check who is NOT breathing — they need airway help immediately. Second, address severe life-threatening bleeding. Third, keep seriously injured but breathing people still and call for help. Fourth, those who are walking and talking can wait. Focus on those who can survive with basic immediate care and shout for help continuously.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "triage",
+        "emergency",
+        "multiple_casualties"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat rope burn or friction burn?",
+      "answer": "Cool under running water for 10–20 minutes. Gently clean with mild soap and water. Apply antiseptic. Cover with a non-stick sterile dressing. Do not pop blisters. Seek medical care if the burn is deep, large, or shows signs of infection.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "burns",
+        "friction",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat a bruise?",
+      "answer": "Apply a cold pack wrapped in cloth for 15–20 minutes as soon as possible to reduce swelling. Elevate the area if possible. Take a pain reliever if needed. Most bruises heal within 2 weeks. Seek medical care if bruising is severe, over a joint, or accompanied by extreme pain or inability to use the limb.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "bruise",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if someone is bitten by a human?",
+      "answer": "Human bites carry a high infection risk due to bacteria in the mouth. Wash the wound thoroughly with soap and water for at least 5 minutes. Apply antiseptic. Seek medical care promptly — human bites frequently require antibiotic treatment and tetanus evaluation.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "bite",
+        "wound",
+        "infection",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat a strained back in an emergency?",
+      "answer": "Rest and avoid movements that cause pain. Apply ice for the first 48 hours (20 minutes on, 20 off), then switch to heat. Lie on a firm surface with knees bent. Take an anti-inflammatory pain reliever if available. Seek medical care if pain radiates down the leg, or is accompanied by numbness, tingling, or bladder/bowel problems.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "back",
+        "strain",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat a muscle cramp?",
+      "answer": "Stretch and massage the cramped muscle gently. For a calf cramp, flex the foot upward by pulling the toes toward the shin. Stay hydrated and replace electrolytes if available. Persistent or severe cramps, especially in the chest, require medical evaluation.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "cramp",
+        "muscle",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat a ruptured blister in a field situation?",
+      "answer": "Clean the area with antiseptic. Drain by piercing the edge with a sterilized needle, pressing gently to release fluid. Leave the overlying skin intact as a natural protective cover. Apply antiseptic again and cover with a bandage. Change daily and watch for signs of infection.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "blister",
+        "wound",
+        "survival",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat food poisoning symptoms without medicine?",
+      "answer": "The priority is preventing dehydration — drink oral rehydration solution or clean water frequently. Rest. Avoid solid food until vomiting stops, then reintroduce bland foods like rice and crackers. Seek medical care if symptoms include bloody stool, high fever, or if the person is elderly, very young, or immunocompromised.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "food_poisoning",
+        "illness",
+        "survival"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I treat a cut on the hand or finger that won't stop bleeding?",
+      "answer": "Apply firm direct pressure with a clean cloth for at least 10 minutes without lifting. Elevate the hand above heart level. If bleeding is uncontrolled, wrap tightly and get emergency care — deep hand wounds may involve tendons or blood vessels and often require professional closure.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "bleeding",
+        "hand",
+        "wound",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "What do I do if someone collapses suddenly?",
+      "answer": "Check for responsiveness — tap their shoulder and shout. Call for emergency help immediately. Check for breathing. If not breathing normally, begin CPR — 30 hard fast chest compressions followed by 2 rescue breaths if trained. If breathing, place in the recovery position and monitor until help arrives.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "collapse",
+        "cpr",
+        "emergency"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    },
+    {
+      "question": "How do I care for a wound when no bandages are available?",
+      "answer": "Clean the wound thoroughly with clean water. Use the cleanest fabric available — torn from clean clothing. Secure with strips of cloth or tied in place. Change the covering as often as possible and keep it as dry as you can. Watch closely for redness, swelling, warmth, pus, or fever — signs of infection requiring medical care.",
+      "category": "First Aid & Survival",
+      "tags": [
+        "wound",
+        "improvised",
+        "survival",
+        "first_aid"
+      ],
+      "enabled": true,
+      "status": "published",
+      "source": "manual"
+    }
+  ]
+}

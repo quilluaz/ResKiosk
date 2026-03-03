@@ -13,15 +13,10 @@ object QuestionWordDetector {
         // English
         "what", "where", "when", "who", "how", "why", "is", "are", "can",
         "do", "does", "did", "will", "would", "should", "could", "has", "have",
-        // Filipino / Tagalog
-        "saan", "kailan", "sino", "bakit", "paano", "mayroon", "meron",
-        "pwede", "kailangan", "may", "ilan",
         // Spanish
         "dónde", "cuándo", "quién", "cómo", "qué", "hay",
         // Japanese (romanized starters that appear in raw transcript)
         "doko", "itsu", "dare", "naze", "dono",
-        // Korean (romanized)
-        "eodi", "eonje", "nugu", "wae", "eotteo"
     )
 
     fun isLikelyQuestion(text: String): Boolean {

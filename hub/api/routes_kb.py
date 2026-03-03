@@ -6,23 +6,27 @@ from hub.models import api_models
 
 router = APIRouter()
 
+
 @router.get("/kb/version", response_model=api_models.KBVersionResponse)
 async def get_kb_version(db: Session = Depends(get_db)):
-    meta = db.query(schema.KBMeta).first()
-    if not meta:
-        raise HTTPException(status_code=500, detail="KB Meta missing")
-    return meta
+    sv = db.query(schema.SystemVersion).first()
+    if not sv:
+        raise HTTPException(status_code=500, detail="SystemVersion record missing")
+    return {"kb_version": sv.kb_version, "updated_at": sv.last_published}
+
 
 @router.get("/kb/snapshot", response_model=api_models.KBSnapshot)
 async def get_kb_snapshot(db: Session = Depends(get_db)):
-    meta = db.query(schema.KBMeta).first()
-    articles = db.query(schema.KBArticle).filter(schema.KBArticle.enabled == True).all()
-    configs = db.query(schema.StructuredConfig).all()
-    
-    config_dict = {c.key: c.get_value() for c in configs}
-    
+    sv = db.query(schema.SystemVersion).first()
+    articles = db.query(schema.KBArticle).filter(schema.KBArticle.enabled == 1).all()
+    evac = db.query(schema.EvacInfo).filter(schema.EvacInfo.id == 1).first()
+
+    # If no evac record exists, create a dummy one for the response
+    if not evac:
+        evac = schema.EvacInfo(id=1)
+
     return api_models.KBSnapshot(
-        kb_version=meta.kb_version if meta else 0,
+        kb_version=sv.kb_version if sv else 0,
         articles=articles,
-        structured_config=config_dict
+        structured_config=evac,
     )

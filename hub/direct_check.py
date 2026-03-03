@@ -27,10 +27,10 @@ def check_db():
         count = cursor.fetchone()[0]
         print(f"Total articles: {count}")
         
-        cursor.execute("SELECT id, title FROM kb_articles ORDER BY id DESC LIMIT 5")
+        cursor.execute("SELECT id, question FROM kb_articles ORDER BY id DESC LIMIT 5")
         rows = cursor.fetchall()
         for row in rows:
-            print(f"ID: {row[0]} | Title: {row[1]}")
+            print(f"ID: {row[0]} | Question: {row[1]}")
             
         cursor.execute("SELECT kb_version FROM kb_meta LIMIT 1")
         version = cursor.fetchone()

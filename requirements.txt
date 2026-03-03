@@ -17,6 +17,12 @@ transformers>=4.38.0
 torch>=2.1.0
 numpy>=1.26.3
 
+# Serial / LoRa
+pyserial>=3.5
+
+# Encryption (AES-256-GCM for hub-to-hub LoRa messages)
+cryptography>=42.0.0
+
 # Utilities
 qrcode==7.4.2
 pillow>=10.2.0
