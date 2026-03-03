@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Settings, Wifi, WifiOff, Terminal, Phone, MessageSquare, Moon, Sun, AlertTriangle, X, HelpCircle } from 'lucide-react';
+import { LayoutDashboard, FileText, Settings, Wifi, WifiOff, Terminal, Phone, MessageSquare, Moon, Sun, AlertTriangle, X, HelpCircle, LogOut, User } from 'lucide-react';
 import hubClient from './api/hubClient';
 import logoSvg from './assets/reskiosk-logo.svg';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Pages
 import Dashboard from './pages/Dashboard';
@@ -14,17 +15,23 @@ import LogsViewer from './pages/LogsViewer';
 import EmergencyCalls from './pages/EmergencyCalls';
 import HubMessages from './pages/HubMessages';
 import QueryTracker from './pages/QueryTracker';
+import Login from './pages/Login';
+import ProfileSetup from './pages/ProfileSetup';
 
-function App() {
+function AppShell() {
+    const { user, logout } = useAuth();
+    // ALL hooks must be declared before any conditional returns (React Rules of Hooks)
     const [emergencyMode, setEmergencyMode] = useState(false);
     const [activeAlertCount, setActiveAlertCount] = useState(0);
     const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
-    const [serialConnected, setSerialConnected] = useState(null); // null = unknown, true/false
+    const [serialConnected, setSerialConnected] = useState(null);
     const [serialDismissed, setSerialDismissed] = useState(false);
     const prevSerialConnected = useRef(null);
     const location = useLocation();
     const navigate = useNavigate();
     const pathnameRef = useRef(location.pathname);
+
+    // Auth guards — placed AFTER all hooks to satisfy React Rules of Hooks
 
     useEffect(() => {
         pathnameRef.current = location.pathname;
@@ -66,7 +73,7 @@ function App() {
                             });
                         }
                     }
-                } catch (e) {}
+                } catch (e) { }
             };
             ws.onclose = () => {
                 reconnectTimer = setTimeout(connect, 5000);
@@ -136,6 +143,10 @@ function App() {
         return () => clearInterval(interval);
     }, []);
 
+    // Auth guards — all hooks have now been called, safe to conditionally return
+    if (!user) return <Login />;
+    if (user.is_first_login) return <ProfileSetup />;
+
     const NavItem = ({ to, icon: Icon, label, highlight }) => {
         const isActive = location.pathname === to || (to !== '/' && location.pathname.startsWith(to));
         const isExactRoot = to === '/' && location.pathname === '/';
@@ -149,6 +160,7 @@ function App() {
             </Link>
         );
     };
+
 
     return (
         <div className="app-shell">
@@ -188,11 +200,42 @@ function App() {
                         <NavItem to="/logs" icon={Terminal} label="Logs" highlight={false} />
                     </nav>
 
-                    <div style={{ padding: '0.75rem' }}>
+                    <div style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                         <button className="theme-toggle" onClick={() => setDarkMode(d => !d)}>
                             {darkMode ? <Sun size={16} /> : <Moon size={16} />}
                             <span>{darkMode ? 'Light Mode' : 'Night Mode'}</span>
                         </button>
+
+                        {/* Logged-in user + logout */}
+                        <div style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '0.5rem 0.75rem',
+                            borderRadius: '8px',
+                            border: '1px solid var(--border, #2a2a2a)',
+                            background: 'var(--card-bg, #1a1a1a)',
+                            gap: '0.5rem',
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
+                                <User size={15} style={{ color: 'var(--primary, #42a5f5)', flexShrink: 0 }} />
+                                <span style={{ fontSize: '0.8rem', color: 'var(--text, #e0e0e0)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {user?.fname ? `${user.fname} ${user.lname || ''}`.trim() : user?.username}
+                                </span>
+                            </div>
+                            <button
+                                id="sidebar-logout"
+                                title="Logout"
+                                onClick={logout}
+                                style={{
+                                    background: 'transparent', border: 'none', cursor: 'pointer',
+                                    padding: '0.25rem', borderRadius: '6px',
+                                    color: 'var(--text-muted, #888)',
+                                    display: 'flex', alignItems: 'center',
+                                    flexShrink: 0,
+                                }}
+                            >
+                                <LogOut size={15} />
+                            </button>
+                        </div>
                     </div>
                 </aside>
 
@@ -319,6 +362,14 @@ function App() {
                 </div>
             )}
         </div>
+    );
+}
+
+function App() {
+    return (
+        <AuthProvider>
+            <AppShell />
+        </AuthProvider>
     );
 }
 

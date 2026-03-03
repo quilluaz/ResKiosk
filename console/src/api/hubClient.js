@@ -1,27 +1,39 @@
 import axios from 'axios';
 
-// Create instance
-// Since console is served from the same origin as the API (in prod), we use relative paths.
-// In dev (Vite), we might need a proxy or full URL. 
-// For now, assuming relative '/' works if served by Hub, 
-// OR Vite proxy is set up. 
-// BUT "Do not introduce runtime internet" -> Localhub.
-// Let's use relative path, assuming production environment or proxy.
+// Determine base URL: when served by the hub itself '/' works.
+// In Vite dev mode (port 5173), proxy is configured in vite.config.js.
 const hubClient = axios.create({
-    baseURL: '/', // Points to http://localhost:8000/ when served
+    baseURL: '/',
     timeout: 5000,
     headers: {
         'Content-Type': 'application/json',
     }
 });
 
-// Response interceptor for error logger
+// Request interceptor: attach auth token if one is stored
+hubClient.interceptors.request.use((config) => {
+    const token = localStorage.getItem('reskiosk_token');
+    if (token) {
+        config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+});
+
+// Response interceptor: handle 401 (stale/expired session) and log errors
 hubClient.interceptors.response.use(
-    respons => respons,
+    response => response,
     error => {
+        if (error.response?.status === 401) {
+            localStorage.removeItem('reskiosk_token');
+            localStorage.removeItem('reskiosk_user');
+            if (!window.location.pathname.includes('/login')) {
+                window.location.href = '/console/login';
+            }
+        }
         console.error('Hub API Error:', error);
         return Promise.reject(error);
     }
 );
 
 export default hubClient;
+

@@ -1280,16 +1280,54 @@ private fun NormalActiveSessionContent(
                                 }
                             }
                         }
-                        else -> Text(
-                            text = if (isVoiceMode) {
-                                EmergencyStrings.get("voice_only_hint", selectedLang)
-                            } else {
-                                EmergencyStrings.get("text_only_hint", selectedLang)
-                            },
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
-                        )
+                        else -> {
+                            val suggestions by viewModel.faqSuggestions.collectAsState()
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
+                            ) {
+                                Text(
+                                    text = if (isVoiceMode) {
+                                        EmergencyStrings.get("voice_only_hint", selectedLang)
+                                    } else {
+                                        EmergencyStrings.get("text_only_hint", selectedLang)
+                                    },
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center
+                                )
+                                if (suggestions.isNotEmpty()) {
+                                    Spacer(Modifier.height(16.dp))
+                                    Text(
+                                        text = "Frequently Asked",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    suggestions.forEach { faq ->
+                                        OutlinedButton(
+                                            onClick = { viewModel.selectFaqSuggestion(faq.question) },
+                                            modifier = Modifier
+                                                .fillMaxWidth(0.85f)
+                                                .padding(vertical = 3.dp),
+                                            shape = RoundedCornerShape(20.dp),
+                                            border = androidx.compose.foundation.BorderStroke(
+                                                1.dp, Color(0xFFE8610A)
+                                            )
+                                        ) {
+                                            Text(
+                                                text = faq.question,
+                                                color = Color(0xFFE8610A),
+                                                maxLines = 2,
+                                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                                textAlign = TextAlign.Center,
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             } else {

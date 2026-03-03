@@ -71,6 +71,12 @@ data class CloudSttResponse(
     @SerializedName("fallback_reason") val fallbackReason: String?
 )
 
+data class FaqSuggestion(
+    @SerializedName("source_id") val sourceId: Int,
+    val question: String,
+    val count: Int
+)
+
 // --- Retrofit interface ---
 
 interface HubApiService {
@@ -104,6 +110,9 @@ interface HubApiService {
 
     @retrofit2.http.DELETE("query/session/{session_id}")
     suspend fun endSession(@retrofit2.http.Path("session_id") sessionId: String): Any
+
+    @GET("faq/suggestions")
+    suspend fun faqSuggestions(@retrofit2.http.Query("limit") limit: Int = 5): List<FaqSuggestion>
 }
 
 // --- Singleton client ---

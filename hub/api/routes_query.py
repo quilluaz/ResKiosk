@@ -271,6 +271,26 @@ async def end_session(session_id: str):
     return {"status": "ok", "message": "Session not found."}
 
 
+@router.get("/faq/suggestions", response_model=list[api_models.FaqSuggestionItem])
+async def get_faq_suggestions(limit: int = 5, db: Session = Depends(get_db)):
+    """Return the top N most-asked questions for kiosk suggestion chips."""
+    rows = (
+        db.query(schema.FAQTracker)
+        .filter(schema.FAQTracker.source_question.isnot(None))
+        .order_by(schema.FAQTracker.count.desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        api_models.FaqSuggestionItem(
+            source_id=r.source_id,
+            question=r.source_question,
+            count=r.count,
+        )
+        for r in rows
+    ]
+
+
 @router.post("/feedback")
 async def submit_feedback(feedback: api_models.FeedbackRequest, db: Session = Depends(get_db)):
     """Record kiosk feedback for RLHF-style ranking. Fire-and-forget on the kiosk side."""

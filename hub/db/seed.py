@@ -2,7 +2,7 @@ import time
 import uuid
 import platform
 from sqlalchemy.orm import Session
-from hub.db.schema import SystemVersion, EvacInfo, KBArticle, Category, Hub
+from hub.db.schema import SystemVersion, EvacInfo, KBArticle, Category, Hub, User
 
 
 def _generate_device_id() -> str:
@@ -86,6 +86,33 @@ def seed_data(db: Session):
     # Sync evac_info fields → KB articles for semantic search
     from hub.db.evac_sync import sync_evac_to_kb
     sync_evac_to_kb(db)
+
+    # Seed default admin users (only if table is empty)
+    if db.query(User).count() == 0:
+        try:
+            from passlib.context import CryptContext
+            _pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+            _hash = _pwd_ctx.hash
+        except ImportError:
+            import hashlib
+            def _hash(pw):
+                return "plain:" + hashlib.sha256(pw.encode()).hexdigest()
+
+        default_users = [
+            {"username": "admin",    "password": "admin123"},
+            {"username": "admin2", "password": "admin123"},
+            {"username": "admin3",    "password": "admin123"},
+        ]
+        now_ts = int(time.time())
+        for u in default_users:
+            db.add(User(
+                username=u["username"],
+                password=_hash(u["password"]),
+                is_first_login=True,
+                created_at=now_ts,
+            ))
+        db.commit()
+        print("Seeded 3 default users (admin, admin2, admin3).")
 
     # Enrich tags for core KB articles with multilingual synonyms
     _enrich_multilingual_tags(db)

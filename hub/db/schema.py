@@ -92,6 +92,8 @@ class KBArticle(Base):
     last_updated = Column(Integer)                    # Unix timestamp
     embedding    = Column(LargeBinary, nullable=True) # Serialized vector
     status       = Column(String, nullable=True)
+    created_by   = Column(Text, default="System Generated")
+    updated_by   = Column(Text, nullable=True)
 
 
 class EvacInfo(Base):
@@ -185,11 +187,14 @@ class User(Base):
     """Admin users who can log in and manage the system."""
     __tablename__ = "user"
 
-    user_id  = Column(Integer, primary_key=True, autoincrement=True)
-    fname    = Column(Text)
-    mname    = Column(Text)
-    lname    = Column(Text)
-    password = Column(Text)  # Should be hashed
+    user_id       = Column(Integer, primary_key=True, autoincrement=True)
+    username      = Column(Text, unique=True, nullable=False)
+    fname         = Column(Text)
+    mname         = Column(Text)
+    lname         = Column(Text)
+    password      = Column(Text)   # bcrypt-hashed
+    is_first_login = Column(Boolean, default=True, nullable=False)
+    created_at    = Column(Integer)  # Unix timestamp
 
 
 
