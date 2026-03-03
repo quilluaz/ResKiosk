@@ -102,6 +102,7 @@ class EvacInfo(Base):
 
     id                 = Column(Integer, primary_key=True, default=1)
     food_schedule      = Column(Text)
+    food_distribution_location = Column(Text)
     sleeping_zones     = Column(Text)
     medical_station    = Column(Text)
     registration_steps = Column(Text)

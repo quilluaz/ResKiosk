@@ -17,10 +17,7 @@ function KBViewer() {
     const location = useLocation();
     const navigate = useNavigate();
 
-<<<<<<< Updated upstream
-=======
     // View (detail) modal state
->>>>>>> Stashed changes
     const openViewModal = (article) => setSelectedArticle(article);
     const closeViewModal = () => setSelectedArticle(null);
 

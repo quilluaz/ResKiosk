@@ -5,6 +5,7 @@ import { useModal } from '../components/ModalProvider';
 
 const SECTION_LABELS = {
     food_schedule: 'Food & Nutrition',
+    food_distribution_location: 'Food Distribution Location',
     sleeping_zones: 'Sleeping Areas',
     medical_station: 'Medical & Well-being',
     registration_steps: 'Intake & Registration',
@@ -17,7 +18,8 @@ function ShelterConfig() {
         food: {
             breakfast: { time: '', desc: '' },
             lunch: { time: '', desc: '' },
-            dinner: { time: '', desc: '' }
+            dinner: { time: '', desc: '' },
+            distribution_location: ''
         },
         sleeping: [{ location: '', details: '' }],
         medical: { location: '', hours: '', contact: '' },
@@ -65,7 +67,17 @@ function ShelterConfig() {
                 try {
                     const parsed = JSON.parse(data.metadata);
                     if (parsed.subFields) {
-                        setSubFields(parsed.subFields);
+                        setSubFields(prev => ({
+                            ...prev,
+                            ...parsed.subFields,
+                            food: {
+                                ...prev.food,
+                                ...(parsed.subFields.food || {}),
+                                breakfast: { ...prev.food.breakfast, ...(parsed.subFields.food?.breakfast || {}) },
+                                lunch: { ...prev.food.lunch, ...(parsed.subFields.food?.lunch || {}) },
+                                dinner: { ...prev.food.dinner, ...(parsed.subFields.food?.dinner || {}) },
+                            },
+                        }));
                         await loadFreshness();
                         return;
                     }
@@ -75,6 +87,7 @@ function ShelterConfig() {
             // Fallback: Populate if metadata is empty
             const initial = { ...subFields };
             if (data.food_schedule) initial.food.breakfast.time = data.food_schedule;
+            if (data.food_distribution_location) initial.food.distribution_location = data.food_distribution_location;
             if (data.sleeping_zones) initial.sleeping[0].location = data.sleeping_zones;
             if (data.medical_station) initial.medical.location = data.medical_station;
             if (data.registration_steps) initial.registration[0].procedure = data.registration_steps;
@@ -93,6 +106,7 @@ function ShelterConfig() {
         try {
             // Concatenate strings for legacy kiosk columns
             const food_schedule = `Breakfast: ${subFields.food.breakfast.desc} | Lunch: ${subFields.food.lunch.desc} | Dinner: ${subFields.food.dinner.desc}`;
+            const food_distribution_location = subFields.food.distribution_location;
             const sleeping_zones = subFields.sleeping.map(s => `${s.location}: ${s.details}`).join(', ');
             const medical_station = `${subFields.medical.location} (${subFields.medical.hours}) - Contact: ${subFields.medical.contact}`;
             const registration_steps = subFields.registration.map((r, i) => `Step ${i + 1}: ${r.procedure}`).join(', ');
@@ -100,6 +114,7 @@ function ShelterConfig() {
 
             const payload = {
                 food_schedule,
+                food_distribution_location,
                 sleeping_zones,
                 medical_station,
                 registration_steps,
@@ -348,6 +363,20 @@ function ShelterConfig() {
                             />
                         </div>
                     ))}
+                    <div className="form-group mb-0">
+                        <label className="text-main font-normal" style={{ fontSize: '0.925rem' }}>
+                            Food and Water Distribution Location
+                        </label>
+                        <input
+                            className="input w-full mt-1"
+                            value={subFields.food.distribution_location}
+                            onChange={e => setSubFields(prev => ({
+                                ...prev,
+                                food: { ...prev.food, distribution_location: e.target.value }
+                            }))}
+                            placeholder="Enter where food and water distribution happens..."
+                        />
+                    </div>
                 </div>
                 <p className="form-hint mt-6">Displayed on kiosks under "Food & Water" schedule.</p>
             </div>

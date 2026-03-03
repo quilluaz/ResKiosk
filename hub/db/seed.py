@@ -54,6 +54,7 @@ def seed_data(db: Session):
         evac = EvacInfo(
             id=1,
             food_schedule="Morning: 08:00, Lunch: 12:00, Dinner: 18:00",
+            food_distribution_location="Cafeteria near the basketball court",
             sleeping_zones="Zone A, Zone B",
             medical_station="Room 101",
             registration_steps="Step 1: Go to desk. Step 2: Show ID.",

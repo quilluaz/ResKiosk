@@ -17,6 +17,10 @@ FIELD_MAP = {
         "What is the food schedule?",
         "food,schedule,meals,breakfast,lunch,dinner",
     ),
+    "food_distribution_location": (
+        "Where is the food and water distribution?",
+        "food,water,distribution,location,meal line,nutrition",
+    ),
     "sleeping_zones": (
         "Where are the sleeping zones?",
         "sleeping,zones,rest,beds,cots",

@@ -343,6 +343,7 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
     private var emergencyCooldownJob: Job? = null
     private var emergencyResolvedAutoEndJob: Job? = null
     private var emergencyModeOverlayJob: Job? = null
+    private var emergencyModeReminderJob: Job? = null
     private var emergencyAlarmPlayer: MediaPlayer? = null
     private var emergencyCooldownUntil: Long = 0L
     private var smoothedVoiceLevel: Float = 0f
@@ -354,6 +355,7 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
     private val EMERGENCY_COOLDOWN_MS = 60_000L
     private val HUB_POLL_INTERVAL_MS = 5_000L
     private val EMERGENCY_MODE_OVERLAY_MS = 5_000L
+    private val EMERGENCY_MODE_REMINDER_INTERVAL_MS = 5 * 60_000L
 
     /** Defer recorder restart until Idle when language changed during Recording/Transcribing */
     private var pendingRecorderRestart = false
@@ -472,19 +474,39 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
         _emergencyModeActive.value = active
         if (!active) {
             emergencyModeOverlayJob?.cancel()
+            emergencyModeReminderJob?.cancel()
             _emergencyModeOverlayVisible.value = false
             return
         }
+        ensureEmergencyModeReminder()
         val lastSeen = prefs.getLong("last_seen_emergency_mode_activated_at", 0L)
         if (activatedAt > 0L && activatedAt > lastSeen) {
             prefs.edit().putLong("last_seen_emergency_mode_activated_at", activatedAt).apply()
-            emergencyModeOverlayJob?.cancel()
-            _emergencyModeOverlayVisible.value = true
-            playEmergencyModeAlarmOnce()
-            emergencyModeOverlayJob = viewModelScope.launch {
-                delay(EMERGENCY_MODE_OVERLAY_MS)
-                _emergencyModeOverlayVisible.value = false
+            triggerEmergencyModeAlert()
+        }
+    }
+
+    private fun ensureEmergencyModeReminder() {
+        if (emergencyModeReminderJob?.isActive == true) return
+        emergencyModeReminderJob = viewModelScope.launch {
+            while (isActive) {
+                delay(EMERGENCY_MODE_REMINDER_INTERVAL_MS)
+                if (_emergencyModeActive.value) {
+                    triggerEmergencyModeAlert()
+                } else {
+                    break
+                }
             }
+        }
+    }
+
+    private fun triggerEmergencyModeAlert() {
+        emergencyModeOverlayJob?.cancel()
+        _emergencyModeOverlayVisible.value = true
+        playEmergencyModeAlarmOnce()
+        emergencyModeOverlayJob = viewModelScope.launch {
+            delay(EMERGENCY_MODE_OVERLAY_MS)
+            _emergencyModeOverlayVisible.value = false
         }
     }
 
@@ -1635,6 +1657,7 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
         super.onCleared()
         cancelInactivityTimer()
         emergencyModeOverlayJob?.cancel()
+        emergencyModeReminderJob?.cancel()
         emergencyAlarmPlayer?.release()
         emergencyAlarmPlayer = null
         stt?.release()

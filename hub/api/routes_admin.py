@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 FRESHNESS_DAYS = 7
 FRESHNESS_SECTIONS = [
     "food_schedule",
+    "food_distribution_location",
     "sleeping_zones",
     "medical_station",
     "registration_steps",
@@ -327,6 +328,7 @@ async def update_evac_info(
     return api_models.EvacInfoUpdateResponse(
         id=row.id,
         food_schedule=row.food_schedule,
+        food_distribution_location=row.food_distribution_location,
         sleeping_zones=row.sleeping_zones,
         medical_station=row.medical_station,
         registration_steps=row.registration_steps,

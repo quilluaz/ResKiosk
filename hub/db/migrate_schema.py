@@ -112,6 +112,13 @@ def migrate():
                 migrated += 1
         cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_alert_local ON emergency_alerts(alert_id_local)")
 
+    # -- evac_info -----------------------------------------------------------
+    cols = _get_existing_columns(cursor, "evac_info")
+    if cols and "food_distribution_location" not in cols:
+        cursor.execute("ALTER TABLE evac_info ADD COLUMN food_distribution_location TEXT")
+        print("[Migration] Added evac_info.food_distribution_location")
+        migrated += 1
+
     # ── faq_tracker (new table) ────────────────────────────────────────
     # Drop and recreate if schema changed (safe: FAQ data is transient analytics)
     cursor.execute("DROP TABLE IF EXISTS faq_tracker")

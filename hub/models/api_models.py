@@ -143,6 +143,7 @@ class QueryResponse(BaseModel):
 class EvacInfoResponse(BaseModel):
     id: int
     food_schedule: Optional[str] = None
+    food_distribution_location: Optional[str] = None
     sleeping_zones: Optional[str] = None
     medical_station: Optional[str] = None
     registration_steps: Optional[str] = None
@@ -194,6 +195,7 @@ class EvacFreshnessConfirmRequest(BaseModel):
 class EvacInfoResponse(BaseModel):
     id: int
     food_schedule: Optional[str] = None
+    food_distribution_location: Optional[str] = None
     sleeping_zones: Optional[str] = None
     medical_station: Optional[str] = None
     registration_steps: Optional[str] = None
