@@ -16,6 +16,8 @@ function EmergencyCalls() {
     const [showDismissed, setShowDismissed] = useState(false);
     const [showResolved, setShowResolved] = useState(false);
     const playedAlertIdsRef = useRef(new Set());
+    const alertAudioRef = useRef(null);
+    const audioUnlockedRef = useRef(false);
 
     const [historyFilters, setHistoryFilters] = useState({
         kiosk_id: '',
@@ -28,9 +30,6 @@ function EmergencyCalls() {
         try {
             const res = await hubClient.get('/emergency/active');
             const rows = res.data.alerts || [];
-            rows.forEach((a) => {
-                if (a?.id != null) playedAlertIdsRef.current.add(a.id);
-            });
             setAlerts(rows);
         } catch (e) {
             console.error(e);
@@ -39,10 +38,55 @@ function EmergencyCalls() {
 
     const playNewAlertSound = useCallback((alertId) => {
         if (alertId == null) return;
-        if (playedAlertIdsRef.current.has(alertId)) return;
-        playedAlertIdsRef.current.add(alertId);
-        const audio = new Audio('/console/emergencycallalert.mp3');
-        audio.play().catch(() => {});
+        const normalizedId = String(alertId);
+        if (playedAlertIdsRef.current.has(normalizedId)) return;
+        playedAlertIdsRef.current.add(normalizedId);
+
+        const srcCandidates = ['/emergencycallalert.mp3', '/console/emergencycallalert.mp3'];
+        const audio = alertAudioRef.current || new Audio();
+        alertAudioRef.current = audio;
+        audio.preload = 'auto';
+        audio.muted = false;
+        audio.volume = 1.0;
+        audio.loop = false;
+        audio.currentTime = 0;
+
+        const tryPlay = (index = 0) => {
+            if (index >= srcCandidates.length) return;
+            audio.src = srcCandidates[index];
+            audio.play().catch(() => tryPlay(index + 1));
+        };
+        tryPlay(0);
+    }, []);
+
+    useEffect(() => {
+        const unlockAudio = () => {
+            if (audioUnlockedRef.current) return;
+            audioUnlockedRef.current = true;
+            const audio = alertAudioRef.current || new Audio('/emergencycallalert.mp3');
+            alertAudioRef.current = audio;
+            audio.muted = true;
+            audio.volume = 0;
+            audio.play()
+                .then(() => {
+                    audio.pause();
+                    audio.currentTime = 0;
+                    audio.muted = false;
+                    audio.volume = 1.0;
+                })
+                .catch(() => {
+                    audio.muted = false;
+                    audio.volume = 1.0;
+                });
+            document.removeEventListener('pointerdown', unlockAudio);
+            document.removeEventListener('keydown', unlockAudio);
+        };
+        document.addEventListener('pointerdown', unlockAudio, { passive: true });
+        document.addEventListener('keydown', unlockAudio);
+        return () => {
+            document.removeEventListener('pointerdown', unlockAudio);
+            document.removeEventListener('keydown', unlockAudio);
+        };
     }, []);
 
     const fetchHistory = useCallback(async () => {
@@ -96,7 +140,7 @@ function EmergencyCalls() {
                 try {
                     const data = JSON.parse(e.data);
                     if (data.type === 'EMERGENCY_ALERT') {
-                        playNewAlertSound(data.id);
+                        playNewAlertSound(data.id ?? data.alert_id);
                         setAlerts(prev => [data, ...prev]);
                     } else if (
                         data.type === 'EMERGENCY_ACKNOWLEDGED' ||
@@ -309,7 +353,10 @@ function EmergencyCalls() {
             return;
         }
         try {
-            await hubClient.put(`/network/kiosk/${kioskId}/name`, { kiosk_name: editName.trim() });
+            await hubClient.post('/network/kiosk/name', {
+                kiosk_id: kioskId,
+                kiosk_name: editName.trim(),
+            });
             setKiosks(prev => prev.map(k => k.kiosk_id === kioskId ? { ...k, kiosk_name: editName.trim() } : k));
             setEditingKiosk(null);
             setEditName('');

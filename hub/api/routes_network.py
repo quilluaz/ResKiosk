@@ -1,4 +1,5 @@
 import time
+from datetime import datetime
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 from hub.db.session import get_db
@@ -44,11 +45,11 @@ async def get_network_info(db: Session = Depends(get_db)):
     connected_count = network_manager.get_connected_count()
     raw_list = network_manager.get_connected_kiosks()
 
-    # Join with Kiosk table for display names
+    # Join with KioskRegistry table for editable display names
     kiosk_ids = [k["kiosk_id"] for k in raw_list]
     kiosk_map = {}
     if kiosk_ids:
-        for kiosk in db.query(schema.Kiosk).filter(schema.Kiosk.kiosk_name.in_(kiosk_ids)).all():
+        for kiosk in db.query(schema.KioskRegistry).filter(schema.KioskRegistry.kiosk_id.in_(kiosk_ids)).all():
             kiosk_map[str(kiosk.kiosk_id)] = {
                 "kiosk_name": kiosk.kiosk_name or "",
             }
@@ -95,16 +96,50 @@ class KioskNameUpdate(BaseModel):
     kiosk_name: str
 
 
+class KioskNameUpdateById(BaseModel):
+    kiosk_id: str
+    kiosk_name: str
+
+
+def _upsert_kiosk_name(db: Session, kiosk_id: str, kiosk_name: str):
+    new_name = (kiosk_name or "").strip()
+    if not new_name:
+        return {"status": "error", "message": "Kiosk name cannot be empty."}
+    if len(new_name) > 80:
+        return {"status": "error", "message": "Kiosk name is too long (max 80 chars)."}
+
+    row = db.query(schema.KioskRegistry).filter(schema.KioskRegistry.kiosk_id == kiosk_id).first()
+    if not row:
+        hub_row = db.query(schema.Hub).first()
+        now = datetime.utcnow()
+        row = schema.KioskRegistry(
+            kiosk_id=kiosk_id,
+            kiosk_name=new_name,
+            ip_address="",
+            hub_id=str(hub_row.hub_id) if hub_row else "local",
+            first_seen=now,
+            last_seen=now,
+        )
+        db.add(row)
+    else:
+        row.kiosk_name = new_name
+        row.last_seen = datetime.utcnow()
+
+    db.commit()
+    return {"status": "ok", "kiosk_id": kiosk_id, "kiosk_name": new_name}
 
 
 @router.put("/network/kiosk/{kiosk_id}/name")
-def update_kiosk_name(kiosk_id: int, body: KioskNameUpdate, db: Session = Depends(get_db)):
-    kiosk = db.query(schema.Kiosk).filter(schema.Kiosk.kiosk_id == kiosk_id).first()
-    if kiosk:
-        kiosk.kiosk_name = body.kiosk_name
-        db.commit()
-        return {"status": "ok", "kiosk_id": kiosk_id, "kiosk_name": body.kiosk_name}
-    return {"status": "not_found", "kiosk_id": kiosk_id}
+def update_kiosk_name(kiosk_id: str, body: KioskNameUpdate, db: Session = Depends(get_db)):
+    return _upsert_kiosk_name(db, kiosk_id, body.kiosk_name)
+
+
+@router.post("/network/kiosk/name")
+def update_kiosk_name_by_body(body: KioskNameUpdateById, db: Session = Depends(get_db)):
+    kiosk_id = (body.kiosk_id or "").strip()
+    if not kiosk_id:
+        return {"status": "error", "message": "kiosk_id is required."}
+    return _upsert_kiosk_name(db, kiosk_id, body.kiosk_name)
 
 
 # /network/cloud/enable disabled (offline-first rollback)

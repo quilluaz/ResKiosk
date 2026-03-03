@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import hubClient from '../api/hubClient';
 import { QRCodeSVG } from 'qrcode.react';
-import { Copy, RefreshCw } from 'lucide-react';
+import { Copy, Pencil, RefreshCw } from 'lucide-react';
 
 function NetworkSetup() {
     const [netInfo, setNetInfo] = useState({ ip: '...', port: 8000 });
     const [loading, setLoading] = useState(true);
+    const [editingKioskId, setEditingKioskId] = useState(null);
+    const [draftKioskName, setDraftKioskName] = useState('');
+    const [savingKioskName, setSavingKioskName] = useState(false);
 
     const fetchInfo = async () => {
         try {
@@ -26,6 +29,36 @@ function NetworkSetup() {
     }, []);
 
     const hubUrl = useMemo(() => `http://${netInfo.ip}:${netInfo.port}`, [netInfo.ip, netInfo.port]);
+
+    const startEditKioskName = (kiosk) => {
+        setEditingKioskId(kiosk.kiosk_id);
+        setDraftKioskName((kiosk.kiosk_name || kiosk.kiosk_id || '').trim());
+    };
+
+    const cancelEditKioskName = () => {
+        setEditingKioskId(null);
+        setDraftKioskName('');
+    };
+
+    const saveKioskName = async (kioskId) => {
+        const next = draftKioskName.trim();
+        if (!next) return;
+        try {
+            setSavingKioskName(true);
+            await hubClient.post('/network/kiosk/name', {
+                kiosk_id: kioskId,
+                kiosk_name: next,
+            });
+            await fetchInfo();
+            setEditingKioskId(null);
+            setDraftKioskName('');
+        } catch (e) {
+            console.error(e);
+            alert(e?.response?.data?.message || 'Failed to update kiosk name.');
+        } finally {
+            setSavingKioskName(false);
+        }
+    };
 
     return (
         <div className="space-y-6">
@@ -118,7 +151,55 @@ function NetworkSetup() {
                                 netInfo.kiosks_list.map((kiosk) => (
                                     <tr key={kiosk.kiosk_id}>
                                         <td style={{ fontWeight: 500 }}>{kiosk.kiosk_id}</td>
-                                        <td>{kiosk.kiosk_name || kiosk.kiosk_id}</td>
+                                        <td className="kiosk-name-cell">
+                                            {editingKioskId === kiosk.kiosk_id ? (
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        className="input"
+                                                        value={draftKioskName}
+                                                        onChange={(e) => setDraftKioskName(e.target.value)}
+                                                        autoFocus
+                                                        maxLength={80}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') saveKioskName(kiosk.kiosk_id);
+                                                            if (e.key === 'Escape') cancelEditKioskName();
+                                                        }}
+                                                        style={{ maxWidth: '16rem', height: '2rem' }}
+                                                    />
+                                                    <button
+                                                        className="btn btn-sm btn-primary"
+                                                        disabled={savingKioskName || !draftKioskName.trim()}
+                                                        onClick={() => saveKioskName(kiosk.kiosk_id)}
+                                                    >
+                                                        Save
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-sm"
+                                                        disabled={savingKioskName}
+                                                        onClick={cancelEditKioskName}
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div
+                                                    className="kiosk-name-display"
+                                                    onClick={() => startEditKioskName(kiosk)}
+                                                    title="Edit kiosk name"
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter' || e.key === ' ') {
+                                                            e.preventDefault();
+                                                            startEditKioskName(kiosk);
+                                                        }
+                                                    }}
+                                                >
+                                                    <span>{kiosk.kiosk_name || kiosk.kiosk_id}</span>
+                                                    <Pencil size={13} className="kiosk-name-pencil" />
+                                                </div>
+                                            )}
+                                        </td>
                                         <td className="font-mono text-sm">{kiosk.ip}</td>
                                         <td className="text-sm text-muted">{new Date(`${kiosk.last_seen}Z`).toLocaleTimeString()}</td>
                                         <td>

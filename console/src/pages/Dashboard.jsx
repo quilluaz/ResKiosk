@@ -13,6 +13,7 @@ function Dashboard({ setEmergencyMode }) {
     const [isEmergency, setIsEmergency] = useState(false);
     const [faqStats, setFaqStats] = useState({ total: 0, unique: 0, topQuestion: null });
     const [articles, setArticles] = useState([]);
+    const [selectedArticle, setSelectedArticle] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 5;
     const navigate = useNavigate();
@@ -77,6 +78,14 @@ function Dashboard({ setEmergencyMode }) {
     };
 
     if (loading) return <div className="p-8 text-muted">Loading Dashboard...</div>;
+
+    const selectedArticleBody =
+        selectedArticle?.answer ||
+        selectedArticle?.content ||
+        selectedArticle?.article ||
+        selectedArticle?.body ||
+        selectedArticle?.response ||
+        '';
 
     return (
         <div className="space-y-6">
@@ -205,7 +214,12 @@ function Dashboard({ setEmergencyMode }) {
                     </thead>
                     <tbody>
                         {articles.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map(a => (
-                            <tr key={a.id}>
+                            <tr
+                                key={a.id}
+                                className="kb-row-clickable"
+                                onClick={() => setSelectedArticle(a)}
+                                title="View full article"
+                            >
                                 <td style={{ fontWeight: 500 }}>{a.question}</td>
                                 <td className="text-muted">{a.category}</td>
                                 <td>
@@ -215,7 +229,10 @@ function Dashboard({ setEmergencyMode }) {
                                 </td>
                                 <td>
                                     <button 
-                                        onClick={() => navigate('/kb', { state: { editArticle: a.id } })} 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            navigate('/kb', { state: { editArticle: a.id } });
+                                        }} 
                                         className="btn btn-icon" 
                                         title="Edit"
                                     >
@@ -259,6 +276,36 @@ function Dashboard({ setEmergencyMode }) {
                     </div>
                 )}
             </div>
+
+            {selectedArticle && (
+                <div className="modal-overlay" onClick={() => setSelectedArticle(null)}>
+                    <div
+                        className="modal-content article-view-modal"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="modal-header">
+                            <h3 className="modal-title">Article Details</h3>
+                            <button className="btn btn-sm" onClick={() => setSelectedArticle(null)}>Close</button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="article-view-head">
+                                <div className="article-view-question">{selectedArticle.question || 'Untitled article'}</div>
+                                <div className="article-view-meta">
+                                    <span className="badge">{selectedArticle.category || 'Uncategorized'}</span>
+                                    <span className={`badge ${selectedArticle.status === 'published' ? 'badge-success' : 'badge-warning'}`}>
+                                        {(selectedArticle.status || 'draft').toUpperCase()}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="article-view-content">
+                                {selectedArticleBody
+                                    ? selectedArticleBody
+                                    : 'No article content available.'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
