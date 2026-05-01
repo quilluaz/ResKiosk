@@ -101,6 +101,11 @@ class KBArticle(Base):
     status       = Column(String, nullable=True)
     created_by   = Column(Text, default="System Generated")
     updated_by   = Column(Text, nullable=True)
+    # Goal 7 (Story 2): filterable metadata (additive)
+    authority    = Column(String, nullable=True)  # official|shelter_staff|volunteer|unknown
+    scope        = Column(String, nullable=True)  # shelter_local|general
+    center_id    = Column(String, nullable=True)  # future-friendly scoping
+    hub_id       = Column(String, nullable=True)  # future-friendly scoping
 
 
 class EvacInfo(Base):

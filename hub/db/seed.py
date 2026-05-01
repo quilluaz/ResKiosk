@@ -104,6 +104,7 @@ def seed_data(db: Session):
     # Seed controlled taxonomy + deterministic legacy backfill (Goal 7 Story 1)
     _seed_taxonomy_v1(db)
     _backfill_kb_item_taxonomy_from_legacy_category(db)
+    _backfill_kb_metadata_defaults(db)
 
     # Seed default admin users (only if table is empty)
     if db.query(User).count() == 0:
@@ -284,6 +285,34 @@ def _backfill_kb_item_taxonomy_from_legacy_category(db: Session) -> None:
     if created:
         db.commit()
         print(f"Backfilled kb_item_taxonomy for {created} KB article(s) from legacy category.")
+
+
+def _backfill_kb_metadata_defaults(db: Session) -> None:
+    """Backfill authority/scope defaults for existing KB articles (idempotent)."""
+    updated = 0
+    for art in db.query(KBArticle).all():
+        changed = False
+        # Authority default
+        if not getattr(art, "authority", None):
+            # Shelter config sync content is considered shelter staff authored.
+            if getattr(art, "source", "") == "evac_sync":
+                art.authority = "shelter_staff"
+            else:
+                art.authority = "unknown"
+            changed = True
+        # Scope default
+        if not getattr(art, "scope", None):
+            # evac_sync reflects local shelter configuration; others default to general.
+            if getattr(art, "source", "") == "evac_sync":
+                art.scope = "shelter_local"
+            else:
+                art.scope = "general"
+            changed = True
+        if changed:
+            updated += 1
+    if updated:
+        db.commit()
+        print(f"Backfilled KB metadata defaults for {updated} KB article(s).")
 
 
 def _enrich_multilingual_tags(db: Session):

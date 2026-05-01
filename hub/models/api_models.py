@@ -17,6 +17,10 @@ class ArticleBase(BaseModel):
     tags: List[str] = []
     enabled: bool = True
     status: Optional[str] = "draft"
+    authority: Optional[str] = None  # official|shelter_staff|volunteer|unknown
+    scope: Optional[str] = None      # shelter_local|general
+    center_id: Optional[str] = None
+    hub_id: Optional[str] = None
 
     @field_validator('tags', mode='before')
     @classmethod
@@ -42,6 +46,10 @@ class ArticleUpdate(BaseModel):
     tags: Optional[List[str]] = None
     enabled: Optional[bool] = None
     status: Optional[str] = None
+    authority: Optional[str] = None
+    scope: Optional[str] = None
+    center_id: Optional[str] = None
+    hub_id: Optional[str] = None
 
 
 class ArticleResponse(BaseModel):
@@ -57,6 +65,10 @@ class ArticleResponse(BaseModel):
     status: Optional[str] = None
     created_by: Optional[str] = None
     updated_by: Optional[str] = None
+    authority: Optional[str] = None
+    scope: Optional[str] = None
+    center_id: Optional[str] = None
+    hub_id: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 

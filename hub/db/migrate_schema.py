@@ -78,10 +78,20 @@ def migrate():
 
     # ── kb_articles ───────────────────────────────────────────────────
     cols = _get_existing_columns(cursor, "kb_articles")
-    if cols and "status" not in cols:
-        cursor.execute("ALTER TABLE kb_articles ADD COLUMN status VARCHAR")
-        print("[Migration] Added kb_articles.status")
-        migrated += 1
+    if cols:
+        kb_migrations = {
+            "status": "ALTER TABLE kb_articles ADD COLUMN status VARCHAR",
+            # Goal 7 (Story 2) filterable metadata
+            "authority": "ALTER TABLE kb_articles ADD COLUMN authority TEXT",
+            "scope": "ALTER TABLE kb_articles ADD COLUMN scope TEXT",
+            "center_id": "ALTER TABLE kb_articles ADD COLUMN center_id TEXT",
+            "hub_id": "ALTER TABLE kb_articles ADD COLUMN hub_id TEXT",
+        }
+        for col, sql in kb_migrations.items():
+            if col not in cols:
+                cursor.execute(sql)
+                print(f"[Migration] Added kb_articles.{col}")
+                migrated += 1
 
     # -- network_config -------------------------------------------------------
     cols = _get_existing_columns(cursor, "network_config")
