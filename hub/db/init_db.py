@@ -10,6 +10,13 @@ _MIGRATIONS = [
     ("user", "created_at",     "INTEGER"),
     ("kb_articles", "created_by", "TEXT DEFAULT 'System Generated'"),
     ("kb_articles", "updated_by", "TEXT"),
+    # Goal 7 taxonomy observability (query logs)
+    ("query_logs", "ui_selection_source", "TEXT"),
+    ("query_logs", "ui_selected_taxonomy_node_id", "TEXT"),
+    ("query_logs", "ui_selected_taxonomy_node_label", "TEXT"),
+    ("query_logs", "inferred_taxonomy_node_ids", "TEXT"),
+    ("query_logs", "widening_step", "TEXT"),
+    ("query_logs", "widening_reason", "TEXT"),
 ]
 
 

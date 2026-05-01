@@ -102,6 +102,11 @@ class KBVersionResponse(BaseModel):
 
 # ─── Query ───────────────────────────────────────────────────────────────────
 
+class TaxonomyOption(BaseModel):
+    id: str
+    label: str
+
+
 class QueryRequest(BaseModel):
     center_id: str
     kiosk_id: str
@@ -111,6 +116,7 @@ class QueryRequest(BaseModel):
     kb_version: int
     is_retry: bool = False
     selected_category: Optional[str] = None
+    selected_taxonomy_node_id: Optional[str] = None
     session_id: Optional[str] = None
     # Optional list of KB article IDs that should be excluded from consideration
     exclude_source_ids: Optional[List[int]] = None
@@ -129,6 +135,7 @@ class QueryResponse(BaseModel):
     kb_version: int
     source_id: Optional[int] = None
     clarification_categories: Optional[List[str]] = None
+    clarification_options: Optional[List[TaxonomyOption]] = None
     # ID of the QueryLog row corresponding to this response (for RLHF feedback)
     query_log_id: Optional[int] = None
     # Shadow RLHF fields: what the RLHF ranker would pick as top, if enabled

@@ -64,6 +64,7 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                 text,
                 query.is_retry,
                 query.selected_category,
+                query.selected_taxonomy_node_id,
                 query.exclude_source_ids,
                 query_language=query_lang,
             )
@@ -186,6 +187,13 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
         query_log_id = None
         try:
             import time as _time
+            inferred_ids = result.get("inferred_taxonomy_node_ids")
+            inferred_ids_json = None
+            try:
+                if isinstance(inferred_ids, list):
+                    inferred_ids_json = json.dumps(inferred_ids, ensure_ascii=False)
+            except Exception:
+                inferred_ids_json = None
             log_entry = schema.QueryLog(
                 kiosk_id=query.kiosk_id or "",
                 session_id=query.session_id,
@@ -203,6 +211,12 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                 rewrite_attempted=True if rewrite_happened else False,
                 rewritten_query=rewritten_text if rewrite_happened else None,
                 latency_ms=round(latency, 2),
+                ui_selection_source=result.get("ui_selection_source"),
+                ui_selected_taxonomy_node_id=result.get("ui_selected_taxonomy_node_id"),
+                ui_selected_taxonomy_node_label=result.get("ui_selected_taxonomy_node_label"),
+                inferred_taxonomy_node_ids=inferred_ids_json,
+                widening_step=result.get("widening_step"),
+                widening_reason=result.get("widening_reason"),
                 created_at=int(_time.time()),
             )
             db.add(log_entry)
@@ -271,6 +285,7 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
             kb_version=query.kb_version,
             source_id=result.get("source_id"),
             clarification_categories=result.get("categories"),
+            clarification_options=result.get("clarification_options"),
             query_log_id=query_log_id,
             rlhf_top_source_id=result.get("rlhf_top_source_id"),
             rlhf_top_score=result.get("rlhf_top_score"),

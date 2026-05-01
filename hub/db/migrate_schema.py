@@ -57,6 +57,13 @@ def migrate():
             "tts_mode": "ALTER TABLE query_logs ADD COLUMN tts_mode TEXT",
             "connectivity_state": "ALTER TABLE query_logs ADD COLUMN connectivity_state TEXT",
             "cloud_consent_mode": "ALTER TABLE query_logs ADD COLUMN cloud_consent_mode TEXT DEFAULT 'disabled'",
+            # Goal 7 taxonomy observability (additive)
+            "ui_selection_source": "ALTER TABLE query_logs ADD COLUMN ui_selection_source TEXT",
+            "ui_selected_taxonomy_node_id": "ALTER TABLE query_logs ADD COLUMN ui_selected_taxonomy_node_id TEXT",
+            "ui_selected_taxonomy_node_label": "ALTER TABLE query_logs ADD COLUMN ui_selected_taxonomy_node_label TEXT",
+            "inferred_taxonomy_node_ids": "ALTER TABLE query_logs ADD COLUMN inferred_taxonomy_node_ids TEXT",
+            "widening_step": "ALTER TABLE query_logs ADD COLUMN widening_step TEXT",
+            "widening_reason": "ALTER TABLE query_logs ADD COLUMN widening_reason TEXT",
         }
         for col, sql in ql_migrations.items():
             if col not in cols:
