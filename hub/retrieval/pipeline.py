@@ -97,7 +97,7 @@ class QueryPipeline:
         result.stage_log.append(STAGE_NORMALIZE)
         normalized = normalize_query(text_en, query_language)
         result.normalized_text = normalized
-        logger.debug(f"[Pipeline] {STAGE_NORMALIZE}: '{normalized[:80]}'")
+        logger.info(f"[Pipeline] {STAGE_NORMALIZE}: normalized='{normalized[:120]}'")
 
         # ── Stage 2: Intent ───────────────────────────────────────────────────
         # Intent classification is surfaced here so it can be logged and tested
@@ -109,8 +109,8 @@ class QueryPipeline:
         intent, intent_confidence = self._classify_intent(normalized)
         result.intent = intent
         result.intent_confidence = intent_confidence
-        logger.debug(
-            f"[Pipeline] {STAGE_INTENT}: intent={intent} conf={intent_confidence:.4f}"
+        logger.info(
+            f"[Pipeline] {STAGE_INTENT}: intent={intent} confidence={intent_confidence:.4f}"
         )
 
         # ── Stage 3: Retrieve (first pass) ───────────────────────────────────
@@ -128,8 +128,9 @@ class QueryPipeline:
             logger.error(f"[Pipeline] Retrieval error: {e}")
             retrieve_result = _fallback_no_match(intent, intent_confidence)
         result.retrieve_result = retrieve_result
-        logger.debug(
+        logger.info(
             f"[Pipeline] {STAGE_RETRIEVE}: answer_type={retrieve_result.get('answer_type')} "
+            f"source_id={retrieve_result.get('source_id')} "
             f"confidence={retrieve_result.get('confidence', 0.0):.4f}"
         )
 
@@ -138,11 +139,12 @@ class QueryPipeline:
         # Rewrite MUST NOT run, and no second retrieval pass occurs.
         result.stage_log.append(STAGE_CLARIFICATION_GATE)
         if retrieve_result.get("answer_type") == "NEEDS_CLARIFICATION":
-            logger.debug(
-                f"[Pipeline] {STAGE_CLARIFICATION_GATE}: clarification required — "
-                "stopping pipeline before rewrite."
+            logger.info(
+                f"[Pipeline] {STAGE_CLARIFICATION_GATE}: clarification_triggered=True "
+                f"categories={retrieve_result.get('categories')}"
             )
             return result
+        logger.info(f"[Pipeline] {STAGE_CLARIFICATION_GATE}: clarification_triggered=False")
 
         # ── Stage 5: Rewrite (only if clarification not needed) ──────────────
         result.stage_log.append(STAGE_REWRITE)
@@ -154,9 +156,9 @@ class QueryPipeline:
         rewrite_happened = candidate != normalized
         result.rewritten_text = candidate if rewrite_happened else None
         result.rewrite_happened = rewrite_happened
-        logger.debug(
-            f"[Pipeline] {STAGE_REWRITE}: rewrite_happened={rewrite_happened} "
-            f"candidate='{candidate[:60]}'"
+        logger.info(
+            f"[Pipeline] {STAGE_REWRITE}: rewrite_applied={rewrite_happened}"
+            + (f" rewritten='{candidate[:120]}'" if rewrite_happened else "")
         )
 
         # ── Stage 6: Retrieve (retry after rewrite) ───────────────────────────
@@ -171,10 +173,10 @@ class QueryPipeline:
                     exclude_source_ids,
                     query_language=query_language,
                 )
-                logger.debug(
-                    f"[Pipeline] {STAGE_RETRIEVE_RETRY}: "
-                    f"'{normalized[:40]}' → '{candidate[:40]}' "
-                    f"→ {retry_result.get('answer_type')}"
+                logger.info(
+                    f"[Pipeline] {STAGE_RETRIEVE_RETRY}: answer_type={retry_result.get('answer_type')} "
+                    f"source_id={retry_result.get('source_id')} "
+                    f"confidence={retry_result.get('confidence', 0.0):.4f}"
                 )
                 result.retrieve_result = retry_result
             except Exception as e:

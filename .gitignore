@@ -30,3 +30,5 @@ kiosk/.gradle/
 packaging/hub_models/
 packaging/ollama_portable/
 
+# Context files
+slice0_userstory2_running_context.md

@@ -304,6 +304,9 @@ def retrieve(
 ) -> dict:
     normalized_query = normalize_query(query_english, query_language)
     logger.info(f"[Retrieve] query='{normalized_query}' exclude_source_ids={exclude_source_ids}")
+    # AC2: log UI-selected taxonomy node when present
+    if selected_category:
+        logger.info(f"[Filter] ui_category='{selected_category}'")
 
     # 1. Inventory check (phrase triggers; no embedding)
     try:
@@ -437,6 +440,9 @@ def retrieve(
             search_query = f"{search_query} {INTENT_ENRICHMENT[mapped]}"
         else:
             search_query = f"{search_query} {selected_category}"
+    # AC3: log inferred taxonomy node when intent drives candidate retrieval
+    if intent != "unclear" and intent_confidence >= INTENT_ACTION_THRESHOLD:
+        logger.info(f"[Filter] inferred_taxonomy='{intent}' confidence={intent_confidence:.4f}")
 
     # 4. Embedding and corpus (guard so missing models/empty KB don't 500)
     try:
@@ -520,6 +526,9 @@ def retrieve(
         score = float(scores[idx])
         top_k_results.append(RetrievalResult(art_dict, score))
 
+    # AC4: total corpus candidates and how many scored into top-k
+    candidates_total = len(corpus["articles"])
+    logger.info(f"[Filter] candidates_total={candidates_total} top_k_scored={len(top_k_results)}")
     for i, r in enumerate(top_k_results[:3]):
         logger.info(f"[Search] #{i+1} score={r.score:.4f} question='{r.article['question'][:60]}' cat={r.category}")
 
@@ -533,16 +542,19 @@ def retrieve(
         # Fallback: no scores (should not normally happen here)
         best_raw_score = 0.0
 
-    # Apply kiosk-provided excludes (for feedback "next result" flow)
+    # AC1 + AC4: hard rule — exclude_source_ids filter
     if exclude_source_ids:
+        count_before = len(top_k_results)
         exclude_set = set(exclude_source_ids)
-        pre_filter_ids = [r.article["id"] for r in top_k_results]
-        logger.info(f"[Search] EXCLUDE: exclude_set={exclude_set} top_k_ids_before={pre_filter_ids}")
         top_k_results = [r for r in top_k_results if r.article["id"] not in exclude_set]
-        post_filter_ids = [r.article["id"] for r in top_k_results]
-        logger.info(f"[Search] EXCLUDE: top_k_ids_after={post_filter_ids} (removed {len(pre_filter_ids) - len(post_filter_ids)})")
+        count_after = len(top_k_results)
+        logger.info(
+            f"[Filter] rule=exclude_ids before={count_before} after={count_after} "
+            f"removed={count_before - count_after} excluded_ids={list(exclude_set)}"
+        )
         if not top_k_results:
-            # All top results excluded: fall back to generic NO_MATCH while preserving logging fields.
+            # AC5: all candidates excluded — fallback to NO_MATCH
+            logger.info("[Filter] fallback=all_candidates_excluded outcome=NO_MATCH")
             return {
                 "answer_text": "I am here to answer questions about registration, food, medical help, sleeping areas, transportation, safety, and other services in this shelter. Please ask about one of these topics or see a volunteer for more help.",
                 "answer_type": "NO_MATCH",
@@ -601,6 +613,11 @@ def retrieve(
         cats = sorted(list({r.category for r in top_k_results if r.category}))
         if not cats:
             cats = ["General"]
+        # AC5: score below threshold; clarification triggered
+        logger.info(
+            f"[Filter] fallback=clarification_gate best_score={best.score:.4f} "
+            f"threshold={threshold} floor={clarification_floor}"
+        )
         return {
             "answer_text": "Please clarify.",
             "answer_type": "NEEDS_CLARIFICATION",
@@ -621,6 +638,11 @@ def retrieve(
 
     # 0.45-0.65: use best match; < 0.45 or no clarify: fixed fallback
     if best.score >= clarification_floor:
+        # AC5: sub-threshold direct match (above floor, below threshold, clarification not triggered)
+        logger.info(
+            f"[Filter] fallback=sub_threshold_direct best_score={best.score:.4f} "
+            f"threshold={threshold} floor={clarification_floor}"
+        )
         follow_up_intent = compound_secondary_intent if is_compound else None
         follow_up_prompt = FOLLOW_UP_PROMPT_BY_INTENT.get(follow_up_intent) if follow_up_intent else None
         return {
@@ -645,6 +667,11 @@ def retrieve(
             "follow_up_intent": follow_up_intent,
         }
 
+    # AC5: score below clarification floor — true NO_MATCH
+    logger.info(
+        f"[Filter] fallback=no_match best_score={best.score:.4f} "
+        f"threshold={threshold} floor={clarification_floor}"
+    )
     return {
         "answer_text": "I am here to answer questions about registration, food, medical help, sleeping areas, transportation, safety, and other services in this shelter. Please ask about one of these topics or see a volunteer for more help.",
         "answer_type": "NO_MATCH",
