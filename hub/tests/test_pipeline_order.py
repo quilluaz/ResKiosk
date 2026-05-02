@@ -241,6 +241,63 @@ class TestPipelineStageOrder(unittest.TestCase):
             "STAGE_CLARIFICATION_GATE must appear before STAGE_REWRITE in stage_log.",
         )
 
+    # -- Verify pipeline_status is 'paused' when clarification is triggered
+    @patch("hub.retrieval.pipeline.query_rewriter.maybe_rewrite")
+    @patch("hub.retrieval.pipeline.search.retrieve")
+    @patch("hub.retrieval.pipeline.search._intent_classifier", None)
+    def test_clarification_sets_pipeline_status_paused(self, mock_retrieve, mock_rewrite):
+        """
+        When retrieve returns NEEDS_CLARIFICATION, pipeline_status must be 'paused'.
+        """
+        mock_retrieve.return_value = _make_clarification_result()
+
+        result = QueryPipeline().run(self.db, "i need help", is_retry=False)
+
+        self.assertEqual(result.pipeline_status, "paused")
+        self.assertEqual(result.retrieve_result["answer_type"], "NEEDS_CLARIFICATION")
+        mock_rewrite.assert_not_called()
+
+    # -- Verify pipeline_status is 'completed' for normal queries
+    @patch("hub.retrieval.pipeline.query_rewriter.maybe_rewrite")
+    @patch("hub.retrieval.pipeline.search.retrieve")
+    @patch("hub.retrieval.pipeline.search._intent_classifier", None)
+    def test_normal_query_sets_pipeline_status_completed(self, mock_retrieve, mock_rewrite):
+        """
+        When retrieve returns DIRECT_MATCH, pipeline_status must be 'completed'.
+        """
+        mock_retrieve.return_value = _make_result("DIRECT_MATCH")
+        mock_rewrite.return_value = "registration"
+
+        result = QueryPipeline().run(self.db, "registration", is_retry=False)
+
+        self.assertEqual(result.pipeline_status, "completed")
+        self.assertEqual(result.retrieve_result["answer_type"], "DIRECT_MATCH")
+
+    # -- Verify clarification result carries context needed for resume
+    @patch("hub.retrieval.pipeline.query_rewriter.maybe_rewrite")
+    @patch("hub.retrieval.pipeline.search.retrieve")
+    @patch("hub.retrieval.pipeline.search._intent_classifier", None)
+    def test_clarification_result_preserves_resume_context(self, mock_retrieve, mock_rewrite):
+        """
+        When pipeline is paused, the retrieve_result must carry categories,
+        intent, and intent_confidence so the route handler can build
+        ClarificationContext with complete resume information.
+        """
+        mock_retrieve.return_value = _make_clarification_result()
+
+        result = QueryPipeline().run(self.db, "something unclear", is_retry=False)
+
+        self.assertEqual(result.pipeline_status, "paused")
+        # Resume context fields must be present in retrieve_result
+        self.assertIn("categories", result.retrieve_result)
+        self.assertEqual(result.retrieve_result["categories"], ["food", "medical"])
+        self.assertIn("intent", result.retrieve_result)
+        self.assertIn("intent_confidence", result.retrieve_result)
+        # normalized_text and intent must be set on the PipelineResult itself
+        self.assertIsNotNone(result.normalized_text)
+        self.assertIsNotNone(result.intent)
+        self.assertIsNotNone(result.intent_confidence)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -66,6 +66,9 @@ class PipelineResult:
     # Ordered record of pipeline stages that executed.
     stage_log: List[str] = field(default_factory=list)
 
+    # Pipeline status: "completed" for normal flow, "paused" when clarification needed.
+    pipeline_status: str = "completed"
+
 
 class QueryPipeline:
     """
@@ -139,8 +142,10 @@ class QueryPipeline:
         # Rewrite MUST NOT run, and no second retrieval pass occurs.
         result.stage_log.append(STAGE_CLARIFICATION_GATE)
         if retrieve_result.get("answer_type") == "NEEDS_CLARIFICATION":
+            result.pipeline_status = "paused"
             logger.info(
                 f"[Pipeline] {STAGE_CLARIFICATION_GATE}: clarification_triggered=True "
+                f"pipeline_status=paused "
                 f"categories={retrieve_result.get('categories')}"
             )
             return result

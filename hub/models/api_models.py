@@ -102,6 +102,23 @@ class KBVersionResponse(BaseModel):
 
 # ─── Query ───────────────────────────────────────────────────────────────────
 
+
+class ClarificationContext(BaseModel):
+    """Context included when the pipeline is paused for clarification.
+
+    Provides all fields the kiosk needs to display clarification options
+    and resume the query after the user selects a category.
+    """
+    original_query: str                        # raw query text (pre-normalization)
+    normalized_text: str                       # post-normalization text
+    detected_intent: str                       # intent classifier result
+    intent_confidence: float                   # intent classifier confidence
+    suggested_categories: List[str]            # category chips for the kiosk UI
+    kb_version: int                            # KB version at time of pause
+    session_id: Optional[str] = None           # session for resumption
+    pipeline_status: str = "paused"            # always "paused" for clarification
+
+
 class QueryRequest(BaseModel):
     center_id: str
     kiosk_id: str
@@ -136,6 +153,8 @@ class QueryResponse(BaseModel):
     rlhf_top_score: Optional[float] = None
     follow_up_prompt: Optional[str] = None
     follow_up_intent: Optional[str] = None
+    # Clarification pause context — populated only when answer_type == NEEDS_CLARIFICATION
+    clarification_context: Optional[ClarificationContext] = None
 
 
 # ─── Evac Info ───────────────────────────────────────────────────────────────
