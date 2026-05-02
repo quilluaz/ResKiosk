@@ -8,9 +8,8 @@ from hub.db.session import get_db
 from hub.db import schema
 from hub.models import api_models
 from hub.retrieval import search, translator
-from hub.retrieval import rewriter as query_rewriter
-from hub.retrieval.normalizer import normalize_query
 from hub.retrieval import formatter
+from hub.retrieval.pipeline import QueryPipeline
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -46,72 +45,44 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
         # Apply raw-language normalization as a fallback enrichment for non-English
         if user_language != "en":
             try:
+                from hub.retrieval.normalizer import normalize_query
                 raw_norm = normalize_query(raw_text, user_language)
                 if raw_norm and raw_norm not in text:
                     text = f"{text} {raw_norm}".strip()
             except Exception:
                 pass
 
-        normalize_query(text)  # kept for side-effects / logging
+        # Determine query language for the pipeline (if translation failed, query
+        # may still be in the original language).
+        query_lang = "en"
+        if user_language != "en" and text == raw_text:
+            query_lang = user_language
 
-        try:
-            t1 = time.time()
-            query_lang = "en"
-            if user_language != "en" and text == raw_text:
-                query_lang = user_language
-            result = search.retrieve(
-                db,
-                text,
-                query.is_retry,
-                query.selected_category,
-                query.exclude_source_ids,
-                query_language=query_lang,
-            )
-            logger.info(f"[Query] Retrieval took {(time.time() - t1) * 1000:.0f}ms")
-        except Exception as e:
-            logger.error(f"[Query] Retrieval error: {e}")
-            result = {
-                "answer_text": "I am here to answer questions about registration, food, medical help, sleeping areas, transportation, safety, and other services in this shelter. Please ask about one of these topics or see a volunteer for more help.",
-                "answer_type": "NO_MATCH",
-                "confidence": 0.0,
-                "source_id": None,
-                "categories": None,
-                "article_data": None,
-                "intent": "unclear",
-                "intent_confidence": 0.0,
-            }
+        # ── Canonical pipeline ────────────────────────────────────────────────
+        # normalize → intent → retrieve → clarification_gate → rewrite → retrieve_retry
+        t1 = time.time()
+        pipeline = QueryPipeline()
+        pipeline_result = pipeline.run(
+            db,
+            text,
+            query.is_retry,
+            query.selected_category,
+            query.exclude_source_ids,
+            query_language=query_lang,
+        )
+        logger.info(
+            f"[Query] Pipeline completed in {(time.time() - t1) * 1000:.0f}ms "
+            f"stages={pipeline_result.stage_log}"
+        )
 
-        # Track rewrite state for logging
-        rewritten_text = text
-        rewrite_happened = False
+        result = pipeline_result.retrieve_result
+        rewrite_happened = pipeline_result.rewrite_happened
+        rewritten_text = pipeline_result.rewritten_text if rewrite_happened else text
         follow_up_prompt = result.get("follow_up_prompt")
         follow_up_intent = result.get("follow_up_intent")
 
-        # Query rewrite on low-confidence results
-        if result["answer_type"] in ("NO_MATCH", "NEEDS_CLARIFICATION"):
-            candidate = query_rewriter.maybe_rewrite(
-                text,
-                result.get("intent", "unclear"),
-                result["confidence"],
-            )
-            if candidate != text:
-                try:
-                    retry_result = search.retrieve(
-                        db,
-                        candidate,
-                        False,
-                        None,
-                        query.exclude_source_ids,
-                        query_language=query_lang,
-                    )
-                    logger.info(f"[Query] Rewrite retry: '{text[:40]}' -> '{candidate[:40]}' -> {retry_result['answer_type']}")
-                    result = retry_result
-                    rewritten_text = candidate
-                    rewrite_happened = True
-                    follow_up_prompt = result.get("follow_up_prompt")
-                    follow_up_intent = result.get("follow_up_intent")
-                except Exception as e:
-                    logger.warning(f"[Query] Rewrite retry failed: {e}")
+        # Sync normalized text back so logging below references pipeline output.
+        text = pipeline_result.normalized_text or text
 
         answer_type = result["answer_type"]
         confidence = result["confidence"]
