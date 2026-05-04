@@ -8,9 +8,8 @@ from hub.db.session import get_db
 from hub.db import schema
 from hub.models import api_models
 from hub.retrieval import search, translator
-from hub.retrieval import rewriter as query_rewriter
-from hub.retrieval.normalizer import normalize_query
 from hub.retrieval import formatter
+from hub.retrieval.pipeline import QueryPipeline
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -46,13 +45,35 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
         # Apply raw-language normalization as a fallback enrichment for non-English
         if user_language != "en":
             try:
+                from hub.retrieval.normalizer import normalize_query
                 raw_norm = normalize_query(raw_text, user_language)
                 if raw_norm and raw_norm not in text:
                     text = f"{text} {raw_norm}".strip()
             except Exception:
                 pass
 
-        normalize_query(text)  # kept for side-effects / logging
+        # Determine query language for the pipeline (if translation failed, query
+        # may still be in the original language).
+        query_lang = "en"
+        if user_language != "en" and text == raw_text:
+            query_lang = user_language
+
+        # ── Canonical pipeline ────────────────────────────────────────────────
+        # normalize → intent → retrieve → clarification_gate → rewrite → retrieve_retry
+        t1 = time.time()
+        pipeline = QueryPipeline()
+        pipeline_result = pipeline.run(
+            db,
+            text,
+            query.is_retry,
+            query.selected_category,
+            query.exclude_source_ids,
+            query_language=query_lang,
+        )
+        logger.info(
+            f"[Query] Pipeline completed in {(time.time() - t1) * 1000:.0f}ms "
+            f"stages={pipeline_result.stage_log}"
+        )
 
         try:
             t1 = time.time()
@@ -88,34 +109,77 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
         follow_up_prompt = result.get("follow_up_prompt")
         follow_up_intent = result.get("follow_up_intent")
 
-        # Query rewrite on low-confidence results
-        if result["answer_type"] in ("NO_MATCH", "NEEDS_CLARIFICATION"):
-            candidate = query_rewriter.maybe_rewrite(
-                text,
-                result.get("intent", "unclear"),
-                result["confidence"],
-            )
-            if candidate != text:
-                try:
-                    retry_result = search.retrieve(
-                        db,
-                        candidate,
-                        False,
-                        None,
-                        query.exclude_source_ids,
-                        query_language=query_lang,
-                    )
-                    logger.info(f"[Query] Rewrite retry: '{text[:40]}' -> '{candidate[:40]}' -> {retry_result['answer_type']}")
-                    result = retry_result
-                    rewritten_text = candidate
-                    rewrite_happened = True
-                    follow_up_prompt = result.get("follow_up_prompt")
-                    follow_up_intent = result.get("follow_up_intent")
-                except Exception as e:
-                    logger.warning(f"[Query] Rewrite retry failed: {e}")
+        # Sync normalized text back so logging below references pipeline output.
+        text = pipeline_result.normalized_text or text
 
         answer_type = result["answer_type"]
         confidence = result["confidence"]
+
+        # ── Clarification pause: early-return ─────────────────────────────
+        # When the pipeline is paused for clarification, build a structured
+        # ClarificationContext with all resume fields and return immediately.
+        # This skips LLM formatting and outbound translation (wasted work
+        # for a response that just shows category chips on the kiosk).
+        if pipeline_result.pipeline_status == "paused":
+            clarification_ctx = api_models.ClarificationContext(
+                original_query=raw_text,
+                normalized_text=pipeline_result.normalized_text,
+                detected_intent=pipeline_result.intent,
+                intent_confidence=pipeline_result.intent_confidence,
+                suggested_categories=result.get("categories") or [],
+                kb_version=query.kb_version,
+                session_id=query.session_id,
+                pipeline_status="paused",
+            )
+
+            # HOOK: Person 2 — log clarification pause state
+            # clarification_ctx contains all fields needed for the pause audit log.
+            logger.info(
+                f"[Query] PAUSED for clarification | intent={pipeline_result.intent} "
+                f"confidence={pipeline_result.intent_confidence:.4f} "
+                f"categories={clarification_ctx.suggested_categories} "
+                f"session={query.session_id}"
+            )
+
+            # Still write query log so Person 2 can join on it
+            pause_log_id = None
+            try:
+                import time as _time
+                log_entry = schema.QueryLog(
+                    kiosk_id=query.kiosk_id or "",
+                    session_id=query.session_id,
+                    transcript_original=query.transcript_original,
+                    transcript_english=text,
+                    raw_transcript=raw_text,
+                    normalized_transcript=pipeline_result.normalized_text,
+                    language=user_language,
+                    kb_version=query.kb_version,
+                    retrieval_score=float(result.get("confidence_raw") or result.get("confidence") or 0.0),
+                    answer_type=answer_type,
+                    source_id=result.get("source_id"),
+                    rewrite_attempted=False,
+                    rewritten_query=None,
+                    latency_ms=round((time.time() - start_time) * 1000, 2),
+                    created_at=int(_time.time()),
+                )
+                db.add(log_entry)
+                db.commit()
+                pause_log_id = log_entry.id
+            except Exception as e:
+                logger.exception("[Query] DB log/commit failed for paused query")
+                db.rollback()
+
+            return api_models.QueryResponse(
+                answer_text_en=result.get("answer_text") or "Could you clarify what you need help with?",
+                answer_text_localized=None,
+                answer_type=answer_type,
+                confidence=float(confidence),
+                kb_version=query.kb_version,
+                source_id=result.get("source_id"),
+                clarification_categories=result.get("categories"),
+                query_log_id=pause_log_id,
+                clarification_context=clarification_ctx,
+            )
 
         if answer_type == "DIRECT_MATCH" and result.get("article_data"):
             history_str = ""
