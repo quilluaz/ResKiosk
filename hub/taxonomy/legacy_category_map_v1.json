@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "mapping_version": 1,
+  "generated_from": [
+    "hub/retrieval/search.py (CLARIFICATION_CATEGORY_TO_INTENT legacy strings)",
+    "docs/goal_outlines/goal_7.md (taxonomy v1)"
+  ],
+  "normalization_rules": {
+    "casefold": true,
+    "trim": true,
+    "collapse_whitespace": true,
+    "replace": [
+      { "from": "&", "to": "and" }
+    ]
+  },
+  "category_string_to_taxonomy_id": {
+    "food": "rk.tax.basic_needs_daily_living.food_water",
+    "water": "rk.tax.basic_needs_daily_living.food_water",
+    "food and water": "rk.tax.basic_needs_daily_living.food_water",
+    "food & water": "rk.tax.basic_needs_daily_living.food_water",
+
+    "medical": "rk.tax.health_medical.medical_services",
+    "health": "rk.tax.health_medical.medical_services",
+
+    "registration": "rk.tax.shelter_config.registration_intake",
+    "sign in": "rk.tax.shelter_config.registration_intake",
+    "check in": "rk.tax.shelter_config.registration_intake",
+
+    "sleeping": "rk.tax.basic_needs_daily_living.sleeping_rest_areas",
+    "beds": "rk.tax.basic_needs_daily_living.sleeping_rest_areas",
+    "sleep": "rk.tax.basic_needs_daily_living.sleeping_rest_areas",
+
+    "facilities": "rk.tax.basic_needs_daily_living.facilities_use",
+    "restroom": "rk.tax.basic_needs_daily_living.facilities_use",
+    "bathroom": "rk.tax.basic_needs_daily_living.facilities_use",
+    "showers": "rk.tax.basic_needs_daily_living.facilities_use",
+    "laundry": "rk.tax.basic_needs_daily_living.facilities_use",
+
+    "transportation": "rk.tax.location_navigation.maps_wayfinding",
+
+    "safety": "rk.tax.safety_emergencies.emergency_procedures",
+    "security": "rk.tax.safety_emergencies.security_personal_safety",
+
+    "lost person": "rk.tax.family_support_services.family_separation_support",
+    "lost family": "rk.tax.family_support_services.family_separation_support",
+
+    "pets": "rk.tax.family_support_services.pet_support",
+
+    "donations": "rk.tax.logistics_supplies.donations",
+
+    "hours": "rk.tax.shelter_config.schedules",
+
+    "location": "rk.tax.location_navigation.external_location_address",
+
+    "general": "rk.tax.shelter_config.shelter_services_overview",
+    "general info": "rk.tax.shelter_config.shelter_services_overview",
+
+    "mental health": "rk.tax.health_medical.mental_health_psychosocial_support",
+
+    "legal docs": "rk.tax.shelter_config.shelter_services_overview",
+    "legal": "rk.tax.shelter_config.shelter_services_overview",
+
+    "financial aid": "rk.tax.shelter_config.shelter_services_overview",
+
+    "hygiene": "rk.tax.basic_needs_daily_living.hygiene_supplies",
+
+    "departure": "rk.tax.shelter_config.shelter_rules_conduct",
+    "leaving": "rk.tax.shelter_config.shelter_rules_conduct",
+
+    "children": "rk.tax.family_support_services.children_infant_care",
+
+    "special needs": "rk.tax.family_support_services.disability_accessibility_special_needs"
+  }
+}
+

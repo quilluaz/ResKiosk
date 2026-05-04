@@ -1,8 +1,21 @@
 import time
 import uuid
 import platform
+import json
+from pathlib import Path
 from sqlalchemy.orm import Session
-from hub.db.schema import SystemVersion, EvacInfo, KBArticle, Category, Hub, User
+from hub.db.schema import (
+    SystemVersion,
+    EvacInfo,
+    KBArticle,
+    Category,
+    Hub,
+    User,
+    TaxonomyNode,
+    TaxonomyEdge,
+    KBItemTaxonomy,
+    IntentTaxonomyMap,
+)
 
 
 def _generate_device_id() -> str:
@@ -88,6 +101,11 @@ def seed_data(db: Session):
     from hub.db.evac_sync import sync_evac_to_kb
     sync_evac_to_kb(db)
 
+    # Seed controlled taxonomy + deterministic legacy backfill (Goal 7 Story 1)
+    _seed_taxonomy_v1(db)
+    _backfill_kb_item_taxonomy_from_legacy_category(db)
+    _backfill_kb_metadata_defaults(db)
+
     # Seed default admin users (only if table is empty)
     if db.query(User).count() == 0:
         try:
@@ -117,6 +135,184 @@ def seed_data(db: Session):
 
     # Enrich tags for core KB articles with multilingual synonyms
     _enrich_multilingual_tags(db)
+
+
+def _hub_dir() -> Path:
+    return Path(__file__).resolve().parents[1]
+
+
+def _load_json(relative_to_hub: str) -> dict:
+    path = _hub_dir() / relative_to_hub
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _seed_taxonomy_v1(db: Session) -> None:
+    """Idempotently seed taxonomy nodes, edges, and intent mappings from taxonomy_v1.json."""
+    data = _load_json("taxonomy/taxonomy_v1.json")
+
+    # 1) Nodes (upsert)
+    for n in data.get("nodes", []):
+        node_id = (n.get("id") or "").strip()
+        label = (n.get("label") or "").strip()
+        if not node_id or not label:
+            continue
+        existing = db.query(TaxonomyNode).filter(TaxonomyNode.id == node_id).first()
+        if not existing:
+            db.add(TaxonomyNode(
+                id=node_id,
+                label=label,
+                description=n.get("description"),
+                is_active=1 if n.get("is_active", True) else 0,
+                sort_order=n.get("sort_order"),
+            ))
+        else:
+            # Keep DB consistent with the canonical seed artifact.
+            existing.label = label
+            if "description" in n:
+                existing.description = n.get("description")
+            if "is_active" in n:
+                existing.is_active = 1 if n.get("is_active") else 0
+            if "sort_order" in n:
+                existing.sort_order = n.get("sort_order")
+
+    db.commit()
+
+    # 2) Edges (derived from parent_ids; insert if missing)
+    for n in data.get("nodes", []):
+        child_id = (n.get("id") or "").strip()
+        parent_ids = n.get("parent_ids") or []
+        if not child_id:
+            continue
+        for parent_id in parent_ids:
+            parent_id = (parent_id or "").strip()
+            if not parent_id:
+                continue
+            exists = db.query(TaxonomyEdge).filter(
+                TaxonomyEdge.parent_id == parent_id,
+                TaxonomyEdge.child_id == child_id,
+            ).first()
+            if not exists:
+                db.add(TaxonomyEdge(parent_id=parent_id, child_id=child_id))
+
+    # 3) Intent mappings (normalized rows; upsert by (intent_label, taxonomy_node_id))
+    intent_map = data.get("intent_taxonomy_map") or {}
+    for intent_label, spec in intent_map.items():
+        intent_label = (intent_label or "").strip()
+        if not intent_label:
+            continue
+        primary = (spec or {}).get("primary")
+        secondary = (spec or {}).get("secondary") or []
+        pairs: list[tuple[str, int]] = []
+        if primary:
+            pairs.append((str(primary), 1))
+        for i, node_id in enumerate(secondary):
+            if node_id:
+                pairs.append((str(node_id), 2 + i))
+
+        for node_id, rank in pairs:
+            node_id = (node_id or "").strip()
+            if not node_id:
+                continue
+            exists = db.query(IntentTaxonomyMap).filter(
+                IntentTaxonomyMap.intent_label == intent_label,
+                IntentTaxonomyMap.taxonomy_node_id == node_id,
+            ).first()
+            if not exists:
+                db.add(IntentTaxonomyMap(
+                    intent_label=intent_label,
+                    taxonomy_node_id=node_id,
+                    rank=rank,
+                ))
+            else:
+                exists.rank = rank
+
+    db.commit()
+
+
+def _normalize_legacy_category(raw: str, rules: dict) -> str:
+    if raw is None:
+        return ""
+    s = str(raw)
+    if rules.get("trim", True):
+        s = s.strip()
+    if rules.get("collapse_whitespace", True):
+        s = " ".join(s.split())
+    if rules.get("casefold", True):
+        s = s.casefold()
+    for r in rules.get("replace", []) or []:
+        frm = r.get("from")
+        to = r.get("to")
+        if frm is not None and to is not None:
+            s = s.replace(str(frm), str(to))
+    return s
+
+
+def _backfill_kb_item_taxonomy_from_legacy_category(db: Session) -> None:
+    """Backfill kb_item_taxonomy from kb_articles.category using deterministic legacy mapping."""
+    mapping = _load_json("taxonomy/legacy_category_map_v1.json")
+    rules = mapping.get("normalization_rules") or {}
+    cat_map = mapping.get("category_string_to_taxonomy_id") or {}
+
+    # Normalize mapping keys once.
+    normalized_map = {
+        _normalize_legacy_category(k, rules): v
+        for k, v in cat_map.items()
+        if k and v
+    }
+
+    # Assign a taxonomy node if an article has none yet (idempotent, additive).
+    articles = db.query(KBArticle).all()
+    created = 0
+    for art in articles:
+        existing_assignments = db.query(KBItemTaxonomy).filter(
+            KBItemTaxonomy.kb_item_id == art.id
+        ).first()
+        if existing_assignments:
+            continue
+        legacy_cat = _normalize_legacy_category(getattr(art, "category", "") or "", rules)
+        node_id = normalized_map.get(legacy_cat)
+        if not node_id:
+            continue
+        db.add(KBItemTaxonomy(
+            kb_item_id=art.id,
+            taxonomy_node_id=node_id,
+            source="legacy_category",
+            confidence=1.0,
+        ))
+        created += 1
+
+    if created:
+        db.commit()
+        print(f"Backfilled kb_item_taxonomy for {created} KB article(s) from legacy category.")
+
+
+def _backfill_kb_metadata_defaults(db: Session) -> None:
+    """Backfill authority/scope defaults for existing KB articles (idempotent)."""
+    updated = 0
+    for art in db.query(KBArticle).all():
+        changed = False
+        # Authority default
+        if not getattr(art, "authority", None):
+            # Shelter config sync content is considered shelter staff authored.
+            if getattr(art, "source", "") == "evac_sync":
+                art.authority = "shelter_staff"
+            else:
+                art.authority = "unknown"
+            changed = True
+        # Scope default
+        if not getattr(art, "scope", None):
+            # evac_sync reflects local shelter configuration; others default to general.
+            if getattr(art, "source", "") == "evac_sync":
+                art.scope = "shelter_local"
+            else:
+                art.scope = "general"
+            changed = True
+        if changed:
+            updated += 1
+    if updated:
+        db.commit()
+        print(f"Backfilled KB metadata defaults for {updated} KB article(s).")
 
 
 def _enrich_multilingual_tags(db: Session):

@@ -1,6 +1,8 @@
 import os
 import time
 import logging
+import json
+from pathlib import Path
 import numpy as np
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -11,6 +13,78 @@ from hub.retrieval import inventory as inventory_module
 from sentence_transformers import util
 
 logger = logging.getLogger(__name__)
+
+
+# ─── Taxonomy-backed clarification chip policy (Goal 7) ──────────────────────
+
+_taxonomy_policy_cache = None
+
+
+def _load_taxonomy_policy() -> dict:
+    """Load taxonomy chip policy from hub/taxonomy/taxonomy_v1.json (cached)."""
+    global _taxonomy_policy_cache
+    if _taxonomy_policy_cache is not None:
+        return _taxonomy_policy_cache
+    try:
+        hub_dir = Path(__file__).resolve().parents[1]
+        path = hub_dir / "taxonomy" / "taxonomy_v1.json"
+        with path.open("r", encoding="utf-8") as f:
+            _taxonomy_policy_cache = json.load(f)
+    except Exception:
+        _taxonomy_policy_cache = {}
+    return _taxonomy_policy_cache or {}
+
+
+def _deterministic_clarification_node_ids(
+    intent: str,
+    inferred_taxonomy_node_ids: list[str],
+    top_assigned_node_ids: set[str],
+) -> list[str]:
+    """
+    Deterministic chip selection per Goal 7:
+    - start with default set (max 3)
+    - optionally replace ONE default with a conditional node when strongly indicated
+    """
+    policy = _load_taxonomy_policy().get("clarification_chip_defaults") or {}
+    defaults = list(policy.get("default") or [])
+    conditional = list(policy.get("conditional_replacements") or [])
+    max_options = int(policy.get("max_options") or 3)
+
+    # Strong indication signals: inferred nodes, top-k taxonomy assignments, or intent.
+    conditional_signal_set = set(inferred_taxonomy_node_ids) | set(top_assigned_node_ids)
+
+    # Intent -> likely conditional chip mapping (Goal 7 conditional additions list).
+    intent_hint = {
+        "safety": "rk.tax.safety_emergencies.emergency_procedures",
+        "facilities": "rk.tax.basic_needs_daily_living.facilities_use",
+        "sleeping": "rk.tax.basic_needs_daily_living.sleeping_rest_areas",
+        "location": "rk.tax.location_navigation.in_shelter_locations",
+    }.get(intent)
+    if intent_hint:
+        conditional_signal_set.add(intent_hint)
+
+    chosen_conditional = None
+    for node_id in conditional:
+        if node_id in conditional_signal_set:
+            chosen_conditional = node_id
+            break
+
+    chips = defaults[:max_options]
+    if chosen_conditional and chosen_conditional not in chips and chips:
+        # "Replace one default only when strongly indicated"
+        chips[-1] = chosen_conditional
+
+    # De-dupe while preserving order, enforce max.
+    seen = set()
+    out = []
+    for nid in chips:
+        if not nid or nid in seen:
+            continue
+        seen.add(nid)
+        out.append(nid)
+        if len(out) >= max_options:
+            break
+    return out
 
 # Intent-based query enrichment keywords (used when intent is recognized with confidence)
 INTENT_ENRICHMENT = {
@@ -299,6 +373,7 @@ def retrieve(
     query_english: str,
     is_retry: bool,
     selected_category: Optional[str] = None,
+    selected_taxonomy_node_id: Optional[str] = None,
     exclude_source_ids: Optional[List[int]] = None,
     query_language: str = "en",
 ) -> dict:
@@ -307,6 +382,28 @@ def retrieve(
     # AC2: log UI-selected taxonomy node when present
     if selected_category:
         logger.info(f"[Filter] ui_category='{selected_category}'")
+
+    ui_selection_source = None
+    ui_selected_taxonomy_node_label = None
+    if is_retry and selected_taxonomy_node_id:
+        ui_selection_source = "taxonomy"
+        try:
+            node = (
+                db.query(schema.TaxonomyNode)
+                .filter(schema.TaxonomyNode.id == selected_taxonomy_node_id)
+                .first()
+            )
+            if node and node.label:
+                ui_selected_taxonomy_node_label = node.label
+        except Exception:
+            ui_selected_taxonomy_node_label = None
+    elif is_retry and selected_category:
+        ui_selection_source = "legacy_category"
+    else:
+        ui_selection_source = "none"
+
+    # Will be computed after intent is finalized.
+    inferred_taxonomy_node_ids: list[str] = []
 
     # 1. Inventory check (phrase triggers; no embedding)
     try:
@@ -320,6 +417,10 @@ def retrieve(
                 "source_id": None,
                 "categories": None,
                 "article_data": None,
+                "ui_selection_source": ui_selection_source,
+                "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+                "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+                "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
                 "intent": "inventory",
                 "intent_confidence": 1.0,
             }
@@ -367,6 +468,18 @@ def retrieve(
             is_compound = False
             logger.info(f"[Retrieve] retry category override -> intent={intent}")
 
+    # Now that intent is finalized, compute inferred taxonomy nodes (deterministic, rank-ordered).
+    try:
+        rows = (
+            db.query(schema.IntentTaxonomyMap)
+            .filter(schema.IntentTaxonomyMap.intent_label == intent)
+            .order_by(schema.IntentTaxonomyMap.rank.asc())
+            .all()
+        )
+        inferred_taxonomy_node_ids = [r.taxonomy_node_id for r in rows if r.taxonomy_node_id]
+    except Exception:
+        inferred_taxonomy_node_ids = []
+
     # 3a. Short-circuit for simple conversational intents (no KB lookup)
     # Skip short-circuits when retry + selected category is forcing a secondary intent answer.
     if intent != "unclear" and intent_confidence >= INTENT_ACTION_THRESHOLD and not (is_retry and retry_category_intent):
@@ -378,6 +491,10 @@ def retrieve(
                 "source_id": None,
                 "categories": None,
                 "article_data": None,
+                "ui_selection_source": ui_selection_source,
+                "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+                "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+                "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
                 "intent": intent,
                 "intent_confidence": intent_confidence,
             }
@@ -389,6 +506,10 @@ def retrieve(
                 "source_id": None,
                 "categories": None,
                 "article_data": None,
+                "ui_selection_source": ui_selection_source,
+                "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+                "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+                "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
                 "intent": intent,
                 "intent_confidence": intent_confidence,
             }
@@ -400,6 +521,10 @@ def retrieve(
                 "source_id": None,
                 "categories": None,
                 "article_data": None,
+                "ui_selection_source": ui_selection_source,
+                "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+                "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+                "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
                 "intent": intent,
                 "intent_confidence": intent_confidence,
             }
@@ -411,6 +536,10 @@ def retrieve(
                 "source_id": None,
                 "categories": None,
                 "article_data": None,
+                "ui_selection_source": ui_selection_source,
+                "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+                "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+                "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
                 "intent": intent,
                 "intent_confidence": intent_confidence,
             }
@@ -422,6 +551,10 @@ def retrieve(
                 "source_id": None,
                 "categories": None,
                 "article_data": None,
+                "ui_selection_source": ui_selection_source,
+                "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+                "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+                "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
                 "intent": intent,
                 "intent_confidence": intent_confidence,
             }
@@ -444,6 +577,21 @@ def retrieve(
     if intent != "unclear" and intent_confidence >= INTENT_ACTION_THRESHOLD:
         logger.info(f"[Filter] inferred_taxonomy='{intent}' confidence={intent_confidence:.4f}")
 
+    # Phase 1 compatibility: if retry includes taxonomy node ID, enrich the query using its label.
+    # This is additive and does not break legacy selected_category behavior.
+    if is_retry and selected_taxonomy_node_id:
+        try:
+            node = (
+                db.query(schema.TaxonomyNode)
+                .filter(schema.TaxonomyNode.id == selected_taxonomy_node_id)
+                .first()
+            )
+            if node and node.label:
+                search_query = f"{search_query} {node.label}".strip()
+        except Exception:
+            # Non-fatal; fall back to text-only behavior.
+            pass
+
     # 4. Embedding and corpus (guard so missing models/empty KB don't 500)
     try:
         embedder = load_embedder()
@@ -458,6 +606,10 @@ def retrieve(
             "source_id": None,
             "categories": None,
             "article_data": None,
+            "ui_selection_source": ui_selection_source,
+            "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+            "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+            "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
             "intent": intent,
             "intent_confidence": intent_confidence,
         }
@@ -470,6 +622,10 @@ def retrieve(
             "source_id": None,
             "categories": None,
             "article_data": None,
+            "ui_selection_source": ui_selection_source,
+            "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+            "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+            "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
             "intent": intent,
             "intent_confidence": intent_confidence,
         }
@@ -485,6 +641,10 @@ def retrieve(
             "source_id": None,
             "categories": None,
             "article_data": None,
+            "ui_selection_source": ui_selection_source,
+            "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+            "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+            "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
             "intent": intent,
             "intent_confidence": intent_confidence,
         }
@@ -563,6 +723,10 @@ def retrieve(
                 "source_id": None,
                 "categories": None,
                 "article_data": None,
+                "ui_selection_source": ui_selection_source,
+                "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+                "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+                "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
                 "intent": intent,
                 "intent_confidence": intent_confidence,
                 "rlhf_top_source_id": rlhf_top_source_id,
@@ -594,6 +758,10 @@ def retrieve(
             "confidence_raw": best_raw_score,
             "source_id": best.article["id"],
             "categories": None,
+            "ui_selection_source": ui_selection_source,
+            "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+            "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+            "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
             "article_data": {
                 "question": best.article["question"],
                 "answer": best.article["answer"],
@@ -613,11 +781,42 @@ def retrieve(
         cats = sorted(list({r.category for r in top_k_results if r.category}))
         if not cats:
             cats = ["General"]
-        # AC5: score below threshold; clarification triggered
-        logger.info(
-            f"[Filter] fallback=clarification_gate best_score={best.score:.4f} "
-            f"threshold={threshold} floor={clarification_floor}"
-        )
+
+        clarification_options = None
+        try:
+            top_ids = [r.article["id"] for r in top_k_results[:5] if r.article.get("id") is not None]
+            top_assigned_node_ids: set[str] = set()
+            if top_ids:
+                assigned_rows = (
+                    db.query(schema.KBItemTaxonomy.taxonomy_node_id)
+                    .filter(schema.KBItemTaxonomy.kb_item_id.in_(top_ids))
+                    .all()
+                )
+                top_assigned_node_ids = {r[0] for r in assigned_rows if r and r[0]}
+
+            chip_node_ids = _deterministic_clarification_node_ids(
+                intent=intent,
+                inferred_taxonomy_node_ids=inferred_taxonomy_node_ids,
+                top_assigned_node_ids=top_assigned_node_ids,
+            )
+
+            if chip_node_ids:
+                node_rows = (
+                    db.query(schema.TaxonomyNode.id, schema.TaxonomyNode.label)
+                    .filter(schema.TaxonomyNode.id.in_(chip_node_ids))
+                    .all()
+                )
+                label_by_id = {nid: lbl for nid, lbl in node_rows if nid and lbl}
+                opts = []
+                for nid in chip_node_ids:
+                    lbl = label_by_id.get(nid)
+                    if lbl:
+                        opts.append({"id": nid, "label": lbl})
+                if opts:
+                    clarification_options = opts
+        except Exception:
+            clarification_options = None
+
         return {
             "answer_text": "Please clarify.",
             "answer_type": "NEEDS_CLARIFICATION",
@@ -625,7 +824,12 @@ def retrieve(
             "confidence_raw": best_raw_score,
             "source_id": best.article["id"],
             "clarification_categories": cats,
+            "clarification_options": clarification_options,
             "categories": cats,
+            "ui_selection_source": ui_selection_source,
+            "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+            "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+            "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
             "article_data": None,
             "intent": intent,
             "intent_confidence": intent_confidence,
@@ -652,6 +856,10 @@ def retrieve(
             "confidence_raw": best_raw_score,
             "source_id": best.article["id"],
             "categories": None,
+            "ui_selection_source": ui_selection_source,
+            "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+            "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+            "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
             "article_data": {
                 "question": best.article["question"],
                 "answer": best.article["answer"],
@@ -679,6 +887,10 @@ def retrieve(
         "confidence_raw": best_raw_score,
         "source_id": None,
         "categories": None,
+        "ui_selection_source": ui_selection_source,
+        "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+        "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+        "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
         "article_data": None,
         "intent": intent,
         "intent_confidence": intent_confidence,

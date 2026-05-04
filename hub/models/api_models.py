@@ -17,6 +17,10 @@ class ArticleBase(BaseModel):
     tags: List[str] = []
     enabled: bool = True
     status: Optional[str] = "draft"
+    authority: Optional[str] = None  # official|shelter_staff|volunteer|unknown
+    scope: Optional[str] = None      # shelter_local|general
+    center_id: Optional[str] = None
+    hub_id: Optional[str] = None
 
     @field_validator('tags', mode='before')
     @classmethod
@@ -42,6 +46,10 @@ class ArticleUpdate(BaseModel):
     tags: Optional[List[str]] = None
     enabled: Optional[bool] = None
     status: Optional[str] = None
+    authority: Optional[str] = None
+    scope: Optional[str] = None
+    center_id: Optional[str] = None
+    hub_id: Optional[str] = None
 
 
 class ArticleResponse(BaseModel):
@@ -57,6 +65,10 @@ class ArticleResponse(BaseModel):
     status: Optional[str] = None
     created_by: Optional[str] = None
     updated_by: Optional[str] = None
+    authority: Optional[str] = None
+    scope: Optional[str] = None
+    center_id: Optional[str] = None
+    hub_id: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
@@ -128,6 +140,7 @@ class QueryRequest(BaseModel):
     kb_version: int
     is_retry: bool = False
     selected_category: Optional[str] = None
+    selected_taxonomy_node_id: Optional[str] = None
     session_id: Optional[str] = None
     # Optional list of KB article IDs that should be excluded from consideration
     exclude_source_ids: Optional[List[int]] = None
@@ -146,6 +159,7 @@ class QueryResponse(BaseModel):
     kb_version: int
     source_id: Optional[int] = None
     clarification_categories: Optional[List[str]] = None
+    clarification_options: Optional[List[TaxonomyOption]] = None
     # ID of the QueryLog row corresponding to this response (for RLHF feedback)
     query_log_id: Optional[int] = None
     # Shadow RLHF fields: what the RLHF ranker would pick as top, if enabled

@@ -32,6 +32,13 @@ class QueryLog(Base):
     connectivity_state = Column(String, nullable=True)  # ONLINE|OFFLINE
     cloud_consent_mode = Column(String, nullable=False, default="disabled")
     latency_ms = Column(Float)
+    # Goal 7 (taxonomy) observability fields (additive; safe for older clients)
+    ui_selection_source = Column(String, nullable=True)  # taxonomy|legacy_category|none
+    ui_selected_taxonomy_node_id = Column(String, nullable=True)
+    ui_selected_taxonomy_node_label = Column(Text, nullable=True)
+    inferred_taxonomy_node_ids = Column(Text, nullable=True)  # JSON array string
+    widening_step = Column(String, nullable=True)  # none|remove_inferred|broaden_ui|safe_fallback
+    widening_reason = Column(Text, nullable=True)
     created_at = Column(Integer)  # Unix timestamp
 
 
@@ -94,6 +101,11 @@ class KBArticle(Base):
     status       = Column(String, nullable=True)
     created_by   = Column(Text, default="System Generated")
     updated_by   = Column(Text, nullable=True)
+    # Goal 7 (Story 2): filterable metadata (additive)
+    authority    = Column(String, nullable=True)  # official|shelter_staff|volunteer|unknown
+    scope        = Column(String, nullable=True)  # shelter_local|general
+    center_id    = Column(String, nullable=True)  # future-friendly scoping
+    hub_id       = Column(String, nullable=True)  # future-friendly scoping
 
 
 class EvacInfo(Base):
@@ -296,3 +308,49 @@ class FAQTracker(Base):
     last_asked_at       = Column(Integer)   # Unix timestamp
     kiosk_id            = Column(String, nullable=True)
     answer_type         = Column(String, nullable=True)
+
+
+# ─── Taxonomy (Goal 7 / Story 1) ──────────────────────────────────────────────
+
+
+class TaxonomyNode(Base):
+    """Controlled taxonomy node with a stable string ID (rk.tax.*)."""
+    __tablename__ = "taxonomy_nodes"
+
+    id = Column(String, primary_key=True)  # stable ID like rk.tax.health_medical.medical_services
+    label = Column(Text, nullable=False)
+    description = Column(Text, nullable=True)
+    is_active = Column(Integer, default=1)  # 1=active, 0=inactive
+    sort_order = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TaxonomyEdge(Base):
+    """DAG edge (parent -> child). Multi-parent allowed; must remain acyclic by policy."""
+    __tablename__ = "taxonomy_edges"
+
+    parent_id = Column(String, ForeignKey("taxonomy_nodes.id"), primary_key=True)
+    child_id = Column(String, ForeignKey("taxonomy_nodes.id"), primary_key=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class KBItemTaxonomy(Base):
+    """Assignment of a KB article to one or more taxonomy nodes."""
+    __tablename__ = "kb_item_taxonomy"
+
+    kb_item_id = Column(Integer, ForeignKey("kb_articles.id"), primary_key=True)
+    taxonomy_node_id = Column(String, ForeignKey("taxonomy_nodes.id"), primary_key=True)
+    source = Column(Text, nullable=True)  # manual | import | legacy_category | auto
+    confidence = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class IntentTaxonomyMap(Base):
+    """Normalized intent -> taxonomy mapping (multiple rows per intent label)."""
+    __tablename__ = "intent_taxonomy_map"
+
+    intent_label = Column(String, primary_key=True)
+    taxonomy_node_id = Column(String, ForeignKey("taxonomy_nodes.id"), primary_key=True)
+    rank = Column(Integer, default=1)  # 1=primary, 2+=secondary
+    created_at = Column(DateTime, default=datetime.utcnow)

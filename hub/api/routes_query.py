@@ -75,9 +75,37 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
             f"stages={pipeline_result.stage_log}"
         )
 
-        result = pipeline_result.retrieve_result
-        rewrite_happened = pipeline_result.rewrite_happened
-        rewritten_text = pipeline_result.rewritten_text if rewrite_happened else text
+        try:
+            t1 = time.time()
+            query_lang = "en"
+            if user_language != "en" and text == raw_text:
+                query_lang = user_language
+            result = search.retrieve(
+                db,
+                text,
+                query.is_retry,
+                query.selected_category,
+                query.selected_taxonomy_node_id,
+                query.exclude_source_ids,
+                query_language=query_lang,
+            )
+            logger.info(f"[Query] Retrieval took {(time.time() - t1) * 1000:.0f}ms")
+        except Exception as e:
+            logger.error(f"[Query] Retrieval error: {e}")
+            result = {
+                "answer_text": "I am here to answer questions about registration, food, medical help, sleeping areas, transportation, safety, and other services in this shelter. Please ask about one of these topics or see a volunteer for more help.",
+                "answer_type": "NO_MATCH",
+                "confidence": 0.0,
+                "source_id": None,
+                "categories": None,
+                "article_data": None,
+                "intent": "unclear",
+                "intent_confidence": 0.0,
+            }
+
+        # Track rewrite state for logging
+        rewritten_text = text
+        rewrite_happened = False
         follow_up_prompt = result.get("follow_up_prompt")
         follow_up_intent = result.get("follow_up_intent")
 
@@ -223,6 +251,13 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
         query_log_id = None
         try:
             import time as _time
+            inferred_ids = result.get("inferred_taxonomy_node_ids")
+            inferred_ids_json = None
+            try:
+                if isinstance(inferred_ids, list):
+                    inferred_ids_json = json.dumps(inferred_ids, ensure_ascii=False)
+            except Exception:
+                inferred_ids_json = None
             log_entry = schema.QueryLog(
                 kiosk_id=query.kiosk_id or "",
                 session_id=query.session_id,
@@ -240,6 +275,12 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                 rewrite_attempted=True if rewrite_happened else False,
                 rewritten_query=rewritten_text if rewrite_happened else None,
                 latency_ms=round(latency, 2),
+                ui_selection_source=result.get("ui_selection_source"),
+                ui_selected_taxonomy_node_id=result.get("ui_selected_taxonomy_node_id"),
+                ui_selected_taxonomy_node_label=result.get("ui_selected_taxonomy_node_label"),
+                inferred_taxonomy_node_ids=inferred_ids_json,
+                widening_step=result.get("widening_step"),
+                widening_reason=result.get("widening_reason"),
                 created_at=int(_time.time()),
             )
             db.add(log_entry)
@@ -308,6 +349,7 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
             kb_version=query.kb_version,
             source_id=result.get("source_id"),
             clarification_categories=result.get("categories"),
+            clarification_options=result.get("clarification_options"),
             query_log_id=query_log_id,
             rlhf_top_source_id=result.get("rlhf_top_source_id"),
             rlhf_top_score=result.get("rlhf_top_score"),

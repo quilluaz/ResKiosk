@@ -57,6 +57,13 @@ def migrate():
             "tts_mode": "ALTER TABLE query_logs ADD COLUMN tts_mode TEXT",
             "connectivity_state": "ALTER TABLE query_logs ADD COLUMN connectivity_state TEXT",
             "cloud_consent_mode": "ALTER TABLE query_logs ADD COLUMN cloud_consent_mode TEXT DEFAULT 'disabled'",
+            # Goal 7 taxonomy observability (additive)
+            "ui_selection_source": "ALTER TABLE query_logs ADD COLUMN ui_selection_source TEXT",
+            "ui_selected_taxonomy_node_id": "ALTER TABLE query_logs ADD COLUMN ui_selected_taxonomy_node_id TEXT",
+            "ui_selected_taxonomy_node_label": "ALTER TABLE query_logs ADD COLUMN ui_selected_taxonomy_node_label TEXT",
+            "inferred_taxonomy_node_ids": "ALTER TABLE query_logs ADD COLUMN inferred_taxonomy_node_ids TEXT",
+            "widening_step": "ALTER TABLE query_logs ADD COLUMN widening_step TEXT",
+            "widening_reason": "ALTER TABLE query_logs ADD COLUMN widening_reason TEXT",
         }
         for col, sql in ql_migrations.items():
             if col not in cols:
@@ -71,10 +78,20 @@ def migrate():
 
     # ── kb_articles ───────────────────────────────────────────────────
     cols = _get_existing_columns(cursor, "kb_articles")
-    if cols and "status" not in cols:
-        cursor.execute("ALTER TABLE kb_articles ADD COLUMN status VARCHAR")
-        print("[Migration] Added kb_articles.status")
-        migrated += 1
+    if cols:
+        kb_migrations = {
+            "status": "ALTER TABLE kb_articles ADD COLUMN status VARCHAR",
+            # Goal 7 (Story 2) filterable metadata
+            "authority": "ALTER TABLE kb_articles ADD COLUMN authority TEXT",
+            "scope": "ALTER TABLE kb_articles ADD COLUMN scope TEXT",
+            "center_id": "ALTER TABLE kb_articles ADD COLUMN center_id TEXT",
+            "hub_id": "ALTER TABLE kb_articles ADD COLUMN hub_id TEXT",
+        }
+        for col, sql in kb_migrations.items():
+            if col not in cols:
+                cursor.execute(sql)
+                print(f"[Migration] Added kb_articles.{col}")
+                migrated += 1
 
     # -- network_config -------------------------------------------------------
     cols = _get_existing_columns(cursor, "network_config")
