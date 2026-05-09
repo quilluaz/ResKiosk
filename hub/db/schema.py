@@ -39,6 +39,11 @@ class QueryLog(Base):
     inferred_taxonomy_node_ids = Column(Text, nullable=True)  # JSON array string
     widening_step = Column(String, nullable=True)  # none|remove_inferred|broaden_ui|safe_fallback
     widening_reason = Column(Text, nullable=True)
+    # Goal 6 / Story 6 — clarification lifecycle logging
+    clarification_triggered = Column(Boolean, nullable=True)
+    clarification_trigger_reason = Column(String, nullable=True)   # stable reason code constant
+    clarification_options_shown = Column(Text, nullable=True)       # JSON: [{id, label}, ...]
+    pipeline_stage_log = Column(Text, nullable=True)               # JSON: ordered list of stage names
     created_at = Column(Integer)  # Unix timestamp
 
 
@@ -65,13 +70,19 @@ class ArticleBias(Base):
 
 
 class ClarificationResolution(Base):
-    """Gold label when user selects a category after clarification."""
+    """Records when a user resolves ambiguity by selecting a clarification chip."""
     __tablename__ = "clarification_resolutions"
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(String, nullable=False)
     raw_transcript = Column(Text, nullable=True)
     resolved_intent = Column(String, nullable=False)
     language = Column(String, nullable=True)
+    # Chip selection — stable ID (taxonomy node ID or legacy category string)
+    selected_option_id = Column(String, nullable=True)
+    # Human-readable label for the selected chip (stored so it's readable without a taxonomy join)
+    selected_option_label = Column(String, nullable=True)
+    # FK to query_logs so this row can be joined to the full request context
+    query_log_id = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -354,3 +365,90 @@ class IntentTaxonomyMap(Base):
     taxonomy_node_id = Column(String, ForeignKey("taxonomy_nodes.id"), primary_key=True)
     rank = Column(Integer, default=1)  # 1=primary, 2+=secondary
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ─── Goal 8 / Slice 3 Story 2 — Metadata validation storage ──────────────────
+
+
+class KBPublishAttempt(Base):
+    """One row per publish attempt; anchors validation results and review decisions
+    to a specific KB version and point in time.
+
+    status values: pass | blocked | partial
+      pass    — all items approved; publish proceeded
+      blocked — one or more quarantined/rejected items; publish was halted
+      partial — publish proceeded with quarantined items excluded (auditable mode)
+    """
+    __tablename__ = "kb_publish_attempts"
+
+    id             = Column(Integer, primary_key=True, autoincrement=True)
+    kb_version     = Column(Integer, nullable=False)         # intended version after publish
+    status         = Column(String, nullable=False)          # pass|blocked|partial
+    total_items    = Column(Integer, nullable=True)
+    approved_count = Column(Integer, nullable=True)
+    quarantined_count = Column(Integer, nullable=True)
+    rejected_count = Column(Integer, nullable=True)
+    attempted_by   = Column(String, nullable=True)           # username of initiator
+    attempted_at   = Column(DateTime, default=datetime.utcnow)
+
+
+class KBItemValidationStatus(Base):
+    """Per-item validation status for a given publish attempt.
+
+    status values (from Goal 8 spec):
+      approved     — usable in retrieval
+      quarantined  — blocked from retrieval pending review
+      needs_review — flagged; awaiting human decision
+      rejected     — must be corrected before re-publish
+    """
+    __tablename__ = "kb_item_validation_status"
+
+    id                 = Column(Integer, primary_key=True, autoincrement=True)
+    kb_item_id         = Column(Integer, nullable=False, index=True)   # kb_articles.id
+    publish_attempt_id = Column(Integer, nullable=True)                # kb_publish_attempts.id
+    kb_version         = Column(Integer, nullable=False)
+    status             = Column(String, nullable=False)                # approved|quarantined|needs_review|rejected
+    created_at         = Column(DateTime, default=datetime.utcnow)
+    updated_at         = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class KBValidationResult(Base):
+    """One row per rule check for a KB item in a publish attempt.
+
+    severity values: error | warning | info
+      error   — causes quarantine/rejection
+      warning — surfaced to reviewer but does not block alone
+      info    — informational; no blocking effect
+    """
+    __tablename__ = "kb_validation_results"
+
+    id                 = Column(Integer, primary_key=True, autoincrement=True)
+    kb_item_id         = Column(Integer, nullable=False, index=True)   # kb_articles.id
+    publish_attempt_id = Column(Integer, nullable=True)                # kb_publish_attempts.id
+    kb_version         = Column(Integer, nullable=False)
+    rule_id            = Column(String, nullable=False)                # stable rule identifier e.g. taxonomy.primary_required
+    severity           = Column(String, nullable=False)                # error|warning|info
+    message            = Column(Text, nullable=True)                   # human-readable description
+    passed             = Column(Boolean, nullable=False)
+    checked_at         = Column(DateTime, default=datetime.utcnow)
+
+
+class KBReviewDecision(Base):
+    """Human reviewer decision on a quarantined or needs_review KB item.
+
+    decision values: approved | rejected | override
+      approved — reviewer confirms item is safe to publish
+      rejected — reviewer confirms item must be corrected
+      override — reviewer bypasses a specific rule with explicit justification
+    """
+    __tablename__ = "kb_review_decisions"
+
+    id                 = Column(Integer, primary_key=True, autoincrement=True)
+    kb_item_id         = Column(Integer, nullable=False, index=True)   # kb_articles.id
+    publish_attempt_id = Column(Integer, nullable=True)                # kb_publish_attempts.id
+    kb_version         = Column(Integer, nullable=False)
+    reviewer_id        = Column(String, nullable=False)                # username or user identifier
+    decision           = Column(String, nullable=False)                # approved|rejected|override
+    reason_code        = Column(String, nullable=True)                 # stable code e.g. content_correct|rule_false_positive|safety_risk
+    notes              = Column(Text, nullable=True)                   # free-text reviewer notes
+    decided_at         = Column(DateTime, default=datetime.utcnow)

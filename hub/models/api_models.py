@@ -377,6 +377,72 @@ class FaqSuggestionItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# ─── Goal 8 / Slice 3 Story 2 — Metadata validation storage ─────────────────
+
+class KBPublishAttemptResponse(BaseModel):
+    id: int
+    kb_version: int
+    status: str                        # pass|blocked|partial
+    total_items: Optional[int] = None
+    approved_count: Optional[int] = None
+    quarantined_count: Optional[int] = None
+    rejected_count: Optional[int] = None
+    attempted_by: Optional[str] = None
+    attempted_at: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class KBItemValidationStatusResponse(BaseModel):
+    id: int
+    kb_item_id: int
+    publish_attempt_id: Optional[int] = None
+    kb_version: int
+    status: str                        # approved|quarantined|needs_review|rejected
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class KBValidationResultResponse(BaseModel):
+    id: int
+    kb_item_id: int
+    publish_attempt_id: Optional[int] = None
+    kb_version: int
+    rule_id: str
+    severity: str                      # error|warning|info
+    message: Optional[str] = None
+    passed: bool
+    checked_at: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class KBReviewDecisionCreate(BaseModel):
+    """Payload for a human reviewer submitting a decision."""
+    kb_item_id: int
+    publish_attempt_id: Optional[int] = None
+    kb_version: int
+    decision: str                      # approved|rejected|override
+    reason_code: Optional[str] = None  # content_correct|rule_false_positive|safety_risk|…
+    notes: Optional[str] = None
+
+
+class KBReviewDecisionResponse(BaseModel):
+    id: int
+    kb_item_id: int
+    publish_attempt_id: Optional[int] = None
+    kb_version: int
+    reviewer_id: str
+    decision: str
+    reason_code: Optional[str] = None
+    notes: Optional[str] = None
+    decided_at: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # ─── Auth ────────────────────────────────────────────────────────────────────
 
 class LoginRequest(BaseModel):

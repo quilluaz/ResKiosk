@@ -141,10 +141,17 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                 f"session={query.session_id}"
             )
 
-            # Still write query log so Person 2 can join on it
+            # Still write query log so operators can join on it
             pause_log_id = None
             try:
                 import time as _time
+                _clarification_options_shown = None
+                try:
+                    opts = result.get("clarification_options") or []
+                    if opts:
+                        _clarification_options_shown = json.dumps(opts, ensure_ascii=False)
+                except Exception:
+                    pass
                 log_entry = schema.QueryLog(
                     kiosk_id=query.kiosk_id or "",
                     session_id=query.session_id,
@@ -160,6 +167,10 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                     rewrite_attempted=False,
                     rewritten_query=None,
                     latency_ms=round((time.time() - start_time) * 1000, 2),
+                    clarification_triggered=pipeline_result.clarification_triggered,
+                    clarification_trigger_reason=pipeline_result.clarification_trigger_reason,
+                    clarification_options_shown=_clarification_options_shown,
+                    pipeline_stage_log=json.dumps(pipeline_result.stage_log, ensure_ascii=False),
                     created_at=int(_time.time()),
                 )
                 db.add(log_entry)
@@ -281,11 +292,46 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                 inferred_taxonomy_node_ids=inferred_ids_json,
                 widening_step=result.get("widening_step"),
                 widening_reason=result.get("widening_reason"),
+                clarification_triggered=pipeline_result.clarification_triggered,
+                clarification_trigger_reason=pipeline_result.clarification_trigger_reason,
+                clarification_options_shown=None,  # not triggered; no options were shown
+                pipeline_stage_log=json.dumps(pipeline_result.stage_log, ensure_ascii=False),
                 created_at=int(_time.time()),
             )
             db.add(log_entry)
             db.commit()
             query_log_id = log_entry.id
+
+            # ── Clarification resolution: persist chip selection (Story 5) ──
+            # Write only when this request is a retry that carried a chip selection
+            # so that operators can review what residents chose to resolve ambiguity.
+            if query.is_retry and (query.selected_taxonomy_node_id or query.selected_category):
+                try:
+                    selected_id = query.selected_taxonomy_node_id or query.selected_category
+                    selected_label = (
+                        result.get("ui_selected_taxonomy_node_label")
+                        or query.selected_category
+                    )
+                    resolution = schema.ClarificationResolution(
+                        session_id=query.session_id or "",
+                        raw_transcript=query.transcript_original,
+                        resolved_intent=result.get("intent") or "unclear",
+                        language=user_language,
+                        selected_option_id=selected_id,
+                        selected_option_label=selected_label,
+                        query_log_id=query_log_id,
+                    )
+                    db.add(resolution)
+                    db.commit()
+                    logger.info(
+                        f"[Clarification] Resolution persisted | "
+                        f"session={query.session_id} option_id={selected_id} "
+                        f"label={selected_label} intent={result.get('intent')} "
+                        f"query_log_id={query_log_id}"
+                    )
+                except Exception as cr_err:
+                    logger.warning(f"[Clarification] Resolution persist failed: {cr_err}")
+                    db.rollback()
 
             # ── FAQ Tracker: upsert by source_id (KB article) ──────────────
             try:

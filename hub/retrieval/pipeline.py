@@ -69,6 +69,10 @@ class PipelineResult:
     # Pipeline status: "completed" for normal flow, "paused" when clarification needed.
     pipeline_status: str = "completed"
 
+    # Clarification gate outputs — populated regardless of whether clarification fired.
+    clarification_triggered: bool = False
+    clarification_trigger_reason: str = "not_triggered"
+
 
 class QueryPipeline:
     """
@@ -141,15 +145,23 @@ class QueryPipeline:
         # If retrieval determined clarification is needed, we stop here.
         # Rewrite MUST NOT run, and no second retrieval pass occurs.
         result.stage_log.append(STAGE_CLARIFICATION_GATE)
+        trigger_reason = retrieve_result.get("clarification_trigger_reason", "not_triggered")
         if retrieve_result.get("answer_type") == "NEEDS_CLARIFICATION":
             result.pipeline_status = "paused"
+            result.clarification_triggered = True
+            result.clarification_trigger_reason = trigger_reason
             logger.info(
                 f"[Pipeline] {STAGE_CLARIFICATION_GATE}: clarification_triggered=True "
-                f"pipeline_status=paused "
+                f"trigger_reason={trigger_reason} pipeline_status=paused "
                 f"categories={retrieve_result.get('categories')}"
             )
             return result
-        logger.info(f"[Pipeline] {STAGE_CLARIFICATION_GATE}: clarification_triggered=False")
+        result.clarification_triggered = False
+        result.clarification_trigger_reason = trigger_reason
+        logger.info(
+            f"[Pipeline] {STAGE_CLARIFICATION_GATE}: clarification_triggered=False "
+            f"trigger_reason={trigger_reason}"
+        )
 
         # ── Stage 5: Rewrite (only if clarification not needed) ──────────────
         result.stage_log.append(STAGE_REWRITE)
