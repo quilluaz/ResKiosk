@@ -1,0 +1,336 @@
+{
+  "schema_version": 1,
+  "taxonomy_version": 1,
+  "generated_from": [
+    "docs/goal_outlines/goal_7.md",
+    "docs/goal_outlines/controlled_taxonomy_outline.md"
+  ],
+  "nodes": [
+    {
+      "id": "rk.tax.shelter_config",
+      "label": "Shelter Config",
+      "parent_ids": []
+    },
+    {
+      "id": "rk.tax.shelter_config.registration_intake",
+      "label": "Registration & Intake",
+      "parent_ids": ["rk.tax.shelter_config"]
+    },
+    {
+      "id": "rk.tax.shelter_config.shelter_rules_conduct",
+      "label": "Shelter Rules & Conduct",
+      "parent_ids": ["rk.tax.shelter_config"]
+    },
+    {
+      "id": "rk.tax.shelter_config.schedules",
+      "label": "Schedules",
+      "parent_ids": ["rk.tax.shelter_config"]
+    },
+    {
+      "id": "rk.tax.shelter_config.announcements_notices",
+      "label": "Announcements & Notices",
+      "parent_ids": ["rk.tax.shelter_config"]
+    },
+    {
+      "id": "rk.tax.shelter_config.shelter_services_overview",
+      "label": "Shelter Services Overview",
+      "parent_ids": ["rk.tax.shelter_config"]
+    },
+
+    {
+      "id": "rk.tax.health_medical",
+      "label": "Health & Medical",
+      "parent_ids": []
+    },
+    {
+      "id": "rk.tax.health_medical.first_aid",
+      "label": "First Aid",
+      "parent_ids": ["rk.tax.health_medical"]
+    },
+    {
+      "id": "rk.tax.health_medical.symptoms_illness",
+      "label": "Symptoms & Illness",
+      "parent_ids": ["rk.tax.health_medical"]
+    },
+    {
+      "id": "rk.tax.health_medical.medications_treatment",
+      "label": "Medications & Treatment",
+      "parent_ids": ["rk.tax.health_medical"]
+    },
+    {
+      "id": "rk.tax.health_medical.medical_services",
+      "label": "Medical Services",
+      "parent_ids": ["rk.tax.health_medical"]
+    },
+    {
+      "id": "rk.tax.health_medical.mental_health_psychosocial_support",
+      "label": "Mental Health & Psychosocial Support",
+      "parent_ids": ["rk.tax.health_medical"]
+    },
+
+    {
+      "id": "rk.tax.safety_emergencies",
+      "label": "Safety & Emergencies",
+      "parent_ids": []
+    },
+    {
+      "id": "rk.tax.safety_emergencies.emergency_procedures",
+      "label": "Emergency Procedures",
+      "parent_ids": ["rk.tax.safety_emergencies"]
+    },
+    {
+      "id": "rk.tax.safety_emergencies.security_personal_safety",
+      "label": "Security & Personal Safety",
+      "parent_ids": ["rk.tax.safety_emergencies"]
+    },
+    {
+      "id": "rk.tax.safety_emergencies.child_safety",
+      "label": "Child Safety",
+      "parent_ids": ["rk.tax.safety_emergencies"]
+    },
+    {
+      "id": "rk.tax.safety_emergencies.public_health_safety",
+      "label": "Public Health Safety",
+      "parent_ids": ["rk.tax.safety_emergencies"]
+    },
+
+    {
+      "id": "rk.tax.basic_needs_daily_living",
+      "label": "Basic Needs & Daily Living",
+      "parent_ids": []
+    },
+    {
+      "id": "rk.tax.basic_needs_daily_living.food_water",
+      "label": "Food & Water",
+      "parent_ids": ["rk.tax.basic_needs_daily_living"]
+    },
+    {
+      "id": "rk.tax.basic_needs_daily_living.sleeping_rest_areas",
+      "label": "Sleeping & Rest Areas",
+      "parent_ids": ["rk.tax.basic_needs_daily_living"]
+    },
+    {
+      "id": "rk.tax.basic_needs_daily_living.hygiene_supplies",
+      "label": "Hygiene Supplies",
+      "parent_ids": ["rk.tax.basic_needs_daily_living"]
+    },
+    {
+      "id": "rk.tax.basic_needs_daily_living.facilities_use",
+      "label": "Facilities Use",
+      "parent_ids": ["rk.tax.basic_needs_daily_living"]
+    },
+    {
+      "id": "rk.tax.basic_needs_daily_living.clothing_essentials",
+      "label": "Clothing & Essentials",
+      "parent_ids": ["rk.tax.basic_needs_daily_living"]
+    },
+
+    {
+      "id": "rk.tax.family_support_services",
+      "label": "Family & Support Services",
+      "parent_ids": []
+    },
+    {
+      "id": "rk.tax.family_support_services.family_separation_support",
+      "label": "Family Separation Support (non-specific)",
+      "parent_ids": ["rk.tax.family_support_services"]
+    },
+    {
+      "id": "rk.tax.family_support_services.children_infant_care",
+      "label": "Children & Infant Care",
+      "parent_ids": ["rk.tax.family_support_services"]
+    },
+    {
+      "id": "rk.tax.family_support_services.elderly_support",
+      "label": "Elderly Support",
+      "parent_ids": ["rk.tax.family_support_services"]
+    },
+    {
+      "id": "rk.tax.family_support_services.disability_accessibility_special_needs",
+      "label": "Disability & Accessibility (Special Needs)",
+      "parent_ids": ["rk.tax.family_support_services"]
+    },
+    {
+      "id": "rk.tax.family_support_services.pet_support",
+      "label": "Pet Support",
+      "parent_ids": ["rk.tax.family_support_services"]
+    },
+
+    {
+      "id": "rk.tax.logistics_supplies",
+      "label": "Logistics & Supplies",
+      "parent_ids": []
+    },
+    {
+      "id": "rk.tax.logistics_supplies.inventory_availability",
+      "label": "Inventory Availability",
+      "parent_ids": ["rk.tax.logistics_supplies"]
+    },
+    {
+      "id": "rk.tax.logistics_supplies.resource_requests",
+      "label": "Resource Requests",
+      "parent_ids": ["rk.tax.logistics_supplies"]
+    },
+    {
+      "id": "rk.tax.logistics_supplies.donations",
+      "label": "Donations",
+      "parent_ids": ["rk.tax.logistics_supplies"]
+    },
+
+    {
+      "id": "rk.tax.location_navigation",
+      "label": "Location & Navigation",
+      "parent_ids": []
+    },
+    {
+      "id": "rk.tax.location_navigation.in_shelter_locations",
+      "label": "In-Shelter Locations",
+      "parent_ids": ["rk.tax.location_navigation"]
+    },
+    {
+      "id": "rk.tax.location_navigation.maps_wayfinding",
+      "label": "Maps & Wayfinding",
+      "parent_ids": ["rk.tax.location_navigation"]
+    },
+    {
+      "id": "rk.tax.location_navigation.external_location_address",
+      "label": "External Location / Address",
+      "parent_ids": ["rk.tax.location_navigation"]
+    },
+
+    {
+      "id": "rk.tax.system_interaction",
+      "label": "System & Interaction",
+      "parent_ids": []
+    },
+    {
+      "id": "rk.tax.system_interaction.kiosk_identity",
+      "label": "Kiosk Identity",
+      "parent_ids": ["rk.tax.system_interaction"]
+    },
+    {
+      "id": "rk.tax.system_interaction.kiosk_capabilities",
+      "label": "Kiosk Capabilities",
+      "parent_ids": ["rk.tax.system_interaction"]
+    },
+    {
+      "id": "rk.tax.system_interaction.basic_interaction",
+      "label": "Basic Interaction",
+      "parent_ids": ["rk.tax.system_interaction"]
+    }
+  ],
+  "intent_taxonomy_map": {
+    "greeting": {
+      "primary": "rk.tax.system_interaction.basic_interaction",
+      "secondary": []
+    },
+    "identity": {
+      "primary": "rk.tax.system_interaction.kiosk_identity",
+      "secondary": []
+    },
+    "capability": {
+      "primary": "rk.tax.system_interaction.kiosk_capabilities",
+      "secondary": []
+    },
+    "small_talk": {
+      "primary": "rk.tax.system_interaction.basic_interaction",
+      "secondary": []
+    },
+    "goodbye": {
+      "primary": "rk.tax.system_interaction.basic_interaction",
+      "secondary": []
+    },
+
+    "food": {
+      "primary": "rk.tax.basic_needs_daily_living.food_water",
+      "secondary": []
+    },
+    "medical": {
+      "primary": "rk.tax.health_medical.medical_services",
+      "secondary": ["rk.tax.health_medical.first_aid"]
+    },
+    "registration": {
+      "primary": "rk.tax.shelter_config.registration_intake",
+      "secondary": []
+    },
+    "sleeping": {
+      "primary": "rk.tax.basic_needs_daily_living.sleeping_rest_areas",
+      "secondary": []
+    },
+    "facilities": {
+      "primary": "rk.tax.basic_needs_daily_living.facilities_use",
+      "secondary": []
+    },
+    "safety": {
+      "primary": "rk.tax.safety_emergencies.emergency_procedures",
+      "secondary": []
+    },
+    "lost_person": {
+      "primary": "rk.tax.family_support_services.family_separation_support",
+      "secondary": []
+    },
+    "pets": {
+      "primary": "rk.tax.family_support_services.pet_support",
+      "secondary": []
+    },
+    "donations": {
+      "primary": "rk.tax.logistics_supplies.donations",
+      "secondary": []
+    },
+    "hours": {
+      "primary": "rk.tax.shelter_config.schedules",
+      "secondary": []
+    },
+    "location": {
+      "primary": "rk.tax.location_navigation.external_location_address",
+      "secondary": []
+    },
+    "general_info": {
+      "primary": "rk.tax.shelter_config.shelter_services_overview",
+      "secondary": []
+    },
+
+    "inventory": {
+      "primary": "rk.tax.logistics_supplies.inventory_availability",
+      "secondary": []
+    },
+    "mental_health": {
+      "primary": "rk.tax.health_medical.mental_health_psychosocial_support",
+      "secondary": []
+    },
+    "hygiene": {
+      "primary": "rk.tax.basic_needs_daily_living.hygiene_supplies",
+      "secondary": []
+    },
+    "children": {
+      "primary": "rk.tax.family_support_services.children_infant_care",
+      "secondary": []
+    },
+    "special_needs": {
+      "primary": "rk.tax.family_support_services.disability_accessibility_special_needs",
+      "secondary": []
+    }
+  },
+  "message_category_taxonomy_map": {
+    "Resource Request": "rk.tax.logistics_supplies.resource_requests",
+    "Medical Alert": "rk.tax.health_medical.medical_services",
+    "Status Update": "rk.tax.shelter_config.announcements_notices",
+    "Evacuation Notice": "rk.tax.safety_emergencies.emergency_procedures",
+    "General Communication": "rk.tax.shelter_config.announcements_notices"
+  },
+  "clarification_chip_defaults": {
+    "max_options": 3,
+    "default": [
+      "rk.tax.basic_needs_daily_living.food_water",
+      "rk.tax.health_medical.medical_services",
+      "rk.tax.shelter_config.registration_intake"
+    ],
+    "conditional_replacements": [
+      "rk.tax.safety_emergencies.emergency_procedures",
+      "rk.tax.basic_needs_daily_living.facilities_use",
+      "rk.tax.basic_needs_daily_living.sleeping_rest_areas",
+      "rk.tax.location_navigation.in_shelter_locations"
+    ]
+  }
+}
+

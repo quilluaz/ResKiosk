@@ -204,6 +204,10 @@ async def create_article(
         tags=",".join(article.tags) if article.tags else "",
         enabled=1 if article.enabled else 0,
         status=article.status or "draft",
+        authority=article.authority,
+        scope=article.scope,
+        center_id=article.center_id,
+        hub_id=article.hub_id,
         source="manual",
         created_at=int(time.time()),
         last_updated=int(time.time()),
@@ -247,6 +251,14 @@ async def update_article(
         db_article.enabled = 1 if update.enabled else 0
     if update.status is not None:
         db_article.status = update.status
+    if update.authority is not None:
+        db_article.authority = update.authority
+    if update.scope is not None:
+        db_article.scope = update.scope
+    if update.center_id is not None:
+        db_article.center_id = update.center_id
+    if update.hub_id is not None:
+        db_article.hub_id = update.hub_id
 
     db_article.last_updated = int(time.time())
     db_article.updated_by = _user_display_name(current_user)

@@ -75,9 +75,37 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
             f"stages={pipeline_result.stage_log}"
         )
 
-        result = pipeline_result.retrieve_result
-        rewrite_happened = pipeline_result.rewrite_happened
-        rewritten_text = pipeline_result.rewritten_text if rewrite_happened else text
+        try:
+            t1 = time.time()
+            query_lang = "en"
+            if user_language != "en" and text == raw_text:
+                query_lang = user_language
+            result = search.retrieve(
+                db,
+                text,
+                query.is_retry,
+                query.selected_category,
+                query.selected_taxonomy_node_id,
+                query.exclude_source_ids,
+                query_language=query_lang,
+            )
+            logger.info(f"[Query] Retrieval took {(time.time() - t1) * 1000:.0f}ms")
+        except Exception as e:
+            logger.error(f"[Query] Retrieval error: {e}")
+            result = {
+                "answer_text": "I am here to answer questions about registration, food, medical help, sleeping areas, transportation, safety, and other services in this shelter. Please ask about one of these topics or see a volunteer for more help.",
+                "answer_type": "NO_MATCH",
+                "confidence": 0.0,
+                "source_id": None,
+                "categories": None,
+                "article_data": None,
+                "intent": "unclear",
+                "intent_confidence": 0.0,
+            }
+
+        # Track rewrite state for logging
+        rewritten_text = text
+        rewrite_happened = False
         follow_up_prompt = result.get("follow_up_prompt")
         follow_up_intent = result.get("follow_up_intent")
 
@@ -86,6 +114,72 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
 
         answer_type = result["answer_type"]
         confidence = result["confidence"]
+
+        # ── Clarification pause: early-return ─────────────────────────────
+        # When the pipeline is paused for clarification, build a structured
+        # ClarificationContext with all resume fields and return immediately.
+        # This skips LLM formatting and outbound translation (wasted work
+        # for a response that just shows category chips on the kiosk).
+        if pipeline_result.pipeline_status == "paused":
+            clarification_ctx = api_models.ClarificationContext(
+                original_query=raw_text,
+                normalized_text=pipeline_result.normalized_text,
+                detected_intent=pipeline_result.intent,
+                intent_confidence=pipeline_result.intent_confidence,
+                suggested_categories=result.get("categories") or [],
+                kb_version=query.kb_version,
+                session_id=query.session_id,
+                pipeline_status="paused",
+            )
+
+            # HOOK: Person 2 — log clarification pause state
+            # clarification_ctx contains all fields needed for the pause audit log.
+            logger.info(
+                f"[Query] PAUSED for clarification | intent={pipeline_result.intent} "
+                f"confidence={pipeline_result.intent_confidence:.4f} "
+                f"categories={clarification_ctx.suggested_categories} "
+                f"session={query.session_id}"
+            )
+
+            # Still write query log so Person 2 can join on it
+            pause_log_id = None
+            try:
+                import time as _time
+                log_entry = schema.QueryLog(
+                    kiosk_id=query.kiosk_id or "",
+                    session_id=query.session_id,
+                    transcript_original=query.transcript_original,
+                    transcript_english=text,
+                    raw_transcript=raw_text,
+                    normalized_transcript=pipeline_result.normalized_text,
+                    language=user_language,
+                    kb_version=query.kb_version,
+                    retrieval_score=float(result.get("confidence_raw") or result.get("confidence") or 0.0),
+                    answer_type=answer_type,
+                    source_id=result.get("source_id"),
+                    rewrite_attempted=False,
+                    rewritten_query=None,
+                    latency_ms=round((time.time() - start_time) * 1000, 2),
+                    created_at=int(_time.time()),
+                )
+                db.add(log_entry)
+                db.commit()
+                pause_log_id = log_entry.id
+            except Exception as e:
+                logger.exception("[Query] DB log/commit failed for paused query")
+                db.rollback()
+
+            return api_models.QueryResponse(
+                answer_text_en=result.get("answer_text") or "Could you clarify what you need help with?",
+                answer_text_localized=None,
+                answer_type=answer_type,
+                confidence=float(confidence),
+                kb_version=query.kb_version,
+                source_id=result.get("source_id"),
+                clarification_categories=result.get("categories"),
+                query_log_id=pause_log_id,
+                clarification_context=clarification_ctx,
+            )
 
         if answer_type == "DIRECT_MATCH" and result.get("article_data"):
             history_str = ""
@@ -157,6 +251,13 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
         query_log_id = None
         try:
             import time as _time
+            inferred_ids = result.get("inferred_taxonomy_node_ids")
+            inferred_ids_json = None
+            try:
+                if isinstance(inferred_ids, list):
+                    inferred_ids_json = json.dumps(inferred_ids, ensure_ascii=False)
+            except Exception:
+                inferred_ids_json = None
             log_entry = schema.QueryLog(
                 kiosk_id=query.kiosk_id or "",
                 session_id=query.session_id,
@@ -174,6 +275,12 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                 rewrite_attempted=True if rewrite_happened else False,
                 rewritten_query=rewritten_text if rewrite_happened else None,
                 latency_ms=round(latency, 2),
+                ui_selection_source=result.get("ui_selection_source"),
+                ui_selected_taxonomy_node_id=result.get("ui_selected_taxonomy_node_id"),
+                ui_selected_taxonomy_node_label=result.get("ui_selected_taxonomy_node_label"),
+                inferred_taxonomy_node_ids=inferred_ids_json,
+                widening_step=result.get("widening_step"),
+                widening_reason=result.get("widening_reason"),
                 created_at=int(_time.time()),
             )
             db.add(log_entry)
@@ -242,6 +349,7 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
             kb_version=query.kb_version,
             source_id=result.get("source_id"),
             clarification_categories=result.get("categories"),
+            clarification_options=result.get("clarification_options"),
             query_log_id=query_log_id,
             rlhf_top_source_id=result.get("rlhf_top_source_id"),
             rlhf_top_score=result.get("rlhf_top_score"),
