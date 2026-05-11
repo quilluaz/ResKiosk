@@ -682,4 +682,4 @@ ResKiosk/
 [React-url]: https://reactjs.org/
 [Vite-badge]: https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white
 [Vite-url]: https://vitejs.dev/
-}
+
