@@ -39,6 +39,26 @@ class QueryLog(Base):
     inferred_taxonomy_node_ids = Column(Text, nullable=True)  # JSON array string
     widening_step = Column(String, nullable=True)  # none|remove_inferred|broaden_ui|safe_fallback
     widening_reason = Column(Text, nullable=True)
+    # Slice 6A Story 1: structured query log schema additions
+    intent_label = Column(String, nullable=True)
+    intent_confidence = Column(Float, nullable=True)
+    clarification_categories_offered = Column(Text, nullable=True)  # JSON array string
+    clarification_node_id_selected = Column(String, nullable=True)
+    # Hybrid retrieval contribution fields (populated by Slice 4 Story 5)
+    lexical_top_k_ids = Column(Text, nullable=True)      # JSON array of article IDs (top-5)
+    lexical_top_k_scores = Column(Text, nullable=True)   # JSON array of BM25 scores
+    lexical_top_k_ranks = Column(Text, nullable=True)    # JSON array of ranks
+    lexical_latency_ms = Column(Float, nullable=True)
+    vector_top_k_ids = Column(Text, nullable=True)       # JSON array of article IDs (top-5)
+    vector_top_k_scores = Column(Text, nullable=True)    # JSON array of cosine scores
+    vector_top_k_ranks = Column(Text, nullable=True)     # JSON array of ranks
+    fusion_strategy = Column(String, nullable=True)      # e.g. "rrf"
+    fusion_top_k_ids = Column(Text, nullable=True)       # JSON array of fused IDs (top-5)
+    fusion_top_k_scores = Column(Text, nullable=True)    # JSON array of fusion scores
+    fusion_top_k_ranks = Column(Text, nullable=True)     # JSON array of ranks
+    # Failure / fallback fields (populated by Slice 6A Story 8)
+    fallback_reason = Column(String, nullable=True)      # no_results|low_confidence|validation_blocked|retrieval_error|rewrite_error
+    failed_stage = Column(String, nullable=True)         # normalize|intent|retrieve|clarification_gate|rewrite|retrieve_retry
     created_at = Column(Integer)  # Unix timestamp
 
 

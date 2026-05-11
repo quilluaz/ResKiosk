@@ -145,6 +145,13 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
             pause_log_id = None
             try:
                 import time as _time
+                pause_categories = result.get("categories")
+                pause_categories_json = None
+                try:
+                    if isinstance(pause_categories, list):
+                        pause_categories_json = json.dumps(pause_categories, ensure_ascii=False)
+                except Exception:
+                    pause_categories_json = None
                 log_entry = schema.QueryLog(
                     kiosk_id=query.kiosk_id or "",
                     session_id=query.session_id,
@@ -160,6 +167,10 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                     rewrite_attempted=False,
                     rewritten_query=None,
                     latency_ms=round((time.time() - start_time) * 1000, 2),
+                    intent_label=pipeline_result.intent,
+                    intent_confidence=pipeline_result.intent_confidence,
+                    clarification_categories_offered=pause_categories_json,
+                    clarification_node_id_selected=query.selected_taxonomy_node_id,
                     created_at=int(_time.time()),
                 )
                 db.add(log_entry)
@@ -281,6 +292,9 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                 inferred_taxonomy_node_ids=inferred_ids_json,
                 widening_step=result.get("widening_step"),
                 widening_reason=result.get("widening_reason"),
+                intent_label=pipeline_result.intent,
+                intent_confidence=pipeline_result.intent_confidence,
+                clarification_node_id_selected=query.selected_taxonomy_node_id,
                 created_at=int(_time.time()),
             )
             db.add(log_entry)

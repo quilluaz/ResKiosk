@@ -35,8 +35,17 @@ slice0_userstory2_running_context.md
 slice0_userstory3_running_context.md
 slice3_story1_running_context.md
 slice3_story3_running_context.md
+slice6a_story1_running_context.md
 
 # Skills
 .claude
 .agents
 skills-lock.json
+
+# 2nd Brain Agent
+SETUP.md
+second-brain-agent.sh
+CLAUDE.md
+CLAUDE.agent.md
+vault
+.FOR AGENT.md
