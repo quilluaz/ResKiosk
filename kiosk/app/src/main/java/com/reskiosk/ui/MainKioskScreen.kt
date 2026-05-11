@@ -1284,19 +1284,91 @@ private fun NormalActiveSessionContent(
                                 textAlign = TextAlign.Center
                             )
                             is KioskState.Clarification -> {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(state.question, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
-                                    Spacer(Modifier.height(8.dp))
-                                    state.options.forEach { option ->
-                                        Button(
-                                            onClick = {
-                                                onSelectedCategoryChange(option)
-                                                viewModel.selectClarification(option)
-                                            },
-                                            modifier = Modifier.fillMaxWidth(0.7f).padding(vertical = 4.dp),
-                                            enabled = selectedCategory == null
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.padding(horizontal = 12.dp)
+                                ) {
+                                    // Clarification prompt from hub
+                                    Text(
+                                        state.question,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        textAlign = TextAlign.Center,
+                                        color = Color(0xFFE8610A),
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Spacer(Modifier.height(14.dp))
+
+                                    // Taxonomy-backed chips (preferred) or legacy category chips
+                                    if (state.taxonomyOptions.isNotEmpty()) {
+                                        state.taxonomyOptions.take(3).forEach { opt ->
+                                            Button(
+                                                onClick = {
+                                                    onSelectedCategoryChange(opt.id)
+                                                    viewModel.selectClarificationTaxonomy(opt.id)
+                                                },
+                                                modifier = Modifier
+                                                    .fillMaxWidth(0.78f)
+                                                    .padding(vertical = 4.dp)
+                                                    .height(52.dp),
+                                                shape = RoundedCornerShape(26.dp),
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = Color(0xFFE8610A)
+                                                ),
+                                                enabled = selectedCategory == null
+                                            ) {
+                                                Text(
+                                                    opt.label,
+                                                    textAlign = TextAlign.Center,
+                                                    fontSize = 15.sp,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        state.options.forEach { option ->
+                                            Button(
+                                                onClick = {
+                                                    onSelectedCategoryChange(option)
+                                                    viewModel.selectClarification(option)
+                                                },
+                                                modifier = Modifier
+                                                    .fillMaxWidth(0.78f)
+                                                    .padding(vertical = 4.dp)
+                                                    .height(52.dp),
+                                                shape = RoundedCornerShape(26.dp),
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = Color(0xFFE8610A)
+                                                ),
+                                                enabled = selectedCategory == null
+                                            ) {
+                                                Text(
+                                                    option,
+                                                    textAlign = TextAlign.Center,
+                                                    fontSize = 15.sp,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    // Fallback "Say that differently" chip
+                                    if (state.fallbackOption != null && selectedCategory == null) {
+                                        Spacer(Modifier.height(6.dp))
+                                        OutlinedButton(
+                                            onClick = { viewModel.selectFallbackClarification() },
+                                            modifier = Modifier
+                                                .fillMaxWidth(0.78f)
+                                                .height(44.dp),
+                                            shape = RoundedCornerShape(22.dp),
+                                            border = androidx.compose.foundation.BorderStroke(
+                                                1.dp, Color(0xFFE8610A).copy(alpha = 0.7f)
+                                            )
                                         ) {
-                                            Text(option)
+                                            Text(
+                                                state.fallbackOption,
+                                                color = Color(0xFFE8610A),
+                                                fontSize = 14.sp
+                                            )
                                         }
                                     }
                                 }
@@ -1403,24 +1475,87 @@ private fun NormalActiveSessionContent(
                                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
+                                    // Clarification prompt text
                                     Text(
                                         clarification.question,
                                         style = MaterialTheme.typography.titleMedium,
                                         textAlign = TextAlign.Center,
-                                        color = Color(0xFFE8610A)
+                                        color = Color(0xFFE8610A),
+                                        fontWeight = FontWeight.SemiBold
                                     )
-                                    Spacer(Modifier.height(8.dp))
-                                    clarification.options.forEach { option ->
-                                        Button(
-                                            onClick = {
-                                                onSelectedCategoryChange(option)
-                                                viewModel.selectClarification(option)
-                                            },
-                                            modifier = Modifier.fillMaxWidth(0.82f).padding(vertical = 4.dp),
-                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE8610A)),
-                                            enabled = selectedCategory == null
+                                    Spacer(Modifier.height(12.dp))
+
+                                    // Taxonomy-backed chips (preferred) or legacy category chips
+                                    if (clarification.taxonomyOptions.isNotEmpty()) {
+                                        clarification.taxonomyOptions.take(3).forEach { opt ->
+                                            Button(
+                                                onClick = {
+                                                    onSelectedCategoryChange(opt.id)
+                                                    viewModel.selectClarificationTaxonomy(opt.id)
+                                                },
+                                                modifier = Modifier
+                                                    .fillMaxWidth(0.82f)
+                                                    .padding(vertical = 4.dp)
+                                                    .height(52.dp),
+                                                shape = RoundedCornerShape(26.dp),
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = Color(0xFFE8610A)
+                                                ),
+                                                enabled = selectedCategory == null
+                                            ) {
+                                                Text(
+                                                    opt.label,
+                                                    textAlign = TextAlign.Center,
+                                                    fontSize = 15.sp,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        clarification.options.forEach { option ->
+                                            Button(
+                                                onClick = {
+                                                    onSelectedCategoryChange(option)
+                                                    viewModel.selectClarification(option)
+                                                },
+                                                modifier = Modifier
+                                                    .fillMaxWidth(0.82f)
+                                                    .padding(vertical = 4.dp)
+                                                    .height(52.dp),
+                                                shape = RoundedCornerShape(26.dp),
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = Color(0xFFE8610A)
+                                                ),
+                                                enabled = selectedCategory == null
+                                            ) {
+                                                Text(
+                                                    option,
+                                                    textAlign = TextAlign.Center,
+                                                    fontSize = 15.sp,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    // Fallback "Say that differently" chip
+                                    if (clarification.fallbackOption != null && selectedCategory == null) {
+                                        Spacer(Modifier.height(6.dp))
+                                        OutlinedButton(
+                                            onClick = { viewModel.selectFallbackClarification() },
+                                            modifier = Modifier
+                                                .fillMaxWidth(0.82f)
+                                                .height(44.dp),
+                                            shape = RoundedCornerShape(22.dp),
+                                            border = androidx.compose.foundation.BorderStroke(
+                                                1.dp, Color(0xFFE8610A).copy(alpha = 0.7f)
+                                            )
                                         ) {
-                                            Text(option, textAlign = TextAlign.Center)
+                                            Text(
+                                                clarification.fallbackOption,
+                                                color = Color(0xFFE8610A),
+                                                fontSize = 14.sp
+                                            )
                                         }
                                     }
                                 }
