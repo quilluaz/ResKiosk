@@ -163,6 +163,10 @@ class QueryRequest(BaseModel):
     follow_up_token: Optional[str] = None
 
 
+class TaxonomyOption(BaseModel):
+    id: str
+    label: str
+
 
 class QueryResponse(BaseModel):
     answer_text_en: str
