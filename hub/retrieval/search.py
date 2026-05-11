@@ -209,22 +209,35 @@ class RetrievalResult:
         self.category = article_dict.get("category")
 
 
+CLARIFICATION_REASON_UNCLEAR_LOW_SCORE = "unclear_low_score"
+CLARIFICATION_REASON_NOT_TRIGGERED = "not_triggered"
+CLARIFICATION_REASON_COMPOUND_SHORTCUT = "compound_shortcut"
+CLARIFICATION_REASON_HIGH_CONFIDENCE_INTENT = "high_confidence_intent"
+CLARIFICATION_REASON_CONVERSATIONAL_INTENT = "conversational_intent"
+
+
 def needs_clarification(
     query: str,
     top_k: List[RetrievalResult],
     intent: str,
     intent_confidence: float,
     is_compound: bool = False,
-) -> bool:
-    """Only clarify when intent is unclear and best retrieval score is below CLARIFICATION_FLOOR."""
+) -> tuple[bool, str]:
+    """Return (should_clarify, reason_code).
+
+    Reason codes are stable string constants; callers must log and persist them
+    so operators can understand why clarification was or was not triggered.
+    """
     if is_compound and intent_confidence >= INTENT_ACTION_THRESHOLD:
-        return False
+        return False, CLARIFICATION_REASON_COMPOUND_SHORTCUT
     if intent != "unclear" and intent_confidence >= INTENT_ACTION_THRESHOLD:
-        return False
+        return False, CLARIFICATION_REASON_HIGH_CONFIDENCE_INTENT
     if intent in ("greeting", "identity", "capability", "small_talk", "goodbye"):
-        return False
+        return False, CLARIFICATION_REASON_CONVERSATIONAL_INTENT
     best_retrieval_score = top_k[0].score if top_k else 0.0
-    return intent == "unclear" and best_retrieval_score < CLARIFICATION_FLOOR
+    if intent == "unclear" and best_retrieval_score < CLARIFICATION_FLOOR:
+        return True, CLARIFICATION_REASON_UNCLEAR_LOW_SCORE
+    return False, CLARIFICATION_REASON_NOT_TRIGGERED
 
 
 def _intent_priority(intent: Optional[str]) -> int:
@@ -737,8 +750,9 @@ def retrieve(
 
     # 5. Clarification gating (intent-aware)
     clarify = False
+    clarify_reason = CLARIFICATION_REASON_NOT_TRIGGERED
     if not is_retry:
-        clarify = needs_clarification(
+        clarify, clarify_reason = needs_clarification(
             normalized_query,
             top_k_results,
             intent,
@@ -823,6 +837,7 @@ def retrieve(
             "confidence": best.score,
             "confidence_raw": best_raw_score,
             "source_id": best.article["id"],
+            "clarification_trigger_reason": clarify_reason,
             "clarification_categories": cats,
             "clarification_options": clarification_options,
             "categories": cats,

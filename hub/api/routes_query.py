@@ -121,12 +121,26 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
         # This skips LLM formatting and outbound translation (wasted work
         # for a response that just shows category chips on the kiosk).
         if pipeline_result.pipeline_status == "paused":
+            # Build typed taxonomy-backed chip options from the raw dicts
+            # returned by search.py's _deterministic_clarification_node_ids().
+            raw_opts = result.get("clarification_options") or []
+            taxonomy_options = None
+            if raw_opts:
+                taxonomy_options = [
+                    api_models.TaxonomyOption(id=opt["id"], label=opt["label"])
+                    for opt in raw_opts
+                    if isinstance(opt, dict) and opt.get("id") and opt.get("label")
+                ]
+                if not taxonomy_options:
+                    taxonomy_options = None
+
             clarification_ctx = api_models.ClarificationContext(
                 original_query=raw_text,
                 normalized_text=pipeline_result.normalized_text,
                 detected_intent=pipeline_result.intent,
                 intent_confidence=pipeline_result.intent_confidence,
                 suggested_categories=result.get("categories") or [],
+                clarification_options=taxonomy_options,
                 kb_version=query.kb_version,
                 session_id=query.session_id,
                 pipeline_status="paused",
@@ -138,13 +152,21 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                 f"[Query] PAUSED for clarification | intent={pipeline_result.intent} "
                 f"confidence={pipeline_result.intent_confidence:.4f} "
                 f"categories={clarification_ctx.suggested_categories} "
+                f"options={len(taxonomy_options) if taxonomy_options else 0} "
                 f"session={query.session_id}"
             )
 
-            # Still write query log so Person 2 can join on it
+            # Still write query log so operators can join on it
             pause_log_id = None
             try:
                 import time as _time
+                _clarification_options_shown = None
+                try:
+                    opts = result.get("clarification_options") or []
+                    if opts:
+                        _clarification_options_shown = json.dumps(opts, ensure_ascii=False)
+                except Exception:
+                    pass
                 pause_categories = result.get("categories")
                 pause_categories_json = None
                 try:
@@ -167,6 +189,10 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                     rewrite_attempted=False,
                     rewritten_query=None,
                     latency_ms=round((time.time() - start_time) * 1000, 2),
+                    clarification_triggered=pipeline_result.clarification_triggered,
+                    clarification_trigger_reason=pipeline_result.clarification_trigger_reason,
+                    clarification_options_shown=_clarification_options_shown,
+                    pipeline_stage_log=json.dumps(pipeline_result.stage_log, ensure_ascii=False),
                     intent_label=pipeline_result.intent,
                     intent_confidence=pipeline_result.intent_confidence,
                     clarification_categories_offered=pause_categories_json,
@@ -188,6 +214,7 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                 kb_version=query.kb_version,
                 source_id=result.get("source_id"),
                 clarification_categories=result.get("categories"),
+                clarification_options=taxonomy_options,
                 query_log_id=pause_log_id,
                 clarification_context=clarification_ctx,
             )
@@ -292,6 +319,10 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                 inferred_taxonomy_node_ids=inferred_ids_json,
                 widening_step=result.get("widening_step"),
                 widening_reason=result.get("widening_reason"),
+                clarification_triggered=pipeline_result.clarification_triggered,
+                clarification_trigger_reason=pipeline_result.clarification_trigger_reason,
+                clarification_options_shown=None,  # not triggered; no options were shown
+                pipeline_stage_log=json.dumps(pipeline_result.stage_log, ensure_ascii=False),
                 intent_label=pipeline_result.intent,
                 intent_confidence=pipeline_result.intent_confidence,
                 clarification_node_id_selected=query.selected_taxonomy_node_id,
@@ -300,6 +331,37 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
             db.add(log_entry)
             db.commit()
             query_log_id = log_entry.id
+
+            # ── Clarification resolution: persist chip selection (Story 5) ──
+            # Write only when this request is a retry that carried a chip selection
+            # so that operators can review what residents chose to resolve ambiguity.
+            if query.is_retry and (query.selected_taxonomy_node_id or query.selected_category):
+                try:
+                    selected_id = query.selected_taxonomy_node_id or query.selected_category
+                    selected_label = (
+                        result.get("ui_selected_taxonomy_node_label")
+                        or query.selected_category
+                    )
+                    resolution = schema.ClarificationResolution(
+                        session_id=query.session_id or "",
+                        raw_transcript=query.transcript_original,
+                        resolved_intent=result.get("intent") or "unclear",
+                        language=user_language,
+                        selected_option_id=selected_id,
+                        selected_option_label=selected_label,
+                        query_log_id=query_log_id,
+                    )
+                    db.add(resolution)
+                    db.commit()
+                    logger.info(
+                        f"[Clarification] Resolution persisted | "
+                        f"session={query.session_id} option_id={selected_id} "
+                        f"label={selected_label} intent={result.get('intent')} "
+                        f"query_log_id={query_log_id}"
+                    )
+                except Exception as cr_err:
+                    logger.warning(f"[Clarification] Resolution persist failed: {cr_err}")
+                    db.rollback()
 
             # ── FAQ Tracker: upsert by source_id (KB article) ──────────────
             try:
