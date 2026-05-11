@@ -8,7 +8,9 @@ import androidx.lifecycle.viewModelScope
 import com.reskiosk.audio.AudioRecorder
 import com.reskiosk.emergency.EmergencyDetector
 import com.reskiosk.emergency.EmergencyStrings
+import com.reskiosk.network.ClarificationContext
 import com.reskiosk.network.HubApiClient
+import com.reskiosk.network.TaxonomyOption
 import com.reskiosk.network.PingResponse
 import com.reskiosk.R
 import com.reskiosk.stt.SherpaSttEngine
@@ -40,7 +42,13 @@ sealed class KioskState {
     object Transcribing : KioskState()
     object Processing : KioskState()
     data class Speaking(val text: String) : KioskState()
-    data class Clarification(val question: String, val options: List<String>) : KioskState()
+    data class Clarification(
+        val question: String,
+        val options: List<String>,
+        val taxonomyOptions: List<TaxonomyOption> = emptyList(),
+        val fallbackOption: String? = "Say that differently",
+        val clarificationContext: ClarificationContext? = null
+    ) : KioskState()
     data class Error(val message: String) : KioskState()
     object TerminatingSession : KioskState()
     data class EmergencyConfirmation(val transcript: String, val remainingSeconds: Int) : KioskState()
@@ -844,6 +852,30 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
         performQuery(qEn, qOrg, isRetry = true, category = category)
     }
 
+    /**
+     * Called when user taps a taxonomy-backed clarification chip.
+     * Sends the stable taxonomy node ID via selected_taxonomy_node_id.
+     */
+    fun selectClarificationTaxonomy(taxonomyNodeId: String) {
+        val qEn = lastQueryEnglish ?: return
+        val qOrg = lastQueryOriginal ?: qEn
+        resetInactivityTimer()
+        _uiState.value = KioskState.Processing
+        beginLoadingOverlay()
+        performQuery(qEn, qOrg, isRetry = true, selectedTaxonomyNodeId = taxonomyNodeId)
+    }
+
+    /**
+     * Called when user taps the "Say that differently" fallback chip.
+     * Resets to Idle so user can re-ask their question.
+     */
+    fun selectFallbackClarification() {
+        resetInactivityTimer()
+        _uiState.value = KioskState.Idle
+        val prompt = EmergencyStrings.get("rephrase_prompt", _selectedLanguage.value)
+        tts?.speak(prompt)
+    }
+
     fun submitTypedQuery(text: String) {
         val trimmed = text.trim()
         if (trimmed.isBlank() || _sessionId.value == null) return
@@ -1447,6 +1479,7 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
         queryType: String = "statement",
         intonationConfidence: Float = 0f,
         excludeSourceIds: List<Int>? = null,
+        selectedTaxonomyNodeId: String? = null,
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -1496,6 +1529,7 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
                     "intonation_confidence" to intonationConfidence,
                 )
                 if (effectiveCategory != null) payload["selected_category"] = effectiveCategory
+                if (selectedTaxonomyNodeId != null) payload["selected_taxonomy_node_id"] = selectedTaxonomyNodeId
                 if (_sessionId.value != null) payload["session_id"] = _sessionId.value!!
                 if (effectiveExcludeSourceIds.isNotEmpty()) {
                     payload["exclude_source_ids"] = effectiveExcludeSourceIds.toList()
@@ -1516,10 +1550,30 @@ class KioskViewModel(application: Application) : AndroidViewModel(application) {
                         if (placeholderId != null) {
                             _chatHistory.value = _chatHistory.value.filter { it.id != placeholderId }
                         }
-                        val clarificationQuestion = EmergencyStrings.get("clarification_question", _selectedLanguage.value)
+
+                        // Build structured taxonomy chips from the hub response
+                        val taxonomyOpts = response.clarificationOptions ?: emptyList()
+                        val legacyCategories = response.clarificationCategories ?: emptyList()
+
+                        // Graceful handling: if no options at all, show error and reset
+                        if (taxonomyOpts.isEmpty() && legacyCategories.isEmpty()) {
+                            Log.w("KioskVM", "Clarification returned with no options — resetting to Idle")
+                            handleError(EmergencyStrings.get("clarification_no_options", _selectedLanguage.value))
+                            resetInactivityTimer()
+                            return@withContext
+                        }
+
+                        // Use hub prompt text if available, otherwise use localized default
+                        val clarificationQuestion = response.answerTextEn
+                            ?.takeIf { it.isNotBlank() }
+                            ?: EmergencyStrings.get("clarification_question", _selectedLanguage.value)
+
                         _uiState.value = KioskState.Clarification(
-                            clarificationQuestion,
-                            response.clarificationCategories ?: emptyList()
+                            question = clarificationQuestion,
+                            options = legacyCategories,
+                            taxonomyOptions = taxonomyOpts,
+                            fallbackOption = EmergencyStrings.get("say_that_differently", _selectedLanguage.value),
+                            clarificationContext = response.clarificationContext
                         )
                         tts?.speak(clarificationQuestion)
 

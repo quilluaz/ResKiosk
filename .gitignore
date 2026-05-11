@@ -33,6 +33,8 @@ packaging/ollama_portable/
 # Context files
 slice0_userstory2_running_context.md
 slice0_userstory3_running_context.md
+slice2_goal6_context.md
+slice_userstory_person_context.md
 slice3_story1_running_context.md
 slice3_story3_running_context.md
 slice6a_story1_running_context.md
