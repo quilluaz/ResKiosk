@@ -59,8 +59,7 @@ paths:
                   kb_version:
                     type: integer
                   updated_at:
-                    type: string
-                    format: date-time
+                    type: integer
   /kb/snapshot:
     get:
       summary: Download full KB snapshot
@@ -120,7 +119,34 @@ paths:
       responses:
         '204':
           description: Deleted
+  /admin/config:
+    get:
+      summary: List system config keys
+      responses:
+        '200':
+          description: Config list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StructuredConfig'
   /admin/config/{key}:
+    get:
+      summary: Get system config value
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Config value
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StructuredConfig'
     put:
       summary: Update system config value
       parameters:
@@ -147,6 +173,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/StructuredConfig'
+    delete:
+      summary: Delete system config key
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deleted
   /query:
     post:
       summary: Submit user query
@@ -179,9 +216,9 @@ components:
       properties:
         id:
           type: integer
-        title:
+        question:
           type: string
-        body:
+        answer:
           type: string
         category:
           type: string
@@ -194,21 +231,19 @@ components:
         enabled:
           type: boolean
         created_at:
-          type: string
-          format: date-time
-        updated_at:
-          type: string
-          format: date-time
+          type: integer
+        last_updated:
+          type: integer
     KBArticleCreate:
       type: object
       required:
-        - title
-        - body
+        - question
+        - answer
         - category
       properties:
-        title:
+        question:
           type: string
-        body:
+        answer:
           type: string
         category:
           type: string
@@ -224,9 +259,9 @@ components:
     KBArticleUpdate:
       type: object
       properties: # All optional
-        title:
+        question:
           type: string
-        body:
+        answer:
           type: string
         category:
           type: string

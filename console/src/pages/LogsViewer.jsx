@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useModal } from '../components/ModalProvider';
 
 const LogsViewer = () => {
+    const modal = useModal();
     const [logs, setLogs] = useState([]);
     const [isConnected, setIsConnected] = useState(false);
     const [isShuttingDown, setIsShuttingDown] = useState(false);
@@ -49,12 +51,7 @@ const LogsViewer = () => {
         };
     }, []);
 
-    useEffect(() => {
-        // Auto-scroll to bottom
-        if (bottomRef.current) {
-            bottomRef.current.scrollIntoView({ behavior: 'smooth' });
-        }
-    }, [logs]);
+    // Intentionally no auto-scroll: keep user position stable while logs stream in.
 
     const getBaseUrl = () => {
         if (window.location.port === '5173') {
@@ -64,7 +61,7 @@ const LogsViewer = () => {
     };
 
     const handleShutdown = async () => {
-        if (!window.confirm('Are you sure you want to turn off ResKiosk Hub? All connected kiosks will lose connectivity.')) {
+        if (!(await modal.confirm('Are you sure you want to turn off ResKiosk Hub? All connected kiosks will lose connectivity.'))) {
             return;
         }
 
@@ -77,7 +74,7 @@ const LogsViewer = () => {
     };
 
     const handleRestart = async () => {
-        if (!window.confirm('Restart the Hub? It will turn off and start again in a few seconds. Reconnect to the console after it comes back.')) {
+        if (!(await modal.confirm('Restart the Hub? It will turn off and start again in a few seconds. Reconnect to the console after it comes back.'))) {
             return;
         }
 
@@ -86,7 +83,7 @@ const LogsViewer = () => {
             const res = await fetch(`${getBaseUrl()}/admin/restart`, { method: 'POST' });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                alert(data.message || 'Restart not available.');
+                await modal.alert(data.message || 'Restart not available.');
                 setIsRestarting(false);
             }
         } catch (e) {

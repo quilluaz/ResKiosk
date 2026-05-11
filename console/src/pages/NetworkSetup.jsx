@@ -1,17 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import hubClient from '../api/hubClient';
 import { QRCodeSVG } from 'qrcode.react';
-import { Copy, RefreshCw } from 'lucide-react';
+import { Copy, Pencil, RefreshCw } from 'lucide-react';
 
 function NetworkSetup() {
     const [netInfo, setNetInfo] = useState({ ip: '...', port: 8000 });
     const [loading, setLoading] = useState(true);
+    const [editingKioskId, setEditingKioskId] = useState(null);
+    const [draftKioskName, setDraftKioskName] = useState('');
+    const [savingKioskName, setSavingKioskName] = useState(false);
 
     const fetchInfo = async () => {
         try {
             setLoading(true);
             const res = await hubClient.get('/network/info');
-            setNetInfo(res.data);
+            setNetInfo(res.data || {});
         } catch (e) {
             console.error(e);
         } finally {
@@ -25,14 +28,45 @@ function NetworkSetup() {
         return () => clearInterval(interval);
     }, []);
 
-    const hubUrl = `http://${netInfo.ip}:${netInfo.port}`;
+    const hubUrl = useMemo(() => `http://${netInfo.ip}:${netInfo.port}`, [netInfo.ip, netInfo.port]);
+
+    const startEditKioskName = (kiosk) => {
+        setEditingKioskId(kiosk.kiosk_id);
+        setDraftKioskName((kiosk.kiosk_name || kiosk.kiosk_id || '').trim());
+    };
+
+    const cancelEditKioskName = () => {
+        setEditingKioskId(null);
+        setDraftKioskName('');
+    };
+
+    const saveKioskName = async (kioskId) => {
+        const next = draftKioskName.trim();
+        if (!next) return;
+        try {
+            setSavingKioskName(true);
+            await hubClient.post('/network/kiosk/name', {
+                kiosk_id: kioskId,
+                kiosk_name: next,
+            });
+            await fetchInfo();
+            setEditingKioskId(null);
+            setDraftKioskName('');
+        } catch (e) {
+            console.error(e);
+            alert(e?.response?.data?.message || 'Failed to update kiosk name.');
+        } finally {
+            setSavingKioskName(false);
+        }
+    };
 
     return (
         <div className="space-y-6">
-            <h1 className="page-title">Network Setup</h1>
+            <div className="flex justify-between items-center gap-4">
+                <h1 className="page-title">Network Setup</h1>
+            </div>
 
             <div className="grid-2">
-                {/* Hub URL Card */}
                 <div className="hub-url-card">
                     <h3>Hub URL</h3>
                     <div className="hub-url-display">
@@ -45,54 +79,26 @@ function NetworkSetup() {
                             <Copy size={16} />
                         </button>
                     </div>
-                    <p className="text-sm mt-2" style={{ color: 'var(--primary)' }}>Enter this URL in Kiosk setup.</p>
+                    <p className="text-sm mt-2" style={{ color: 'var(--primary)' }}>
+                        Enter this URL in Kiosk setup.
+                    </p>
                 </div>
 
-                {/* QR Code */}
                 <div className="card qr-card">
                     <h3>Scan to Connect</h3>
-                    <div className="p-4 bg-white rounded border" style={{ display: 'inline-block' }}>
+                    <div className="p-4 rounded border" style={{ display: 'inline-block', backgroundColor: 'white', borderColor: 'white' }}>
                         <QRCodeSVG value={hubUrl} size={150} />
                     </div>
                 </div>
             </div>
 
-            {/* Network Configuration */}
-            <div className="card space-y-4">
-                <h3 className="section-title">Configuration</h3>
 
-                <div className="form-group">
-                    <label>Network Mode</label>
-                    <select className="input" style={{ maxWidth: '24rem' }}>
-                        <option>Using existing Wi-Fi (Recommended)</option>
-                        <option>Hub Hosting Hotspot (Standalone)</option>
-                    </select>
-                </div>
-
-                <div className="form-group">
-                    <label>Static IP Override (Optional)</label>
-                    <input className="input" style={{ maxWidth: '24rem' }} placeholder="e.g. 192.168.1.100" />
-                    <p className="form-hint">Leave empty to use automatic detection.</p>
-                </div>
-
-                <div className="form-group">
-                    <label>Firewall Status</label>
-                    <div className="flex items-center gap-2">
-                        <span className="status-dot warning"></span>
-                        <span className="text-sm">Unknown (check manually)</span>
-                    </div>
-                </div>
-
-                <button className="btn btn-primary">Save Network Settings</button>
-            </div>
-
-            {/* Connected Kiosks */}
             <div className="card">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="section-title" style={{ border: 'none', margin: 0, padding: 0 }}>
                         Connected Kiosks ({netInfo.connected_kiosks || 0})
                     </h3>
-                    <button className="btn btn-sm" onClick={fetchInfo}>
+                    <button className="btn btn-sm" onClick={fetchInfo} disabled={loading}>
                         <RefreshCw size={14} /> Refresh
                     </button>
                 </div>
@@ -118,9 +124,57 @@ function NetworkSetup() {
                                 netInfo.kiosks_list.map((kiosk) => (
                                     <tr key={kiosk.kiosk_id}>
                                         <td style={{ fontWeight: 500 }}>{kiosk.kiosk_id}</td>
-                                        <td>{kiosk.kiosk_name || kiosk.kiosk_id}</td>
+                                        <td className="kiosk-name-cell">
+                                            {editingKioskId === kiosk.kiosk_id ? (
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        className="input"
+                                                        value={draftKioskName}
+                                                        onChange={(e) => setDraftKioskName(e.target.value)}
+                                                        autoFocus
+                                                        maxLength={80}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') saveKioskName(kiosk.kiosk_id);
+                                                            if (e.key === 'Escape') cancelEditKioskName();
+                                                        }}
+                                                        style={{ maxWidth: '16rem', height: '2rem' }}
+                                                    />
+                                                    <button
+                                                        className="btn btn-sm btn-primary"
+                                                        disabled={savingKioskName || !draftKioskName.trim()}
+                                                        onClick={() => saveKioskName(kiosk.kiosk_id)}
+                                                    >
+                                                        Save
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-sm"
+                                                        disabled={savingKioskName}
+                                                        onClick={cancelEditKioskName}
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div
+                                                    className="kiosk-name-display"
+                                                    onClick={() => startEditKioskName(kiosk)}
+                                                    title="Edit kiosk name"
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter' || e.key === ' ') {
+                                                            e.preventDefault();
+                                                            startEditKioskName(kiosk);
+                                                        }
+                                                    }}
+                                                >
+                                                    <span>{kiosk.kiosk_name || kiosk.kiosk_id}</span>
+                                                    <Pencil size={13} className="kiosk-name-pencil" />
+                                                </div>
+                                            )}
+                                        </td>
                                         <td className="font-mono text-sm">{kiosk.ip}</td>
-                                        <td className="text-sm text-muted">{new Date(kiosk.last_seen + 'Z').toLocaleTimeString()}</td>
+                                        <td className="text-sm text-muted">{new Date(`${kiosk.last_seen}Z`).toLocaleTimeString()}</td>
                                         <td>
                                             <span className="flex items-center gap-2">
                                                 <span className={`status-dot ${kiosk.status === 'online' ? 'online' : 'offline'}`}></span>
@@ -134,6 +188,7 @@ function NetworkSetup() {
                     </table>
                 </div>
             </div>
+
         </div>
     );
 }

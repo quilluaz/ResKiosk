@@ -1,5 +1,8 @@
 import os
+import time
 import logging
+import json
+from pathlib import Path
 import numpy as np
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -11,31 +14,184 @@ from sentence_transformers import util
 
 logger = logging.getLogger(__name__)
 
+
+# ─── Taxonomy-backed clarification chip policy (Goal 7) ──────────────────────
+
+_taxonomy_policy_cache = None
+
+
+def _load_taxonomy_policy() -> dict:
+    """Load taxonomy chip policy from hub/taxonomy/taxonomy_v1.json (cached)."""
+    global _taxonomy_policy_cache
+    if _taxonomy_policy_cache is not None:
+        return _taxonomy_policy_cache
+    try:
+        hub_dir = Path(__file__).resolve().parents[1]
+        path = hub_dir / "taxonomy" / "taxonomy_v1.json"
+        with path.open("r", encoding="utf-8") as f:
+            _taxonomy_policy_cache = json.load(f)
+    except Exception:
+        _taxonomy_policy_cache = {}
+    return _taxonomy_policy_cache or {}
+
+
+def _deterministic_clarification_node_ids(
+    intent: str,
+    inferred_taxonomy_node_ids: list[str],
+    top_assigned_node_ids: set[str],
+) -> list[str]:
+    """
+    Deterministic chip selection per Goal 7:
+    - start with default set (max 3)
+    - optionally replace ONE default with a conditional node when strongly indicated
+    """
+    policy = _load_taxonomy_policy().get("clarification_chip_defaults") or {}
+    defaults = list(policy.get("default") or [])
+    conditional = list(policy.get("conditional_replacements") or [])
+    max_options = int(policy.get("max_options") or 3)
+
+    # Strong indication signals: inferred nodes, top-k taxonomy assignments, or intent.
+    conditional_signal_set = set(inferred_taxonomy_node_ids) | set(top_assigned_node_ids)
+
+    # Intent -> likely conditional chip mapping (Goal 7 conditional additions list).
+    intent_hint = {
+        "safety": "rk.tax.safety_emergencies.emergency_procedures",
+        "facilities": "rk.tax.basic_needs_daily_living.facilities_use",
+        "sleeping": "rk.tax.basic_needs_daily_living.sleeping_rest_areas",
+        "location": "rk.tax.location_navigation.in_shelter_locations",
+    }.get(intent)
+    if intent_hint:
+        conditional_signal_set.add(intent_hint)
+
+    chosen_conditional = None
+    for node_id in conditional:
+        if node_id in conditional_signal_set:
+            chosen_conditional = node_id
+            break
+
+    chips = defaults[:max_options]
+    if chosen_conditional and chosen_conditional not in chips and chips:
+        # "Replace one default only when strongly indicated"
+        chips[-1] = chosen_conditional
+
+    # De-dupe while preserving order, enforce max.
+    seen = set()
+    out = []
+    for nid in chips:
+        if not nid or nid in seen:
+            continue
+        seen.add(nid)
+        out.append(nid)
+        if len(out) >= max_options:
+            break
+    return out
+
 # Intent-based query enrichment keywords (used when intent is recognized with confidence)
 INTENT_ENRICHMENT = {
     "greeting": "hello greeting",
     "identity": "kiosk assistant information",
     "capability": "help information services",
     "small_talk": "thanks okay",
-    "food": "food meals schedule cafeteria breakfast lunch dinner",
-    "medical": "medical doctor nurse health first aid",
-    "registration": "registration sign in check in intake",
-    "sleeping": "sleeping beds cots rest area",
-    "transportation": "bus shuttle transport ride leave",
-    "safety": "safety emergency evacuation exit",
-    "facilities": "bathroom restroom showers laundry charging wifi",
-    "lost_person": "lost missing family reunification",
-    "pets": "pets dog cat animal",
-    "donations": "donate donations",
-    "hours": "hours open close schedule",
-    "location": "address location directions building",
-    "general_info": "information services help",
-    "goodbye": "goodbye bye",
-    "inventory": "supplies available stock food water medicine blankets hygiene clothing diapers charging cots",
+    # Core shelter intents enriched with realistic query language.
+    "food": "food meals schedule cafeteria canteen dining eat breakfast lunch dinner snacks",
+    "medical": "medical doctor nurse health clinic first aid medicine",
+    "registration": "registration sign up sign-up sign in check in intake wristband id card",
+    "sleeping": "sleeping beds cots rest area sleeping area dormitory",
+    "transportation": "bus shuttle transport ride leave departure",
+    "safety": "safety emergency evacuation exit fire earthquake",
+    "facilities": "bathroom restroom showers laundry charging wifi toilet",
+    "lost_person": "lost missing family reunification missing person",
+    "pets": "pets dog cat animal pet area",
+    "donations": "donate donations donation drop off",
+    "hours": "hours open close schedule opening closing time",
+    "location": "address location directions building map",
+    "goodbye": "goodbye bye thanks",
+    "inventory": "supply stock available items request availability",
+    "mental_health": "counseling stress trauma emotional mental psychological anxiety support",
+    "legal_docs": "id documents legal aid certificate records assistance identification",
+    "financial_aid": "vouchers cash aid assistance money financial relief fund",
+    "hygiene": "soap shampoo toothbrush hygiene sanitation feminine products diapers clean",
+    "departure": "leave go home shelter policy duration how long stay exit",
+    "children": "children daycare school child baby infant kids family welfare",
+    "special_needs": "wheelchair elderly disabled assistance mobility hearing impaired",
 }
 
-THRESHOLD = float(os.environ.get("RESKIOSK_SIM_THRESHOLD", 0.65))
-CLARIFICATION_FLOOR = float(os.environ.get("RESKIOSK_CLARIFICATION_FLOOR", 0.45))
+# Default thresholds tuned for realistic shelter questions; can still be overridden via env.
+THRESHOLD = float(os.environ.get("RESKIOSK_SIM_THRESHOLD", 0.60))
+CLARIFICATION_FLOOR = float(os.environ.get("RESKIOSK_CLARIFICATION_FLOOR", 0.40))
+NON_EN_THRESHOLD = float(os.environ.get("RESKIOSK_NON_EN_SIM_THRESHOLD", 0.50))
+NON_EN_CLARIFICATION_FLOOR = float(os.environ.get("RESKIOSK_NON_EN_CLARIFICATION_FLOOR", 0.38))
+
+# Intent action threshold (enrichment + short-circuit + clarification suppression)
+INTENT_ACTION_THRESHOLD = 0.35
+COMPOUND_INTENT_MIN = float(os.environ.get("RESKIOSK_COMPOUND_INTENT_MIN", 0.35))
+COMPOUND_GAP_MAX = float(os.environ.get("RESKIOSK_COMPOUND_GAP_MAX", 0.08))
+
+INTENT_PRIORITY = {
+    "safety": 100,
+    "emergency": 100,
+    "medical": 90,
+    "children": 80,
+    "special_needs": 80,
+}
+
+FOLLOW_UP_PROMPT_BY_INTENT = {
+    "medical": "I can also help with medical support. Do you want that too?",
+    "children": "I can also help with child-related support. Do you want that too?",
+    "special_needs": "I can also help with special-needs support. Do you want that too?",
+    "safety": "I can also help with safety guidance. Do you want that too?",
+    "registration": "I can also help with registration steps. Do you want that too?",
+    "sleeping": "I can also help with sleeping area information. Do you want that too?",
+    "food": "I can also help with food and water schedules. Do you want that too?",
+    "facilities": "I can also help with facilities information. Do you want that too?",
+    "transportation": "I can also help with transportation details. Do you want that too?",
+    "lost_person": "I can also help with missing-person reporting. Do you want that too?",
+}
+
+CLARIFICATION_CATEGORY_TO_INTENT = {
+    "food & water": "food",
+    "food and water": "food",
+    "food": "food",
+    "water": "food",
+    "medical": "medical",
+    "health": "medical",
+    "registration": "registration",
+    "sign in": "registration",
+    "check in": "registration",
+    "sleeping": "sleeping",
+    "beds": "sleeping",
+    "sleep": "sleeping",
+    "facilities": "facilities",
+    "restroom": "facilities",
+    "bathroom": "facilities",
+    "showers": "facilities",
+    "laundry": "facilities",
+    "transportation": "transportation",
+    "safety": "safety",
+    "security": "safety",
+    "lost person": "lost_person",
+    "lost family": "lost_person",
+    "pets": "pets",
+    "donations": "donations",
+    "hours": "hours",
+    "location": "location",
+    "general": "general_info",
+    "general info": "general_info",
+    "mental health": "mental_health",
+    "legal docs": "legal_docs",
+    "legal": "legal_docs",
+    "financial aid": "financial_aid",
+    "hygiene": "hygiene",
+    "departure": "departure",
+    "leaving": "departure",
+    "children": "children",
+    "special needs": "special_needs",
+}
+
+# RLHF / bias settings (env-gated)
+RLHF_ENABLED = os.environ.get("RESKIOSK_RLHF_ENABLED", "false").lower() == "true"
+RLHF_ALPHA = float(os.environ.get("RESKIOSK_RLHF_ALPHA", 0.10))
+RLHF_BIAS_TTL_SECS = int(os.environ.get("RESKIOSK_RLHF_BIAS_TTL_SECS", 1800))
 
 # Intent classifier singleton, set by main.py at startup
 _intent_classifier = None
@@ -53,19 +209,60 @@ class RetrievalResult:
         self.category = article_dict.get("category")
 
 
+CLARIFICATION_REASON_UNCLEAR_LOW_SCORE = "unclear_low_score"
+CLARIFICATION_REASON_NOT_TRIGGERED = "not_triggered"
+CLARIFICATION_REASON_COMPOUND_SHORTCUT = "compound_shortcut"
+CLARIFICATION_REASON_HIGH_CONFIDENCE_INTENT = "high_confidence_intent"
+CLARIFICATION_REASON_CONVERSATIONAL_INTENT = "conversational_intent"
+
+
 def needs_clarification(
     query: str,
     top_k: List[RetrievalResult],
     intent: str,
     intent_confidence: float,
-) -> bool:
-    """Only clarify when intent is unclear and best retrieval score is below CLARIFICATION_FLOOR."""
-    if intent != "unclear" and intent_confidence >= 0.45:
-        return False
-    if intent in ("greeting", "identity", "capability", "small_talk"):
-        return False
+    is_compound: bool = False,
+) -> tuple[bool, str]:
+    """Return (should_clarify, reason_code).
+
+    Reason codes are stable string constants; callers must log and persist them
+    so operators can understand why clarification was or was not triggered.
+    """
+    if is_compound and intent_confidence >= INTENT_ACTION_THRESHOLD:
+        return False, CLARIFICATION_REASON_COMPOUND_SHORTCUT
+    if intent != "unclear" and intent_confidence >= INTENT_ACTION_THRESHOLD:
+        return False, CLARIFICATION_REASON_HIGH_CONFIDENCE_INTENT
+    if intent in ("greeting", "identity", "capability", "small_talk", "goodbye"):
+        return False, CLARIFICATION_REASON_CONVERSATIONAL_INTENT
     best_retrieval_score = top_k[0].score if top_k else 0.0
-    return intent == "unclear" and best_retrieval_score < CLARIFICATION_FLOOR
+    if intent == "unclear" and best_retrieval_score < CLARIFICATION_FLOOR:
+        return True, CLARIFICATION_REASON_UNCLEAR_LOW_SCORE
+    return False, CLARIFICATION_REASON_NOT_TRIGGERED
+
+
+def _intent_priority(intent: Optional[str]) -> int:
+    if not intent:
+        return 0
+    return INTENT_PRIORITY.get(intent, 10)
+
+
+def _resolve_compound_intents(
+    top_intent: str,
+    top_conf: float,
+    second_intent: Optional[str],
+    second_conf: float,
+) -> tuple[str, float, Optional[str], float, bool]:
+    if (
+        second_intent
+        and second_intent != top_intent
+        and top_conf >= COMPOUND_INTENT_MIN
+        and second_conf >= COMPOUND_INTENT_MIN
+        and abs(top_conf - second_conf) <= COMPOUND_GAP_MAX
+    ):
+        if _intent_priority(second_intent) > _intent_priority(top_intent):
+            return second_intent, second_conf, top_intent, top_conf, True
+        return top_intent, top_conf, second_intent, second_conf, True
+    return top_intent, top_conf, None, 0.0, False
 
 
 # --- Fix 6: In-memory corpus cache ---
@@ -83,12 +280,23 @@ _shelter_config_cache = None
 
 
 def get_shelter_config(db: Session) -> dict:
-    """Load full structured_config as dict; cached and invalidated on publish."""
+    """Load evac_info row as a flat dict; cached and invalidated on publish."""
     global _shelter_config_cache
     if _shelter_config_cache is not None:
         return _shelter_config_cache
-    rows = db.query(schema.StructuredConfig).all()
-    _shelter_config_cache = {r.key: r.get_value() for r in rows}
+    row = db.query(schema.EvacInfo).filter(schema.EvacInfo.id == 1).first()
+    if row:
+        _shelter_config_cache = {
+            "food_schedule": row.food_schedule,
+            "sleeping_zones": row.sleeping_zones,
+            "medical_station": row.medical_station,
+            "registration_steps": row.registration_steps,
+            "announcements": row.announcements,
+            "emergency_mode": row.emergency_mode,
+            "metadata": row.info_metadata,
+        }
+    else:
+        _shelter_config_cache = {}
     return _shelter_config_cache
 
 
@@ -99,15 +307,44 @@ def invalidate_shelter_config_cache():
     logger.info("[Cache] Shelter config cache invalidated.")
 
 
+# --- RLHF article-bias cache (TTL-based) ---
+_article_biases_cache = None
+_article_biases_loaded_at = 0.0
+
+
+def _load_article_biases(db: Session) -> dict:
+    """Load all article biases from DB into a simple dict {source_id: bias}."""
+    rows = db.query(schema.ArticleBias).all()
+    biases = {row.source_id: float(row.bias) for row in rows}
+    logger.info(f"[RLHF] Loaded {len(biases)} article biases from DB.")
+    return biases
+
+
+def _get_article_biases(db: Session) -> dict:
+    """Return cached article biases, reloading from DB when TTL expires."""
+    global _article_biases_cache, _article_biases_loaded_at
+    now = time.time()
+    if (
+        _article_biases_cache is None
+        or _article_biases_loaded_at == 0.0
+        or now - _article_biases_loaded_at > RLHF_BIAS_TTL_SECS
+    ):
+        _article_biases_cache = _load_article_biases(db)
+        _article_biases_loaded_at = now
+    return _article_biases_cache or {}
+
+
 def _snapshot_article(art: schema.KBArticle) -> dict:
     """Eagerly copy all needed fields from an ORM object into a plain dict.
-    This prevents DetachedInstanceError when the cache outlives the session."""
+    Prevents DetachedInstanceError when the cache outlives the session."""
+    raw_tags = getattr(art, "tags", "") or ""
+    tags_list = [t.strip() for t in raw_tags.split(",") if t.strip()]
     return {
         "id": art.id,
-        "title": art.title,
-        "body": art.body,
+        "question": art.question,
+        "answer": art.answer,
         "category": art.category,
-        "tags": art.get_tags() if hasattr(art, 'get_tags') else [],
+        "tags": tags_list,
     }
 
 
@@ -119,7 +356,7 @@ def _load_corpus(db: Session) -> dict:
     if _corpus_cache is not None:
         return _corpus_cache
     
-    articles = db.query(schema.KBArticle).filter(schema.KBArticle.enabled == True).all()
+    articles = db.query(schema.KBArticle).filter(schema.KBArticle.enabled == 1).all()
     embeddings = []
     meta = []
     for art in articles:
@@ -138,29 +375,50 @@ def _load_corpus(db: Session) -> dict:
     return _corpus_cache
 
 
-def retrieve(db: Session, query_english: str, is_retry: bool, selected_category: Optional[str] = None) -> dict:
-    normalized_query = normalize_query(query_english)
-    logger.info(f"[Retrieve] query='{normalized_query}'")
+def _thresholds_for_language(lang: str) -> tuple[float, float]:
+    if lang and lang != "en":
+        return NON_EN_THRESHOLD, NON_EN_CLARIFICATION_FLOOR
+    return THRESHOLD, CLARIFICATION_FLOOR
 
-    # 1. Direct Config Match
-    config_match = db.query(schema.StructuredConfig).filter(schema.StructuredConfig.key == normalized_query).first()
-    if config_match:
+
+def retrieve(
+    db: Session,
+    query_english: str,
+    is_retry: bool,
+    selected_category: Optional[str] = None,
+    selected_taxonomy_node_id: Optional[str] = None,
+    exclude_source_ids: Optional[List[int]] = None,
+    query_language: str = "en",
+) -> dict:
+    normalized_query = normalize_query(query_english, query_language)
+    logger.info(f"[Retrieve] query='{normalized_query}' exclude_source_ids={exclude_source_ids}")
+    # AC2: log UI-selected taxonomy node when present
+    if selected_category:
+        logger.info(f"[Filter] ui_category='{selected_category}'")
+
+    ui_selection_source = None
+    ui_selected_taxonomy_node_label = None
+    if is_retry and selected_taxonomy_node_id:
+        ui_selection_source = "taxonomy"
         try:
-            val_str = str(config_match.get_value())
-            return {
-                "answer_text": val_str,
-                "answer_type": "DIRECT_MATCH",
-                "confidence": 1.0,
-                "source_id": None,
-                "categories": None,
-                "article_data": None,
-                "intent": "unclear",
-                "intent_confidence": 0.0,
-            }
-        except Exception as e:
-            logger.warning(f"[Retrieve] Config get_value failed for key={normalized_query}: {e}")
+            node = (
+                db.query(schema.TaxonomyNode)
+                .filter(schema.TaxonomyNode.id == selected_taxonomy_node_id)
+                .first()
+            )
+            if node and node.label:
+                ui_selected_taxonomy_node_label = node.label
+        except Exception:
+            ui_selected_taxonomy_node_label = None
+    elif is_retry and selected_category:
+        ui_selection_source = "legacy_category"
+    else:
+        ui_selection_source = "none"
 
-    # 2. Inventory check (phrase triggers; no embedding)
+    # Will be computed after intent is finalized.
+    inferred_taxonomy_node_ids: list[str] = []
+
+    # 1. Inventory check (phrase triggers; no embedding)
     try:
         shelter_config = get_shelter_config(db)
         inventory_answer = inventory_module.check_inventory(normalized_query, shelter_config)
@@ -172,6 +430,10 @@ def retrieve(db: Session, query_english: str, is_retry: bool, selected_category:
                 "source_id": None,
                 "categories": None,
                 "article_data": None,
+                "ui_selection_source": ui_selection_source,
+                "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+                "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+                "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
                 "intent": "inventory",
                 "intent_confidence": 1.0,
             }
@@ -180,15 +442,60 @@ def retrieve(db: Session, query_english: str, is_retry: bool, selected_category:
 
     # 3. Classify intent and optionally enrich query
     intent, intent_confidence = "unclear", 0.0
+    second_intent, second_confidence = None, 0.0
+    compound_secondary_intent = None
+    is_compound = False
     if _intent_classifier:
         try:
-            intent, intent_confidence = _intent_classifier.classify(normalized_query)
-            logger.info(f"[Retrieve] intent={intent} confidence={intent_confidence:.4f}")
+            if hasattr(_intent_classifier, "classify_top2"):
+                intent, intent_confidence, second_intent, second_confidence = _intent_classifier.classify_top2(normalized_query)
+                logger.info(
+                    f"[Retrieve] intent={intent} confidence={intent_confidence:.4f} second={second_intent} second_conf={second_confidence:.4f}"
+                )
+            else:
+                intent, intent_confidence = _intent_classifier.classify(normalized_query)
+                logger.info(f"[Retrieve] intent={intent} confidence={intent_confidence:.4f}")
         except Exception as e:
             logger.warning(f"[Retrieve] Intent classification failed: {e}")
 
+    intent, intent_confidence, compound_secondary_intent, _, is_compound = _resolve_compound_intents(
+        intent,
+        intent_confidence,
+        second_intent,
+        second_confidence,
+    )
+    if is_compound:
+        logger.info(
+            f"[Retrieve] compound=True primary={intent}({intent_confidence:.4f}) secondary={compound_secondary_intent}"
+        )
+
+    retry_category_intent = None
+    if is_retry and selected_category:
+        retry_category_intent = CLARIFICATION_CATEGORY_TO_INTENT.get((selected_category or "").strip().lower())
+        if retry_category_intent:
+            intent = retry_category_intent
+            intent_confidence = max(intent_confidence, INTENT_ACTION_THRESHOLD)
+            second_intent = None
+            second_confidence = 0.0
+            compound_secondary_intent = None
+            is_compound = False
+            logger.info(f"[Retrieve] retry category override -> intent={intent}")
+
+    # Now that intent is finalized, compute inferred taxonomy nodes (deterministic, rank-ordered).
+    try:
+        rows = (
+            db.query(schema.IntentTaxonomyMap)
+            .filter(schema.IntentTaxonomyMap.intent_label == intent)
+            .order_by(schema.IntentTaxonomyMap.rank.asc())
+            .all()
+        )
+        inferred_taxonomy_node_ids = [r.taxonomy_node_id for r in rows if r.taxonomy_node_id]
+    except Exception:
+        inferred_taxonomy_node_ids = []
+
     # 3a. Short-circuit for simple conversational intents (no KB lookup)
-    if intent != "unclear" and intent_confidence >= 0.45:
+    # Skip short-circuits when retry + selected category is forcing a secondary intent answer.
+    if intent != "unclear" and intent_confidence >= INTENT_ACTION_THRESHOLD and not (is_retry and retry_category_intent):
         if intent == "greeting":
             return {
                 "answer_text": "Hello. I can help you with questions about registration, food, medical help, sleeping areas, transportation, safety, and other services in this shelter. What would you like to ask?",
@@ -197,17 +504,25 @@ def retrieve(db: Session, query_english: str, is_retry: bool, selected_category:
                 "source_id": None,
                 "categories": None,
                 "article_data": None,
+                "ui_selection_source": ui_selection_source,
+                "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+                "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+                "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
                 "intent": intent,
                 "intent_confidence": intent_confidence,
             }
         if intent == "identity":
             return {
-                "answer_text": "I'm ResKiosk, an information kiosk for this evacuation center. I can answer questions about registration, food and water, medical help, sleeping areas, transportation, safety, and other basic services.",
+                "answer_text": "This is ResKiosk, an information kiosk for this evacuation center. It can answer questions about registration, food and water, medical help, sleeping areas, transportation, safety, and other basic services.",
                 "answer_type": "DIRECT_MATCH",
                 "confidence": float(intent_confidence),
                 "source_id": None,
                 "categories": None,
                 "article_data": None,
+                "ui_selection_source": ui_selection_source,
+                "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+                "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+                "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
                 "intent": intent,
                 "intent_confidence": intent_confidence,
             }
@@ -219,6 +534,10 @@ def retrieve(db: Session, query_english: str, is_retry: bool, selected_category:
                 "source_id": None,
                 "categories": None,
                 "article_data": None,
+                "ui_selection_source": ui_selection_source,
+                "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+                "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+                "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
                 "intent": intent,
                 "intent_confidence": intent_confidence,
             }
@@ -230,6 +549,10 @@ def retrieve(db: Session, query_english: str, is_retry: bool, selected_category:
                 "source_id": None,
                 "categories": None,
                 "article_data": None,
+                "ui_selection_source": ui_selection_source,
+                "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+                "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+                "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
                 "intent": intent,
                 "intent_confidence": intent_confidence,
             }
@@ -241,15 +564,46 @@ def retrieve(db: Session, query_english: str, is_retry: bool, selected_category:
                 "source_id": None,
                 "categories": None,
                 "article_data": None,
+                "ui_selection_source": ui_selection_source,
+                "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+                "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+                "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
                 "intent": intent,
                 "intent_confidence": intent_confidence,
             }
 
     search_query = normalized_query
-    if intent != "unclear" and intent_confidence >= 0.45 and intent in INTENT_ENRICHMENT:
+    if intent != "unclear" and intent_confidence >= INTENT_ACTION_THRESHOLD and intent in INTENT_ENRICHMENT:
         search_query = f"{normalized_query} {INTENT_ENRICHMENT[intent]}"
+        enrichment_secondary = compound_secondary_intent
+        if not enrichment_secondary and second_intent and second_intent != intent and second_confidence >= INTENT_ACTION_THRESHOLD:
+            enrichment_secondary = second_intent
+        if enrichment_secondary and enrichment_secondary in INTENT_ENRICHMENT:
+            search_query = f"{search_query} {INTENT_ENRICHMENT[enrichment_secondary]}"
     if is_retry and selected_category:
-        search_query = f"{search_query} {selected_category}"
+        mapped = CLARIFICATION_CATEGORY_TO_INTENT.get((selected_category or "").strip().lower())
+        if mapped and mapped in INTENT_ENRICHMENT:
+            search_query = f"{search_query} {INTENT_ENRICHMENT[mapped]}"
+        else:
+            search_query = f"{search_query} {selected_category}"
+    # AC3: log inferred taxonomy node when intent drives candidate retrieval
+    if intent != "unclear" and intent_confidence >= INTENT_ACTION_THRESHOLD:
+        logger.info(f"[Filter] inferred_taxonomy='{intent}' confidence={intent_confidence:.4f}")
+
+    # Phase 1 compatibility: if retry includes taxonomy node ID, enrich the query using its label.
+    # This is additive and does not break legacy selected_category behavior.
+    if is_retry and selected_taxonomy_node_id:
+        try:
+            node = (
+                db.query(schema.TaxonomyNode)
+                .filter(schema.TaxonomyNode.id == selected_taxonomy_node_id)
+                .first()
+            )
+            if node and node.label:
+                search_query = f"{search_query} {node.label}".strip()
+        except Exception:
+            # Non-fatal; fall back to text-only behavior.
+            pass
 
     # 4. Embedding and corpus (guard so missing models/empty KB don't 500)
     try:
@@ -265,6 +619,10 @@ def retrieve(db: Session, query_english: str, is_retry: bool, selected_category:
             "source_id": None,
             "categories": None,
             "article_data": None,
+            "ui_selection_source": ui_selection_source,
+            "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+            "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+            "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
             "intent": intent,
             "intent_confidence": intent_confidence,
         }
@@ -277,6 +635,10 @@ def retrieve(db: Session, query_english: str, is_retry: bool, selected_category:
             "source_id": None,
             "categories": None,
             "article_data": None,
+            "ui_selection_source": ui_selection_source,
+            "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+            "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+            "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
             "intent": intent,
             "intent_confidence": intent_confidence,
         }
@@ -292,9 +654,43 @@ def retrieve(db: Session, query_english: str, is_retry: bool, selected_category:
             "source_id": None,
             "categories": None,
             "article_data": None,
+            "ui_selection_source": ui_selection_source,
+            "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+            "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+            "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
             "intent": intent,
             "intent_confidence": intent_confidence,
         }
+
+    # Keep a copy of raw cosine scores for logging and analysis.
+    raw_scores = scores.copy()
+    rlhf_top_source_id = None
+    rlhf_top_score = None
+
+    # Apply RLHF bias adjustment when enabled; otherwise leave scores unchanged.
+    if RLHF_ENABLED:
+        try:
+            biases = _get_article_biases(db)
+            article_ids = [art["id"] for art in corpus["articles"]]
+            for i, art_id in enumerate(article_ids):
+                b = biases.get(art_id, 0.0)
+                adj = float(raw_scores[i]) + RLHF_ALPHA * b
+                # Clamp to cosine range [0, 1]
+                scores[i] = max(0.0, min(1.0, adj))
+            if len(scores) > 0:
+                best_idx = int(np.argmax(scores))
+                rlhf_top_source_id = article_ids[best_idx]
+                rlhf_top_score = float(scores[best_idx])
+        except Exception as e:
+            logger.exception("[RLHF] Bias application failed; falling back to raw cosine scores")
+            scores = raw_scores
+
+    if not RLHF_ENABLED or rlhf_top_source_id is None:
+        # RLHF disabled or failed: default RLHF shadow fields to raw-cosine top-1.
+        if len(raw_scores) > 0:
+            raw_best_idx = int(np.argmax(raw_scores))
+            rlhf_top_source_id = corpus["articles"][raw_best_idx]["id"]
+            rlhf_top_score = float(raw_scores[raw_best_idx])
 
     top_indices = np.argsort(scores)[::-1][:5]
     top_k_results = []
@@ -303,75 +699,219 @@ def retrieve(db: Session, query_english: str, is_retry: bool, selected_category:
         score = float(scores[idx])
         top_k_results.append(RetrievalResult(art_dict, score))
 
+    # AC4: total corpus candidates and how many scored into top-k
+    candidates_total = len(corpus["articles"])
+    logger.info(f"[Filter] candidates_total={candidates_total} top_k_scored={len(top_k_results)}")
     for i, r in enumerate(top_k_results[:3]):
-        logger.info(f"[Search] #{i+1} score={r.score:.4f} title='{r.article['title'][:60]}' cat={r.category}")
+        logger.info(f"[Search] #{i+1} score={r.score:.4f} question='{r.article['question'][:60]}' cat={r.category}")
+
+    # Raw best score (for logging) uses raw cosine; gating may use adjusted scores.
+    if len(raw_scores) > 0:
+        try:
+            best_raw_score = float(raw_scores[int(np.argmax(raw_scores))])
+        except Exception:
+            best_raw_score = float(best.score)
+    else:
+        # Fallback: no scores (should not normally happen here)
+        best_raw_score = 0.0
+
+    # AC1 + AC4: hard rule — exclude_source_ids filter
+    if exclude_source_ids:
+        count_before = len(top_k_results)
+        exclude_set = set(exclude_source_ids)
+        top_k_results = [r for r in top_k_results if r.article["id"] not in exclude_set]
+        count_after = len(top_k_results)
+        logger.info(
+            f"[Filter] rule=exclude_ids before={count_before} after={count_after} "
+            f"removed={count_before - count_after} excluded_ids={list(exclude_set)}"
+        )
+        if not top_k_results:
+            # AC5: all candidates excluded — fallback to NO_MATCH
+            logger.info("[Filter] fallback=all_candidates_excluded outcome=NO_MATCH")
+            return {
+                "answer_text": "I am here to answer questions about registration, food, medical help, sleeping areas, transportation, safety, and other services in this shelter. Please ask about one of these topics or see a volunteer for more help.",
+                "answer_type": "NO_MATCH",
+                "confidence": best_raw_score,
+                "confidence_raw": best_raw_score,
+                "source_id": None,
+                "categories": None,
+                "article_data": None,
+                "ui_selection_source": ui_selection_source,
+                "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+                "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+                "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
+                "intent": intent,
+                "intent_confidence": intent_confidence,
+                "rlhf_top_source_id": rlhf_top_source_id,
+                "rlhf_top_score": rlhf_top_score,
+            }
 
     best = top_k_results[0]
 
     # 5. Clarification gating (intent-aware)
     clarify = False
+    clarify_reason = CLARIFICATION_REASON_NOT_TRIGGERED
     if not is_retry:
-        clarify = needs_clarification(normalized_query, top_k_results, intent, intent_confidence)
+        clarify, clarify_reason = needs_clarification(
+            normalized_query,
+            top_k_results,
+            intent,
+            intent_confidence,
+            is_compound=is_compound,
+        )
 
-    # 6. Gating: >= 0.65 DIRECT_MATCH; 0.45-0.65 use best; < 0.45 + unclear -> clarify; else NO_MATCH
-    if best.score >= THRESHOLD:
+    threshold, clarification_floor = _thresholds_for_language(query_language)
+    # 6. Gating: >= threshold DIRECT_MATCH; clarify below floor; else NO_MATCH
+    if best.score >= threshold:
+        follow_up_intent = compound_secondary_intent if is_compound else None
+        follow_up_prompt = FOLLOW_UP_PROMPT_BY_INTENT.get(follow_up_intent) if follow_up_intent else None
         return {
-            "answer_text": best.article["body"],
+            "answer_text": best.article["answer"],
             "answer_type": "DIRECT_MATCH",
             "confidence": best.score,
+            "confidence_raw": best_raw_score,
             "source_id": best.article["id"],
             "categories": None,
+            "ui_selection_source": ui_selection_source,
+            "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+            "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+            "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
             "article_data": {
-                "title": best.article["title"],
-                "body": best.article["body"],
+                "question": best.article["question"],
+                "answer": best.article["answer"],
                 "category": best.article["category"],
                 "tags": best.article.get("tags", [])
             },
             "intent": intent,
             "intent_confidence": intent_confidence,
+            "rlhf_top_source_id": rlhf_top_source_id,
+            "rlhf_top_score": rlhf_top_score,
+            "is_compound": is_compound,
+            "follow_up_prompt": follow_up_prompt,
+            "follow_up_intent": follow_up_intent,
         }
 
-    if best.score >= CLARIFICATION_FLOOR and clarify:
+    if best.score >= clarification_floor and clarify:
         cats = sorted(list({r.category for r in top_k_results if r.category}))
         if not cats:
             cats = ["General"]
+
+        clarification_options = None
+        try:
+            top_ids = [r.article["id"] for r in top_k_results[:5] if r.article.get("id") is not None]
+            top_assigned_node_ids: set[str] = set()
+            if top_ids:
+                assigned_rows = (
+                    db.query(schema.KBItemTaxonomy.taxonomy_node_id)
+                    .filter(schema.KBItemTaxonomy.kb_item_id.in_(top_ids))
+                    .all()
+                )
+                top_assigned_node_ids = {r[0] for r in assigned_rows if r and r[0]}
+
+            chip_node_ids = _deterministic_clarification_node_ids(
+                intent=intent,
+                inferred_taxonomy_node_ids=inferred_taxonomy_node_ids,
+                top_assigned_node_ids=top_assigned_node_ids,
+            )
+
+            if chip_node_ids:
+                node_rows = (
+                    db.query(schema.TaxonomyNode.id, schema.TaxonomyNode.label)
+                    .filter(schema.TaxonomyNode.id.in_(chip_node_ids))
+                    .all()
+                )
+                label_by_id = {nid: lbl for nid, lbl in node_rows if nid and lbl}
+                opts = []
+                for nid in chip_node_ids:
+                    lbl = label_by_id.get(nid)
+                    if lbl:
+                        opts.append({"id": nid, "label": lbl})
+                if opts:
+                    clarification_options = opts
+        except Exception:
+            clarification_options = None
+
         return {
             "answer_text": "Please clarify.",
             "answer_type": "NEEDS_CLARIFICATION",
             "confidence": best.score,
+            "confidence_raw": best_raw_score,
             "source_id": best.article["id"],
+            "clarification_trigger_reason": clarify_reason,
             "clarification_categories": cats,
+            "clarification_options": clarification_options,
             "categories": cats,
+            "ui_selection_source": ui_selection_source,
+            "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+            "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+            "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
             "article_data": None,
             "intent": intent,
             "intent_confidence": intent_confidence,
+            "rlhf_top_source_id": rlhf_top_source_id,
+            "rlhf_top_score": rlhf_top_score,
+            "is_compound": is_compound,
+            "follow_up_prompt": None,
+            "follow_up_intent": None,
         }
 
     # 0.45-0.65: use best match; < 0.45 or no clarify: fixed fallback
-    if best.score >= CLARIFICATION_FLOOR:
+    if best.score >= clarification_floor:
+        # AC5: sub-threshold direct match (above floor, below threshold, clarification not triggered)
+        logger.info(
+            f"[Filter] fallback=sub_threshold_direct best_score={best.score:.4f} "
+            f"threshold={threshold} floor={clarification_floor}"
+        )
+        follow_up_intent = compound_secondary_intent if is_compound else None
+        follow_up_prompt = FOLLOW_UP_PROMPT_BY_INTENT.get(follow_up_intent) if follow_up_intent else None
         return {
-            "answer_text": best.article["body"],
+            "answer_text": best.article["answer"],
             "answer_type": "DIRECT_MATCH",
             "confidence": best.score,
+            "confidence_raw": best_raw_score,
             "source_id": best.article["id"],
             "categories": None,
+            "ui_selection_source": ui_selection_source,
+            "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+            "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+            "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
             "article_data": {
-                "title": best.article["title"],
-                "body": best.article["body"],
+                "question": best.article["question"],
+                "answer": best.article["answer"],
                 "category": best.article["category"],
                 "tags": best.article.get("tags", [])
             },
             "intent": intent,
             "intent_confidence": intent_confidence,
+            "rlhf_top_source_id": rlhf_top_source_id,
+            "rlhf_top_score": rlhf_top_score,
+            "is_compound": is_compound,
+            "follow_up_prompt": follow_up_prompt,
+            "follow_up_intent": follow_up_intent,
         }
 
+    # AC5: score below clarification floor — true NO_MATCH
+    logger.info(
+        f"[Filter] fallback=no_match best_score={best.score:.4f} "
+        f"threshold={threshold} floor={clarification_floor}"
+    )
     return {
         "answer_text": "I am here to answer questions about registration, food, medical help, sleeping areas, transportation, safety, and other services in this shelter. Please ask about one of these topics or see a volunteer for more help.",
         "answer_type": "NO_MATCH",
         "confidence": best.score,
+        "confidence_raw": best_raw_score,
         "source_id": None,
         "categories": None,
+        "ui_selection_source": ui_selection_source,
+        "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+        "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+        "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
         "article_data": None,
         "intent": intent,
         "intent_confidence": intent_confidence,
+        "rlhf_top_source_id": rlhf_top_source_id,
+        "rlhf_top_score": rlhf_top_score,
+        "is_compound": is_compound,
+        "follow_up_prompt": None,
+        "follow_up_intent": None,
     }

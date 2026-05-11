@@ -2,14 +2,17 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import hubClient from '../api/hubClient';
 import { Save, ArrowLeft, Upload, FileJson, X, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { useModal } from '../components/ModalProvider';
 
 function FAQManager({ isNew }) {
+    const modal = useModal();
     const navigate = useNavigate();
     const { id } = useParams();
     const [formData, setFormData] = useState({
-        title: '', body: '', category: 'General', tags: [], enabled: true, status: 'draft'
+        question: '', answer: '', category: 'General', tags: [], enabled: true, status: 'draft'
     });
     const [loading, setLoading] = useState(false);
+    const [isEvacSync, setIsEvacSync] = useState(false);
 
     // Upload modal state
     const [showUploadModal, setShowUploadModal] = useState(false);
@@ -32,17 +35,18 @@ function FAQManager({ isNew }) {
             const found = res.data.articles.find(a => a.id === parseInt(id));
             if (found) {
                 setFormData({
-                    title: found.title,
-                    body: found.body,
+                    question: found.question,
+                    answer: found.answer,
                     category: found.category,
                     tags: found.tags || [],
                     enabled: found.enabled,
-                    status: found.status
+                    status: found.status || 'draft'
                 });
+                setIsEvacSync(found.source === 'evac_sync');
             }
         } catch (e) {
             console.error(e);
-            alert("Could not load article");
+            await modal.alert("Could not load article");
         }
     };
 
@@ -57,7 +61,7 @@ function FAQManager({ isNew }) {
             }
             navigate('/kb');
         } catch (e) {
-            alert("Save failed");
+            await modal.alert("Save failed");
         } finally {
             setLoading(false);
         }
@@ -125,10 +129,10 @@ function FAQManager({ isNew }) {
                     return;
                 }
 
-                // Validate each has title & body
-                const invalid = articles.filter(a => !a.title || !a.body);
+                // Validate each has question & answer
+                const invalid = articles.filter(a => !a.question || !a.answer);
                 if (invalid.length > 0) {
-                    setUploadError(`${invalid.length} article(s) are missing a title or body.`);
+                    setUploadError(`${invalid.length} article(s) are missing a question or answer.`);
                     setUploadState('error');
                     return;
                 }
@@ -196,7 +200,7 @@ function FAQManager({ isNew }) {
                 <button onClick={() => navigate('/kb')} className="btn btn-sm">
                     <ArrowLeft size={16} />
                 </button>
-                <h1 className="page-title">{isNew ? 'New Article' : 'Edit Article'}</h1>
+                <h1 className="page-title">{isNew ? 'New Article' : (isEvacSync ? 'View Article (Read Only)' : 'Edit Article')}</h1>
 
                 {isNew && (
                     <button
@@ -211,6 +215,11 @@ function FAQManager({ isNew }) {
             </div>
 
             <div className="card" style={{ maxWidth: '42rem' }}>
+                {isEvacSync && (
+                    <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '0.5rem', padding: '0.75rem 1rem', marginBottom: '1rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                        This article is auto-generated from <strong>Shelter Config</strong>. To edit it, go to the Shelter Config page.
+                    </div>
+                )}
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label>Question / Title</label>
@@ -218,8 +227,9 @@ function FAQManager({ isNew }) {
                             required
                             className="input"
                             placeholder="e.g. Where can I get food?"
-                            value={formData.title}
-                            onChange={e => setFormData({ ...formData, title: e.target.value })}
+                            value={formData.question}
+                            onChange={e => setFormData({ ...formData, question: e.target.value })}
+                            disabled={isEvacSync}
                         />
                     </div>
 
@@ -229,8 +239,9 @@ function FAQManager({ isNew }) {
                             required
                             className="textarea"
                             placeholder="Provide a clear, helpful answer..."
-                            value={formData.body}
-                            onChange={e => setFormData({ ...formData, body: e.target.value })}
+                            value={formData.answer}
+                            onChange={e => setFormData({ ...formData, answer: e.target.value })}
+                            disabled={isEvacSync}
                         />
                     </div>
 
@@ -242,6 +253,7 @@ function FAQManager({ isNew }) {
                                 placeholder="e.g. Food, Medical, Safety"
                                 value={formData.category}
                                 onChange={e => setFormData({ ...formData, category: e.target.value })}
+                                disabled={isEvacSync}
                             />
                         </div>
                         <div>
@@ -251,26 +263,44 @@ function FAQManager({ isNew }) {
                                 placeholder="e.g. meals, schedule"
                                 value={formData.tags.join(', ')}
                                 onChange={e => setFormData({ ...formData, tags: e.target.value.split(',').map(s => s.trim()) })}
+                                disabled={isEvacSync}
                             />
                         </div>
                     </div>
 
-                    <div className="checkbox-row" style={{ marginBottom: '1.5rem' }}>
-                        <input
-                            type="checkbox"
-                            checked={formData.enabled}
-                            onChange={e => setFormData({ ...formData, enabled: e.target.checked })}
-                            id="enabled"
-                        />
-                        <label htmlFor="enabled">Enabled</label>
+                    <div className="grid-2" style={{ marginBottom: '1.5rem' }}>
+                        <div>
+                            <label>Status</label>
+                            <select
+                                className="input"
+                                value={formData.status}
+                                onChange={e => setFormData({ ...formData, status: e.target.value })}
+                                disabled={isEvacSync}
+                            >
+                                <option value="draft">Draft</option>
+                                <option value="published">Published</option>
+                            </select>
+                        </div>
+                        <div className="checkbox-row" style={{ marginBottom: 0, alignItems: 'center' }}>
+                            <input
+                                type="checkbox"
+                                checked={formData.enabled}
+                                onChange={e => setFormData({ ...formData, enabled: e.target.checked })}
+                                id="enabled"
+                                disabled={isEvacSync}
+                            />
+                            <label htmlFor="enabled">Enabled</label>
+                        </div>
                     </div>
 
                     <div className="flex justify-end gap-3" style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-                        <button type="button" onClick={() => navigate('/kb')} className="btn">Cancel</button>
-                        <button type="submit" className="btn btn-primary" disabled={loading}>
-                            <Save size={16} />
-                            {loading ? 'Saving...' : 'Save & Publish'}
-                        </button>
+                        <button type="button" onClick={() => navigate('/kb')} className="btn">{isEvacSync ? 'Back' : 'Cancel'}</button>
+                        {!isEvacSync && (
+                            <button type="submit" className="btn btn-primary" disabled={loading}>
+                                <Save size={16} />
+                                {loading ? 'Saving...' : 'Save & Publish'}
+                            </button>
+                        )}
                     </div>
                 </form>
             </div>
@@ -388,8 +418,8 @@ function FAQManager({ isNew }) {
                                         <p className="font-semibold text-sm" style={{ marginBottom: '0.25rem' }}>Expected format:</p>
                                         <pre className="format-preview">{`[
   {
-    "title": "Where do I get food?",
-    "body": "Meals are served at...",
+    "question": "Where do I get food?",
+    "answer": "Meals are served at...",
     "category": "Food",
     "tags": ["meals", "food"],
     "status": "published",
@@ -419,7 +449,7 @@ function FAQManager({ isNew }) {
                                             <div key={i} className="upload-preview-item">
                                                 <span className="upload-preview-num">{i + 1}</span>
                                                 <div>
-                                                    <div className="font-medium text-sm">{art.title}</div>
+                                                    <div className="font-medium text-sm">{art.question}</div>
                                                     <div className="text-xs text-muted">{art.category || 'General'} · {(art.tags || []).length} tags</div>
                                                 </div>
                                             </div>

@@ -38,18 +38,20 @@ def load_embedder() -> SecureEmbedder:
     return _embedder_instance
 
 def get_embeddable_text(article) -> str:
-    """Canonical text used for embedding. Title + tags only.
-    
-    Body is deliberately excluded — long answer text dominates
+    """Canonical text used for embedding. Question + tags only.
+
+    Answer/body is deliberately excluded — long answer text dominates
     the vector and reduces query-to-question similarity.
     """
     tags_str = ""
     try:
-        tags = article.get_tags() if hasattr(article, 'get_tags') else []
-        tags_str = " ".join(tags) if tags else ""
-    except:
+        raw_tags = getattr(article, "tags", "") or ""
+        # tags is now a plain comma-separated string (e.g. "food,schedule")
+        tags_str = " ".join(t.strip() for t in raw_tags.split(",") if t.strip())
+    except Exception:
         pass
-    return f"{article.title} {tags_str}".strip()
+    question = getattr(article, "question", "") or ""
+    return f"{question} {tags_str}".strip()
 
 
 def serialize_embedding(vec: np.ndarray) -> bytes:

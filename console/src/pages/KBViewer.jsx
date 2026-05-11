@@ -1,17 +1,30 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import hubClient from '../api/hubClient';
-import { Plus, Edit, Trash2, Save, X, Upload, FileJson, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, X, Upload, FileJson, CheckCircle, AlertCircle, Loader, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { useModal } from '../components/ModalProvider';
 
 function KBViewer() {
+    const modal = useModal();
     const [articles, setArticles] = useState([]);
     const [filter, setFilter] = useState('all');
     const [search, setSearch] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [selectedArticle, setSelectedArticle] = useState(null);
+    const [sortField, setSortField] = useState('last_updated');
+    const [sortOrder, setSortOrder] = useState('desc');
+    const itemsPerPage = 10;
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    // View (detail) modal state
+    const openViewModal = (article) => setSelectedArticle(article);
+    const closeViewModal = () => setSelectedArticle(null);
 
     // New-article modal state
     const [showNewModal, setShowNewModal] = useState(false);
     const [formData, setFormData] = useState({
-        title: '', body: '', category: 'General', tags: [], enabled: true, status: 'draft'
+        question: '', answer: '', category: 'General', tags: [], enabled: true, status: 'draft'
     });
     const [saving, setSaving] = useState(false);
 
@@ -32,18 +45,41 @@ function KBViewer() {
         try {
             const res = await hubClient.get('/kb/snapshot');
             setArticles(res.data.articles || []);
+
+            // Check if we need to open the edit modal for a specific article
+            if (location.state?.editArticle) {
+                const articleId = location.state.editArticle;
+                // We need to wait for articles to be loaded to find the full data
+                const articleToEdit = res.data.articles?.find(a => a.id === articleId);
+                if (articleToEdit) {
+                    setFormData({
+                        id: articleToEdit.id,
+                        question: articleToEdit.question,
+                        answer: articleToEdit.answer,
+                        category: articleToEdit.category || 'General',
+                        tags: articleToEdit.tags || [],
+                        enabled: articleToEdit.enabled,
+                        status: articleToEdit.status || 'draft'
+                    });
+                    setShowNewModal(true);
+                }
+
+                // Clear the state so it doesn't re-trigger on refresh
+                navigate('.', { replace: true, state: {} });
+            }
         } catch (e) {
             console.error(e);
         }
     };
 
     const handleDelete = async (id) => {
-        if (!confirm("Delete this article?")) return;
+        if (!(await modal.confirm("Delete this article?"))) return;
         try {
             await hubClient.delete(`/admin/article/${id}`);
             loadArticles();
+            await modal.alert("Article deleted successfully.", "Success");
         } catch (e) {
-            alert("Delete failed");
+            await modal.alert("Delete failed");
         }
     };
 
@@ -52,16 +88,76 @@ function KBViewer() {
         if (filter === 'disabled' && a.enabled) return false;
         if (search) {
             const q = search.toLowerCase();
-            return a.title.toLowerCase().includes(q) || a.category.toLowerCase().includes(q);
+            return a.question.toLowerCase().includes(q) || a.category.toLowerCase().includes(q);
         }
         return true;
     });
 
+    const handleSort = (field) => {
+        if (sortField === field) {
+            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortField(field);
+            setSortOrder('asc');
+        }
+    };
+
+    const getSortIcon = (field) => {
+        if (sortField !== field) return <ChevronsUpDown size={14} className="inline ml-1" style={{ opacity: 0.4 }} />;
+        return sortOrder === 'asc' ? <ChevronUp size={14} className="inline ml-1" /> : <ChevronDown size={14} className="inline ml-1" />;
+    };
+
+    const sortedArticles = [...filtered].sort((a, b) => {
+        if (!sortField) return 0;
+        let valA = a[sortField];
+        let valB = b[sortField];
+        
+        if (['question', 'category', 'created_by', 'updated_by'].includes(sortField)) {
+            valA = (valA || '').toLowerCase();
+            valB = (valB || '').toLowerCase();
+        } else if (sortField === 'last_updated') {
+            valA = valA || 0;
+            valB = valB || 0;
+        }
+
+        if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+        if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    const totalPages = Math.ceil(sortedArticles.length / itemsPerPage);
+    const paginatedArticles = sortedArticles.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    const selectedArticleBody =
+        selectedArticle?.answer ||
+        selectedArticle?.content ||
+        selectedArticle?.article ||
+        selectedArticle?.body ||
+        selectedArticle?.response ||
+        '';
+
+    // Reset to page 1 when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [filter, search]);
+
     // ─── New Article Modal ───────────────────────────────────────────────
 
     const resetNewForm = () => {
-        setFormData({ title: '', body: '', category: 'General', tags: [], enabled: true, status: 'draft' });
+        setFormData({ question: '', answer: '', category: 'General', tags: [], enabled: true, status: 'draft' });
         setSaving(false);
+    };
+
+    const openEditModal = (article) => {
+        setFormData({
+            id: article.id,
+            question: article.question,
+            answer: article.answer,
+            category: article.category || 'General',
+            tags: article.tags || [],
+            enabled: article.enabled,
+            status: article.status || 'draft'
+        });
+        setShowNewModal(true);
     };
 
     const openNewModal = () => {
@@ -78,11 +174,17 @@ function KBViewer() {
         e.preventDefault();
         setSaving(true);
         try {
-            await hubClient.post('/admin/article', formData);
+            if (formData.id) {
+                await hubClient.put(`/admin/article/${formData.id}`, formData);
+                await modal.alert("Article updated successfully.", "Success");
+            } else {
+                await hubClient.post('/admin/article', formData);
+                await modal.alert("Article created successfully.", "Success");
+            }
             closeNewModal();
             loadArticles();
         } catch (e) {
-            alert("Save failed");
+            await modal.alert("Save failed");
         } finally {
             setSaving(false);
         }
@@ -143,9 +245,9 @@ function KBViewer() {
                     setUploadState('error');
                     return;
                 }
-                const invalid = arts.filter(a => !a.title || !a.body);
+                const invalid = arts.filter(a => !a.question || !a.answer);
                 if (invalid.length > 0) {
-                    setUploadError(`${invalid.length} article(s) are missing a title or body.`);
+                    setUploadError(`${invalid.length} article(s) are missing a question or answer.`);
                     setUploadState('error');
                     return;
                 }
@@ -240,51 +342,190 @@ function KBViewer() {
                 <table>
                     <thead>
                         <tr>
-                            <th>Question</th>
-                            <th>Category</th>
+                            <th onClick={() => handleSort('question')} style={{ cursor: 'pointer', userSelect: 'none' }}>Question {getSortIcon('question')}</th>
+                            <th onClick={() => handleSort('category')} style={{ cursor: 'pointer', userSelect: 'none' }}>Category {getSortIcon('category')}</th>
                             <th>Status</th>
-                            <th>Last Updated</th>
+                            <th onClick={() => handleSort('created_by')} style={{ cursor: 'pointer', userSelect: 'none' }}>Created By {getSortIcon('created_by')}</th>
+                            <th onClick={() => handleSort('updated_by')} style={{ cursor: 'pointer', userSelect: 'none' }}>Updated By {getSortIcon('updated_by')}</th>
+                            <th onClick={() => handleSort('last_updated')} style={{ cursor: 'pointer', userSelect: 'none' }}>Last Updated {getSortIcon('last_updated')}</th>
                             <th style={{ width: '5rem' }}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {filtered.map(a => (
-                            <tr key={a.id}>
-                                <td style={{ fontWeight: 500 }}>{a.title}</td>
+                        {paginatedArticles.map(a => (
+                            <tr
+                                key={a.id}
+                                onClick={() => openViewModal(a)}
+                                style={{ cursor: 'pointer' }}
+                            >
+                                <td style={{ fontWeight: 500 }}>{a.question}</td>
                                 <td className="text-muted">{a.category}</td>
                                 <td>
-                                    <span className={`badge ${a.enabled ? 'badge-success' : 'badge-warning'}`}>
-                                        {a.enabled ? 'ENABLED' : 'DISABLED'}
+                                    <span className={`badge ${a.status === 'published' ? 'badge-success' : 'badge-warning'}`}>
+                                        {(a.status || 'draft').toUpperCase()}
                                     </span>
                                 </td>
-                                <td className="text-muted text-sm">{new Date(a.updated_at).toLocaleDateString()}</td>
-                                <td>
-                                    <div className="flex gap-1">
-                                        <Link to={`/faq/${a.id}/edit`} className="btn btn-icon" title="Edit">
-                                            <Edit size={15} style={{ color: 'var(--primary)' }} />
-                                        </Link>
-                                        <button onClick={() => handleDelete(a.id)} className="btn btn-icon" title="Delete">
-                                            <Trash2 size={15} style={{ color: 'var(--danger)' }} />
-                                        </button>
-                                    </div>
+                                <td className="text-muted text-sm">{a.created_by || 'System Generated'}</td>
+                                <td className="text-muted text-sm">{a.updated_by || '—'}</td>
+                                <td className="text-muted text-sm">{a.last_updated ? new Date(a.last_updated * 1000).toLocaleString() : '—'}</td>
+                                <td onClick={e => e.stopPropagation()}>
+                                    {a.source === 'evac_sync' ? (
+                                        <span className="badge badge-info" style={{ fontSize: '0.65rem', opacity: 0.7 }} title="Managed via Shelter Config">
+                                            Shelter Config
+                                        </span>
+                                    ) : (
+                                        <div className="flex gap-1">
+                                            <button onClick={(e) => { e.stopPropagation(); openEditModal(a); }} className="btn btn-icon" title="Edit">
+                                                <Edit size={15} style={{ color: 'var(--primary)' }} />
+                                            </button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleDelete(a.id); }} className="btn btn-icon" title="Delete">
+                                                <Trash2 size={15} style={{ color: 'var(--danger)' }} />
+                                            </button>
+                                        </div>
+                                    )}
                                 </td>
                             </tr>
                         ))}
                         {filtered.length === 0 && (
                             <tr>
-                                <td colSpan="5" className="empty-state">No articles found.</td>
+                                <td colSpan="7" className="empty-state">No articles found.</td>
                             </tr>
                         )}
                     </tbody>
                 </table>
             </div>
 
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                    <span className="text-sm text-muted">
+                        Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filtered.length)} of {filtered.length} entries
+                    </span>
+                    <div className="flex gap-2">
+                        <button
+                            className="btn btn-sm"
+                            disabled={currentPage === 1}
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        >
+                            Previous
+                        </button>
+                        <div className="flex items-center px-3 text-sm font-medium bg-[var(--bg-secondary)] rounded-md border border-[var(--border)]">
+                            {currentPage} / {totalPages}
+                        </div>
+                        <button
+                            className="btn btn-sm"
+                            disabled={currentPage === totalPages}
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        >
+                            Next
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* ─── Article Detail (View) Modal ─── */}
+            {selectedArticle && (
+                <div className="modal-overlay" onClick={closeViewModal}>
+                    <div className="modal-content" style={{ maxWidth: '600px', backgroundColor: 'var(--bg-color)', backgroundImage: 'none', backdropFilter: 'none' }} onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2 className="modal-title">Article Details</h2>
+                            <button className="btn-icon" onClick={closeViewModal}><X size={18} /></button>
+                        </div>
+                        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+
+                            {/* Question */}
+                            <div>
+                                <div className="text-sm text-muted" style={{ marginBottom: '0.25rem' }}>Question</div>
+                                <div style={{ fontWeight: 600, fontSize: '1rem' }}>{selectedArticle.question}</div>
+                            </div>
+
+                            {/* Answer */}
+                            <div>
+                                <div className="text-sm text-muted" style={{ marginBottom: '0.25rem' }}>Answer</div>
+                                <div style={{
+                                    background: 'var(--bg-secondary)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '0.5rem',
+                                    padding: '0.75rem 1rem',
+                                    fontSize: '0.9rem',
+                                    lineHeight: 1.6,
+                                    whiteSpace: 'pre-wrap'
+                                }}>{selectedArticle.answer}</div>
+                            </div>
+
+                            {/* Meta row */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                                <div>
+                                    <div className="text-sm text-muted" style={{ marginBottom: '0.25rem' }}>Category</div>
+                                    <div className="text-sm">{selectedArticle.category || 'General'}</div>
+                                </div>
+                                <div>
+                                    <div className="text-sm text-muted" style={{ marginBottom: '0.25rem' }}>Status</div>
+                                    <span className={`badge ${selectedArticle.status === 'published' ? 'badge-success' : 'badge-warning'}`}>
+                                        {(selectedArticle.status || 'draft').toUpperCase()}
+                                    </span>
+                                </div>
+                                <div>
+                                    <div className="text-sm text-muted" style={{ marginBottom: '0.25rem' }}>Enabled</div>
+                                    <div className="text-sm">{selectedArticle.enabled ? 'Yes' : 'No'}</div>
+                                </div>
+                                <div>
+                                    <div className="text-sm text-muted" style={{ marginBottom: '0.25rem' }}>Source</div>
+                                    <div className="text-sm">{selectedArticle.source === 'evac_sync' ? 'Shelter Config' : 'Manual'}</div>
+                                </div>
+                                <div>
+                                    <div className="text-sm text-muted" style={{ marginBottom: '0.25rem' }}>Created By</div>
+                                    <div className="text-sm">{selectedArticle.created_by || 'System Generated'}</div>
+                                </div>
+                                <div>
+                                    <div className="text-sm text-muted" style={{ marginBottom: '0.25rem' }}>Updated By</div>
+                                    <div className="text-sm">{selectedArticle.updated_by || '—'}</div>
+                                </div>
+                                <div>
+                                    <div className="text-sm text-muted" style={{ marginBottom: '0.25rem' }}>Last Updated</div>
+                                    <div className="text-sm">{selectedArticle.last_updated ? new Date(selectedArticle.last_updated * 1000).toLocaleString() : '—'}</div>
+                                </div>
+                                {(selectedArticle.tags || []).length > 0 && (
+                                    <div>
+                                        <div className="text-sm text-muted" style={{ marginBottom: '0.25rem' }}>Tags</div>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                                            {selectedArticle.tags.map((t, i) => (
+                                                <span key={i} style={{
+                                                    background: 'var(--bg-secondary)',
+                                                    border: '1px solid var(--border)',
+                                                    borderRadius: '9999px',
+                                                    padding: '0.1rem 0.6rem',
+                                                    fontSize: '0.75rem'
+                                                }}>{t}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Footer actions */}
+                            <div className="flex justify-end gap-3" style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+                                <button onClick={closeViewModal} className="btn">Close</button>
+                                {selectedArticle.source !== 'evac_sync' && (
+                                    <button
+                                        onClick={() => { closeViewModal(); openEditModal(selectedArticle); }}
+                                        className="btn btn-primary"
+                                    >
+                                        <Edit size={15} /> Edit
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* ─── New Article Modal ─── */}
             {showNewModal && (
-                <div className="modal-overlay" onClick={closeNewModal}>
+                <div className="modal-overlay">
                     <div className="modal-content" style={{ maxWidth: '560px' }} onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h2 className="modal-title">New Article</h2>
+                            <h2 className="modal-title">{formData.id ? 'Edit Article' : 'New Article'}</h2>
                             <button className="btn-icon" onClick={closeNewModal}>
                                 <X size={18} />
                             </button>
@@ -297,8 +538,8 @@ function KBViewer() {
                                         required
                                         className="input"
                                         placeholder="e.g. Where can I get food?"
-                                        value={formData.title}
-                                        onChange={e => setFormData({ ...formData, title: e.target.value })}
+                                        value={formData.question}
+                                        onChange={e => setFormData({ ...formData, question: e.target.value })}
                                     />
                                 </div>
 
@@ -308,8 +549,8 @@ function KBViewer() {
                                         required
                                         className="textarea"
                                         placeholder="Provide a clear, helpful answer..."
-                                        value={formData.body}
-                                        onChange={e => setFormData({ ...formData, body: e.target.value })}
+                                        value={formData.answer}
+                                        onChange={e => setFormData({ ...formData, answer: e.target.value })}
                                     />
                                 </div>
 
@@ -334,14 +575,27 @@ function KBViewer() {
                                     </div>
                                 </div>
 
-                                <div className="checkbox-row" style={{ marginBottom: '1.5rem' }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.enabled}
-                                        onChange={e => setFormData({ ...formData, enabled: e.target.checked })}
-                                        id="enabled"
-                                    />
-                                    <label htmlFor="enabled">Enabled</label>
+                                <div className="grid-2" style={{ marginBottom: '1.5rem' }}>
+                                    <div>
+                                        <label>Status</label>
+                                        <select
+                                            className="input"
+                                            value={formData.status}
+                                            onChange={e => setFormData({ ...formData, status: e.target.value })}
+                                        >
+                                            <option value="draft">Draft</option>
+                                            <option value="published">Published</option>
+                                        </select>
+                                    </div>
+                                    <div className="checkbox-row" style={{ marginBottom: 0, alignItems: 'center' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.enabled}
+                                            onChange={e => setFormData({ ...formData, enabled: e.target.checked })}
+                                            id="enabled"
+                                        />
+                                        <label htmlFor="enabled">Enabled</label>
+                                    </div>
                                 </div>
 
                                 <div className="flex justify-end gap-3" style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
@@ -460,14 +714,14 @@ function KBViewer() {
                                     <div className="upload-format-hint">
                                         <p className="font-semibold text-sm" style={{ marginBottom: '0.25rem' }}>Expected format:</p>
                                         <pre className="format-preview">{`[
-  {
-    "title": "Where do I get food?",
-    "body": "Meals are served at...",
-    "category": "Food",
-    "tags": ["meals", "food"],
-    "status": "published",
-    "enabled": true
-  },
+    {
+      "question": "Where do I get food?",
+      "answer": "Meals are served at...",
+      "category": "Food",
+      "tags": ["meals", "food"],
+      "status": "published",
+      "enabled": true
+    },
   ...
 ]`}</pre>
                                     </div>
@@ -491,7 +745,7 @@ function KBViewer() {
                                             <div key={i} className="upload-preview-item">
                                                 <span className="upload-preview-num">{i + 1}</span>
                                                 <div>
-                                                    <div className="font-medium text-sm">{art.title}</div>
+                                                    <div className="font-medium text-sm">{art.question}</div>
                                                     <div className="text-xs text-muted">{art.category || 'General'} · {(art.tags || []).length} tags</div>
                                                 </div>
                                             </div>
@@ -516,6 +770,7 @@ function KBViewer() {
                     </div>
                 </div>
             )}
+
         </div>
     );
 }

@@ -63,7 +63,6 @@ class MlKitTranslator {
         return when (appCode.lowercase()) {
             "en", "english" -> TranslateLanguage.ENGLISH
             "es", "spanish" -> TranslateLanguage.SPANISH
-            "tl", "tagalog" -> TranslateLanguage.TAGALOG
             "zh", "chinese" -> TranslateLanguage.CHINESE
             else -> null // Unsupported
         }

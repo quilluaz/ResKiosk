@@ -18,7 +18,16 @@ class MemoryStreamHandler(logging.Handler):
             self.logs.append(msg)
             
             # Print to the real stdout so it goes to hub.log
-            print(msg, file=sys.__stdout__, flush=True)
+            try:
+                print(msg, file=sys.__stdout__, flush=True)
+            except Exception:
+                # Fallback for Windows consoles with limited encodings (e.g. cp1252).
+                try:
+                    if hasattr(sys.__stdout__, "buffer"):
+                        sys.__stdout__.buffer.write((msg + "\n").encode("utf-8", "replace"))
+                        sys.__stdout__.buffer.flush()
+                except Exception:
+                    pass
 
             # Notify all connected websockets
             for queue in list(self.listeners):
@@ -61,20 +70,21 @@ class PrintToLogger:
         return False
 
 def setup_log_capture():
-    # Attach to root and uvicorn loggers
     root = logging.getLogger()
     root.setLevel(logging.INFO)
     if stream_handler not in root.handlers:
         root.addHandler(stream_handler)
-    
-    # Uvicorn specific
-    for name in ["uvicorn", "uvicorn.access", "uvicorn.error", "fastapi"]:
-        l = logging.getLogger(name)
-        if stream_handler not in l.handlers:
-            l.addHandler(stream_handler)
 
-    # Capture print() statements
+    # Prevent uvicorn/fastapi child loggers from propagating to root
+    # (which would duplicate every message through the same handler).
+    for name in ["uvicorn", "uvicorn.access", "uvicorn.error", "fastapi"]:
+        child = logging.getLogger(name)
+        child.propagate = False
+        if stream_handler not in child.handlers:
+            child.addHandler(stream_handler)
+
     print_logger = logging.getLogger("stdout")
+    print_logger.propagate = False
     if stream_handler not in print_logger.handlers:
         print_logger.addHandler(stream_handler)
         sys.stdout = PrintToLogger(print_logger, logging.INFO)

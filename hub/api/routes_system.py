@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 import asyncio
 import os
@@ -7,6 +7,9 @@ import subprocess
 from pathlib import Path
 from hub.core.network_manager import network_manager
 from hub.core.logger_stream import stream_handler
+from hub.db.session import get_db
+from hub.db import schema
+from sqlalchemy.orm import Session
 
 router = APIRouter()
 
@@ -61,8 +64,11 @@ def _terminate_ollama_and_children():
 async def health_check():
     return {"status": "ok"}
 
+
+# /system/connectivity disabled (offline-first rollback)
+
 @router.get("/admin/ping")
-async def admin_ping(request: Request):
+async def admin_ping(request: Request, db: Session = Depends(get_db)):
     """
     Lightweight liveness check. Also registers the kiosk via X-Kiosk-ID header.
     Per spec: every kiosk request includes X-Kiosk-ID header so the hub can
@@ -73,7 +79,25 @@ async def admin_ping(request: Request):
         client_ip = request.client.host if request.client else "unknown"
         network_manager.register_heartbeat(kiosk_id, client_ip, "online")
         print(f"[Heartbeat] Kiosk '{kiosk_id}' from {client_ip}")
-    return {"status": "ok", "hub_version": "1.0"}
+    emergency_active_row = db.query(schema.StructuredConfig).filter(
+        schema.StructuredConfig.key == "emergency_mode_active"
+    ).first()
+    emergency_activated_row = db.query(schema.StructuredConfig).filter(
+        schema.StructuredConfig.key == "emergency_mode_activated_at"
+    ).first()
+    emergency_active = False
+    if emergency_active_row and emergency_active_row.value:
+        emergency_active = emergency_active_row.value.strip().lower() in {"1", "true", "yes", "on", "active"}
+    try:
+        emergency_activated_at = int(emergency_activated_row.value) if emergency_activated_row and emergency_activated_row.value else 0
+    except Exception:
+        emergency_activated_at = 0
+    return {
+        "status": "ok",
+        "hub_version": "1.0",
+        "emergency_mode_active": emergency_active,
+        "emergency_mode_activated_at": emergency_activated_at,
+    }
 
 @router.websocket("/ws/logs")
 async def websocket_logs(websocket: WebSocket):
