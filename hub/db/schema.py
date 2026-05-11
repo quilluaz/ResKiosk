@@ -5,7 +5,7 @@ from sqlalchemy import (
 )
 from hub.db.session import Base
 
-
+#make sure remove duplicates
 class QueryLog(Base):
     """Logs every voice query made by kiosks."""
     __tablename__ = "query_logs"
@@ -44,6 +44,26 @@ class QueryLog(Base):
     clarification_trigger_reason = Column(String, nullable=True)   # stable reason code constant
     clarification_options_shown = Column(Text, nullable=True)       # JSON: [{id, label}, ...]
     pipeline_stage_log = Column(Text, nullable=True)               # JSON: ordered list of stage names
+    # Slice 6A Story 1: structured query log schema additions
+    intent_label = Column(String, nullable=True)
+    intent_confidence = Column(Float, nullable=True)
+    clarification_categories_offered = Column(Text, nullable=True)  # JSON array string
+    clarification_node_id_selected = Column(String, nullable=True)
+    # Hybrid retrieval contribution fields (populated by Slice 4 Story 5)
+    lexical_top_k_ids = Column(Text, nullable=True)      # JSON array of article IDs (top-5)
+    lexical_top_k_scores = Column(Text, nullable=True)   # JSON array of BM25 scores
+    lexical_top_k_ranks = Column(Text, nullable=True)    # JSON array of ranks
+    lexical_latency_ms = Column(Float, nullable=True)
+    vector_top_k_ids = Column(Text, nullable=True)       # JSON array of article IDs (top-5)
+    vector_top_k_scores = Column(Text, nullable=True)    # JSON array of cosine scores
+    vector_top_k_ranks = Column(Text, nullable=True)     # JSON array of ranks
+    fusion_strategy = Column(String, nullable=True)      # e.g. "rrf"
+    fusion_top_k_ids = Column(Text, nullable=True)       # JSON array of fused IDs (top-5)
+    fusion_top_k_scores = Column(Text, nullable=True)    # JSON array of fusion scores
+    fusion_top_k_ranks = Column(Text, nullable=True)     # JSON array of ranks
+    # Failure / fallback fields (populated by Slice 6A Story 8)
+    fallback_reason = Column(String, nullable=True)      # no_results|low_confidence|validation_blocked|retrieval_error|rewrite_error
+    failed_stage = Column(String, nullable=True)         # normalize|intent|retrieve|clarification_gate|rewrite|retrieve_retry
     created_at = Column(Integer)  # Unix timestamp
 
 
