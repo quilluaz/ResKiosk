@@ -29,9 +29,6 @@ class TestQueryLogColumns(unittest.TestCase):
         # AC4 — intent
         "intent_label",
         "intent_confidence",
-        # AC5 — clarification metadata
-        "clarification_categories_offered",
-        "clarification_node_id_selected",
         # AC5 — hybrid retrieval contribution (populated by Slice 4 Story 5)
         "lexical_top_k_ids",
         "lexical_top_k_scores",
@@ -105,8 +102,6 @@ class TestQueryLogInstantiation(unittest.TestCase):
             # New fields under test
             intent_label="food",
             intent_confidence=0.87,
-            clarification_categories_offered=json.dumps(["food", "medical"]),
-            clarification_node_id_selected="rk.tax.food",
             lexical_top_k_ids=json.dumps([1, 4, 7, 12, 19]),
             lexical_top_k_scores=json.dumps([0.91, 0.84, 0.77, 0.65, 0.50]),
             lexical_top_k_ranks=json.dumps([1, 2, 3, 4, 5]),
@@ -142,7 +137,6 @@ class TestQueryLogInstantiation(unittest.TestCase):
         # All new fields default to None (nullable)
         self.assertIsNone(entry.intent_label)
         self.assertIsNone(entry.intent_confidence)
-        self.assertIsNone(entry.clarification_categories_offered)
         self.assertIsNone(entry.lexical_top_k_ids)
         self.assertIsNone(entry.fusion_strategy)
         self.assertIsNone(entry.fallback_reason)
@@ -159,8 +153,6 @@ class TestQueryLogMigrations(unittest.TestCase):
     EXPECTED_MIGRATION_KEYS = {
         "intent_label",
         "intent_confidence",
-        "clarification_categories_offered",
-        "clarification_node_id_selected",
         "lexical_top_k_ids",
         "lexical_top_k_scores",
         "lexical_top_k_ranks",

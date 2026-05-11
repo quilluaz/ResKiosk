@@ -45,10 +45,12 @@ class QueryLog(Base):
     clarification_options_shown = Column(Text, nullable=True)       # JSON: [{id, label}, ...]
     pipeline_stage_log = Column(Text, nullable=True)               # JSON: ordered list of stage names
     # Slice 6A Story 1: structured query log schema additions
+    # Note: clarification options/selection are NOT added here — Sprint 2 already
+    # provides `clarification_options_shown` (above) and ClarificationResolution
+    # tracks chip selection via `selected_option_id`. Pre-query taxonomy filter
+    # is captured by the existing `ui_selected_taxonomy_node_id`.
     intent_label = Column(String, nullable=True)
     intent_confidence = Column(Float, nullable=True)
-    clarification_categories_offered = Column(Text, nullable=True)  # JSON array string
-    clarification_node_id_selected = Column(String, nullable=True)
     # Hybrid retrieval contribution fields (populated by Slice 4 Story 5)
     lexical_top_k_ids = Column(Text, nullable=True)      # JSON array of article IDs (top-5)
     lexical_top_k_scores = Column(Text, nullable=True)   # JSON array of BM25 scores

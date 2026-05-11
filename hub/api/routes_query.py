@@ -167,13 +167,6 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                         _clarification_options_shown = json.dumps(opts, ensure_ascii=False)
                 except Exception:
                     pass
-                pause_categories = result.get("categories")
-                pause_categories_json = None
-                try:
-                    if isinstance(pause_categories, list):
-                        pause_categories_json = json.dumps(pause_categories, ensure_ascii=False)
-                except Exception:
-                    pause_categories_json = None
                 log_entry = schema.QueryLog(
                     kiosk_id=query.kiosk_id or "",
                     session_id=query.session_id,
@@ -195,8 +188,6 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                     pipeline_stage_log=json.dumps(pipeline_result.stage_log, ensure_ascii=False),
                     intent_label=pipeline_result.intent,
                     intent_confidence=pipeline_result.intent_confidence,
-                    clarification_categories_offered=pause_categories_json,
-                    clarification_node_id_selected=query.selected_taxonomy_node_id,
                     created_at=int(_time.time()),
                 )
                 db.add(log_entry)
@@ -325,7 +316,6 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                 pipeline_stage_log=json.dumps(pipeline_result.stage_log, ensure_ascii=False),
                 intent_label=pipeline_result.intent,
                 intent_confidence=pipeline_result.intent_confidence,
-                clarification_node_id_selected=query.selected_taxonomy_node_id,
                 created_at=int(_time.time()),
             )
             db.add(log_entry)

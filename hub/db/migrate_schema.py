@@ -70,10 +70,11 @@ def migrate():
             "clarification_options_shown": "ALTER TABLE query_logs ADD COLUMN clarification_options_shown TEXT",
             "pipeline_stage_log": "ALTER TABLE query_logs ADD COLUMN pipeline_stage_log TEXT",
             # Slice 6A Story 1: structured query log schema additions
+            # Clarification options/selection columns are intentionally omitted —
+            # Sprint 2's `clarification_options_shown` and ClarificationResolution
+            # already cover those concerns.
             "intent_label": "ALTER TABLE query_logs ADD COLUMN intent_label TEXT",
             "intent_confidence": "ALTER TABLE query_logs ADD COLUMN intent_confidence REAL",
-            "clarification_categories_offered": "ALTER TABLE query_logs ADD COLUMN clarification_categories_offered TEXT",
-            "clarification_node_id_selected": "ALTER TABLE query_logs ADD COLUMN clarification_node_id_selected TEXT",
             "lexical_top_k_ids": "ALTER TABLE query_logs ADD COLUMN lexical_top_k_ids TEXT",
             "lexical_top_k_scores": "ALTER TABLE query_logs ADD COLUMN lexical_top_k_scores TEXT",
             "lexical_top_k_ranks": "ALTER TABLE query_logs ADD COLUMN lexical_top_k_ranks TEXT",
