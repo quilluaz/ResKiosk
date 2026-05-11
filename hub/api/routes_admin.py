@@ -10,6 +10,13 @@ from hub.models import api_models
 from hub.retrieval.embedder import load_embedder, serialize_embedding, get_embeddable_text
 from hub.retrieval.search import invalidate_corpus_cache, invalidate_shelter_config_cache
 from hub.api.routes_auth import get_optional_user, get_current_user
+from hub.validation.metadata import (
+    load_validation_targets,
+    load_taxonomy_reference,
+    validate_metadata,
+    build_publish_gate_handoff,
+    PUBLISH_STATUS_BLOCKED,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -434,7 +441,40 @@ async def set_emergency_mode(
 
 @router.post("/admin/publish")
 async def publish_kb(db: Session = Depends(get_db)):
-    """Re-generate embeddings for all enabled articles and bump KB version."""
+    """Re-generate embeddings for all enabled articles and bump KB version.
+
+    Runs the metadata validation gate before publishing. Behavior depends on the
+    'kb_publish_gate_policy' structured_config key (default: 'strict'):
+      strict    — block on quarantined items; warn on needs_review; pass otherwise
+      warn_only — always proceed; include validation status in response
+      off       — skip validation entirely
+    """
+    gate_policy = _get_structured_config_value(db, "kb_publish_gate_policy", "strict")
+
+    validation_gate = None
+    if gate_policy != "off":
+        targets = load_validation_targets(db)
+        known_ids, active_ids = load_taxonomy_reference(db)
+        result = validate_metadata(targets, known_ids, active_ids)
+        handoff = build_publish_gate_handoff(result)
+        validation_gate = {
+            "status": handoff.status,
+            "summary_counts": handoff.summary_counts,
+            "failure_reasons": list(handoff.failure_reasons),
+        }
+        if handoff.blocked and gate_policy == "strict":
+            print(
+                f"[Publish] Blocked by validation gate. "
+                f"Quarantined: {handoff.summary_counts.get('quarantined', 0)}"
+            )
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "message": "Publish blocked: quarantined metadata must be resolved before publishing.",
+                    "validation_gate": validation_gate,
+                },
+            )
+
     print("[Publish] Regenerating all embeddings...")
     embedder = load_embedder()
 
@@ -456,7 +496,12 @@ async def publish_kb(db: Session = Depends(get_db)):
     invalidate_corpus_cache()
 
     print(f"[Publish] Done. {count} embedded, {errors} errors.")
-    return {"status": "published", "articles_processed": count, "errors": errors}
+    return {
+        "status": "published",
+        "articles_processed": count,
+        "errors": errors,
+        "validation_gate": validation_gate,
+    }
 
 
 # ─── Bulk Import ─────────────────────────────────────────────────────────────
