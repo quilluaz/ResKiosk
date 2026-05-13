@@ -1,24 +1,10 @@
-"""
-hub/retrieval/lexical.py
-
-Lexical retrieval engine for ResKiosk (Sprint 3 — Slice 4 Stories 1 & 2).
-
-Provides a BM25-based inverted index over KB articles for exact-term matching.
-Complements the existing vector (semantic) retrieval path.
-
-Output format matches Person 5's QueryLog schema:
-  - lexical_top_k_ids:    JSON array of article IDs (top-5)
-  - lexical_top_k_scores: JSON array of BM25 scores
-  - lexical_top_k_ranks:  JSON array of ranks
-  - lexical_latency_ms:   float
-"""
 
 import logging
 import math
 import re
 import time
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Set
 
 from sqlalchemy.orm import Session
 
@@ -54,13 +40,12 @@ def tokenize(text: str) -> List[str]:
     return tokens
 
 
-# ─── BM25 Parameters ─────────────────────────────────────────────────────────
-
-BM25_K1 = 1.5    # term frequency saturation
-BM25_B = 0.75    # document length normalization
 
 
-# ─── Lexical Index ────────────────────────────────────────────────────────────
+BM25_K1 = 1.5    
+BM25_B = 0.75    
+
+
 
 @dataclass
 class _DocEntry:
@@ -245,13 +230,16 @@ def lexical_search(
     query: str,
     db: Session,
     top_k: int = 5,
+    exclude_ids: Optional[Set[int]] = None,
 ) -> LexicalSearchOutput:
     """Run BM25-like lexical retrieval against the KB.
 
     Args:
-        query:  The normalized query string.
-        db:     SQLAlchemy session (for lazy index build).
-        top_k:  Number of top candidates to return.
+        query:       The normalized query string.
+        db:          SQLAlchemy session (for lazy index build).
+        top_k:       Number of top candidates to return.
+        exclude_ids: Optional set of article IDs to exclude from results
+                     (e.g., quarantined, rejected, or filtered by Person 2).
 
     Returns:
         LexicalSearchOutput with ranked results and latency.
@@ -274,6 +262,11 @@ def lexical_search(
 
     # Score all documents
     raw_scores = idx.score(query_tokens)
+
+    # Apply exclusion filter (Person 2: quarantined, rejected, filter policy)
+    if exclude_ids:
+        raw_scores = {aid: s for aid, s in raw_scores.items() if aid not in exclude_ids}
+
     if not raw_scores:
         latency = (time.time() - t0) * 1000
         logger.info(f"[LexicalSearch] query='{query}' candidates=0 latency_ms={latency:.1f}")
