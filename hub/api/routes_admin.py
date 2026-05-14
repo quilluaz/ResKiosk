@@ -9,6 +9,7 @@ from hub.db import schema
 from hub.models import api_models
 from hub.retrieval.embedder import load_embedder, serialize_embedding, get_embeddable_text
 from hub.retrieval.search import invalidate_corpus_cache, invalidate_shelter_config_cache
+from hub.retrieval.lexical import invalidate_lexical_index
 from hub.api.routes_auth import get_optional_user, get_current_user
 from hub.validation.metadata import (
     load_validation_targets,
@@ -181,6 +182,7 @@ def _embed_article(db: Session, article: schema.KBArticle):
         db.add(article)
         db.commit()
         invalidate_corpus_cache()
+        invalidate_lexical_index()
         print(f"[Embedder] Article {article.id} embedded: '{text[:80]}'")
     except Exception as e:
         print(f"[Embedder] WARNING: Failed to embed article {article.id}: {e}")
@@ -290,6 +292,7 @@ async def delete_article(id: int, db: Session = Depends(get_db)):
     _increment_kb_version(db)
     db.commit()
     invalidate_corpus_cache()
+    invalidate_lexical_index()
     invalidate_shelter_config_cache()
 
 
@@ -342,6 +345,7 @@ async def update_evac_info(
         logger.info("[Freshness] Shelter config auto-published by %s", actor)
     sv = db.query(schema.SystemVersion).first()
     invalidate_corpus_cache()
+    invalidate_lexical_index()
     invalidate_shelter_config_cache()
 
     return api_models.EvacInfoUpdateResponse(
@@ -494,6 +498,7 @@ async def publish_kb(db: Session = Depends(get_db)):
     _increment_kb_version(db)
     db.commit()
     invalidate_corpus_cache()
+    invalidate_lexical_index()
 
     print(f"[Publish] Done. {count} embedded, {errors} errors.")
     return {
@@ -567,6 +572,7 @@ async def import_articles(
         _increment_kb_version(db)
         db.commit()
         invalidate_corpus_cache()
+        invalidate_lexical_index()
 
     print(f"[Import] Done. {imported} imported, {skipped} skipped, {len(errors_list)} errors.")
     return {
