@@ -15,6 +15,37 @@ import retrofit2.http.POST
 import retrofit2.http.Part
 import java.util.concurrent.TimeUnit
 
+// --- Taxonomy-backed clarification models (Slice 2 — Person 2 contract) ---
+
+/**
+ * A single taxonomy-backed clarification chip option.
+ * Each chip has a stable taxonomy node ID and a human-readable display label.
+ * The kiosk renders these as tappable buttons; when the user selects one,
+ * the ID is sent back via `selected_taxonomy_node_id` in the retry request.
+ */
+data class TaxonomyOption(
+    @SerializedName("id") val id: String,
+    @SerializedName("label") val label: String
+)
+
+/**
+ * Full clarification pause context from the hub pipeline.
+ * Populated only when answer_type == "NEEDS_CLARIFICATION".
+ * Contains all fields the kiosk needs to display clarification options
+ * and resume the query after the user selects a category.
+ */
+data class ClarificationContext(
+    @SerializedName("original_query") val originalQuery: String?,
+    @SerializedName("normalized_text") val normalizedText: String?,
+    @SerializedName("detected_intent") val detectedIntent: String?,
+    @SerializedName("intent_confidence") val intentConfidence: Float?,
+    @SerializedName("suggested_categories") val suggestedCategories: List<String>?,
+    @SerializedName("clarification_options") val clarificationOptions: List<TaxonomyOption>?,
+    @SerializedName("kb_version") val kbVersion: Int?,
+    @SerializedName("session_id") val sessionId: String?,
+    @SerializedName("pipeline_status") val pipelineStatus: String?
+)
+
 // --- Response model ---
 
 data class HubQueryResponse(
@@ -22,6 +53,8 @@ data class HubQueryResponse(
     @SerializedName("answer_text_localized") val answerTextLocalized: String?,
     @SerializedName("answer_type") val answerType: String?,
     @SerializedName("clarification_categories") val clarificationCategories: List<String>?,
+    @SerializedName("clarification_options") val clarificationOptions: List<TaxonomyOption>?,
+    @SerializedName("clarification_context") val clarificationContext: ClarificationContext?,
     @SerializedName("source_id") val sourceId: Int?,
     @SerializedName("query_log_id") val queryLogId: Int?,
     @SerializedName("rlhf_top_source_id") val rlhfTopSourceId: Int?,

@@ -64,6 +64,30 @@ def migrate():
             "inferred_taxonomy_node_ids": "ALTER TABLE query_logs ADD COLUMN inferred_taxonomy_node_ids TEXT",
             "widening_step": "ALTER TABLE query_logs ADD COLUMN widening_step TEXT",
             "widening_reason": "ALTER TABLE query_logs ADD COLUMN widening_reason TEXT",
+            # Goal 6 / Story 6 — clarification lifecycle logging
+            "clarification_triggered": "ALTER TABLE query_logs ADD COLUMN clarification_triggered INTEGER",
+            "clarification_trigger_reason": "ALTER TABLE query_logs ADD COLUMN clarification_trigger_reason TEXT",
+            "clarification_options_shown": "ALTER TABLE query_logs ADD COLUMN clarification_options_shown TEXT",
+            "pipeline_stage_log": "ALTER TABLE query_logs ADD COLUMN pipeline_stage_log TEXT",
+            # Slice 6A Story 1: structured query log schema additions
+            # Clarification options/selection columns are intentionally omitted —
+            # Sprint 2's `clarification_options_shown` and ClarificationResolution
+            # already cover those concerns.
+            "intent_label": "ALTER TABLE query_logs ADD COLUMN intent_label TEXT",
+            "intent_confidence": "ALTER TABLE query_logs ADD COLUMN intent_confidence REAL",
+            "lexical_top_k_ids": "ALTER TABLE query_logs ADD COLUMN lexical_top_k_ids TEXT",
+            "lexical_top_k_scores": "ALTER TABLE query_logs ADD COLUMN lexical_top_k_scores TEXT",
+            "lexical_top_k_ranks": "ALTER TABLE query_logs ADD COLUMN lexical_top_k_ranks TEXT",
+            "lexical_latency_ms": "ALTER TABLE query_logs ADD COLUMN lexical_latency_ms REAL",
+            "vector_top_k_ids": "ALTER TABLE query_logs ADD COLUMN vector_top_k_ids TEXT",
+            "vector_top_k_scores": "ALTER TABLE query_logs ADD COLUMN vector_top_k_scores TEXT",
+            "vector_top_k_ranks": "ALTER TABLE query_logs ADD COLUMN vector_top_k_ranks TEXT",
+            "fusion_strategy": "ALTER TABLE query_logs ADD COLUMN fusion_strategy TEXT",
+            "fusion_top_k_ids": "ALTER TABLE query_logs ADD COLUMN fusion_top_k_ids TEXT",
+            "fusion_top_k_scores": "ALTER TABLE query_logs ADD COLUMN fusion_top_k_scores TEXT",
+            "fusion_top_k_ranks": "ALTER TABLE query_logs ADD COLUMN fusion_top_k_ranks TEXT",
+            "fallback_reason": "ALTER TABLE query_logs ADD COLUMN fallback_reason TEXT",
+            "failed_stage": "ALTER TABLE query_logs ADD COLUMN failed_stage TEXT",
         }
         for col, sql in ql_migrations.items():
             if col not in cols:
@@ -136,6 +160,22 @@ def migrate():
         print("[Migration] Added evac_info.food_distribution_location")
         migrated += 1
 
+    # ── clarification_resolutions ─────────────────────────────────────
+    cols = _get_existing_columns(cursor, "clarification_resolutions")
+    if cols:
+        cr_migrations = {
+            # Story 5 (Slice 2): persist full chip selection so resolutions are
+            # joinable to query_logs and readable without a taxonomy lookup.
+            "selected_option_id":    "ALTER TABLE clarification_resolutions ADD COLUMN selected_option_id TEXT",
+            "selected_option_label": "ALTER TABLE clarification_resolutions ADD COLUMN selected_option_label TEXT",
+            "query_log_id":          "ALTER TABLE clarification_resolutions ADD COLUMN query_log_id INTEGER",
+        }
+        for col, sql in cr_migrations.items():
+            if col not in cols:
+                cursor.execute(sql)
+                print(f"[Migration] Added clarification_resolutions.{col}")
+                migrated += 1
+
     # ── faq_tracker (new table) ────────────────────────────────────────
     # Drop and recreate if schema changed (safe: FAQ data is transient analytics)
     cursor.execute("DROP TABLE IF EXISTS faq_tracker")
@@ -156,6 +196,79 @@ def migrate():
         )
     """)
     cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_faq_source ON faq_tracker(source_id)")
+
+    # ── Goal 8 / Slice 3 Story 2 — metadata validation storage (new tables) ──
+    # New tables use CREATE TABLE IF NOT EXISTS so they are idempotent on any
+    # existing DB without needing column introspection.
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS kb_publish_attempts (
+            id                INTEGER PRIMARY KEY AUTOINCREMENT,
+            kb_version        INTEGER NOT NULL,
+            status            TEXT NOT NULL,
+            total_items       INTEGER,
+            approved_count    INTEGER,
+            quarantined_count INTEGER,
+            rejected_count    INTEGER,
+            attempted_by      TEXT,
+            attempted_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS kb_item_validation_status (
+            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            kb_item_id         INTEGER NOT NULL,
+            publish_attempt_id INTEGER,
+            kb_version         INTEGER NOT NULL,
+            status             TEXT NOT NULL,
+            created_at         DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at         DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_kivs_item ON kb_item_validation_status(kb_item_id)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_kivs_attempt ON kb_item_validation_status(publish_attempt_id)"
+    )
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS kb_validation_results (
+            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            kb_item_id         INTEGER NOT NULL,
+            publish_attempt_id INTEGER,
+            kb_version         INTEGER NOT NULL,
+            rule_id            TEXT NOT NULL,
+            severity           TEXT NOT NULL,
+            message            TEXT,
+            passed             INTEGER NOT NULL,
+            checked_at         DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_kvr_item ON kb_validation_results(kb_item_id)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_kvr_attempt ON kb_validation_results(publish_attempt_id)"
+    )
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS kb_review_decisions (
+            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            kb_item_id         INTEGER NOT NULL,
+            publish_attempt_id INTEGER,
+            kb_version         INTEGER NOT NULL,
+            reviewer_id        TEXT NOT NULL,
+            decision           TEXT NOT NULL,
+            reason_code        TEXT,
+            notes              TEXT,
+            decided_at         DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_krd_item ON kb_review_decisions(kb_item_id)"
+    )
 
     conn.commit()
     conn.close()

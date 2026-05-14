@@ -115,6 +115,18 @@ class KBVersionResponse(BaseModel):
 # ─── Query ───────────────────────────────────────────────────────────────────
 
 
+class TaxonomyOption(BaseModel):
+    """A single taxonomy-backed clarification chip.
+
+    Each chip has a stable ID (from the taxonomy DAG) and a human-readable
+    display label.  The kiosk renders these as tappable buttons; when the
+    user selects one, the ID is sent back via `selected_taxonomy_node_id`
+    in the retry request.
+    """
+    id: str      # stable taxonomy node ID (e.g. "rk.tax.health_medical.medical_services")
+    label: str   # human-readable display label (e.g. "Medical Services")
+
+
 class ClarificationContext(BaseModel):
     """Context included when the pipeline is paused for clarification.
 
@@ -125,7 +137,8 @@ class ClarificationContext(BaseModel):
     normalized_text: str                       # post-normalization text
     detected_intent: str                       # intent classifier result
     intent_confidence: float                   # intent classifier confidence
-    suggested_categories: List[str]            # category chips for the kiosk UI
+    suggested_categories: List[str]            # legacy category chips (backward compat)
+    clarification_options: Optional[List[TaxonomyOption]] = None  # taxonomy-backed chips
     kb_version: int                            # KB version at time of pause
     session_id: Optional[str] = None           # session for resumption
     pipeline_status: str = "paused"            # always "paused" for clarification
@@ -149,6 +162,10 @@ class QueryRequest(BaseModel):
     cloud_consent_mode: Optional[str] = None  # operator|session|disabled
     follow_up_token: Optional[str] = None
 
+
+class TaxonomyOption(BaseModel):
+    id: str
+    label: str
 
 
 class QueryResponse(BaseModel):
@@ -373,6 +390,72 @@ class FaqSuggestionItem(BaseModel):
     source_id: int
     question: str
     count: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ─── Goal 8 / Slice 3 Story 2 — Metadata validation storage ─────────────────
+
+class KBPublishAttemptResponse(BaseModel):
+    id: int
+    kb_version: int
+    status: str                        # pass|blocked|partial
+    total_items: Optional[int] = None
+    approved_count: Optional[int] = None
+    quarantined_count: Optional[int] = None
+    rejected_count: Optional[int] = None
+    attempted_by: Optional[str] = None
+    attempted_at: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class KBItemValidationStatusResponse(BaseModel):
+    id: int
+    kb_item_id: int
+    publish_attempt_id: Optional[int] = None
+    kb_version: int
+    status: str                        # approved|quarantined|needs_review|rejected
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class KBValidationResultResponse(BaseModel):
+    id: int
+    kb_item_id: int
+    publish_attempt_id: Optional[int] = None
+    kb_version: int
+    rule_id: str
+    severity: str                      # error|warning|info
+    message: Optional[str] = None
+    passed: bool
+    checked_at: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class KBReviewDecisionCreate(BaseModel):
+    """Payload for a human reviewer submitting a decision."""
+    kb_item_id: int
+    publish_attempt_id: Optional[int] = None
+    kb_version: int
+    decision: str                      # approved|rejected|override
+    reason_code: Optional[str] = None  # content_correct|rule_false_positive|safety_risk|…
+    notes: Optional[str] = None
+
+
+class KBReviewDecisionResponse(BaseModel):
+    id: int
+    kb_item_id: int
+    publish_attempt_id: Optional[int] = None
+    kb_version: int
+    reviewer_id: str
+    decision: str
+    reason_code: Optional[str] = None
+    notes: Optional[str] = None
+    decided_at: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
