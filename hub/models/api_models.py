@@ -115,6 +115,18 @@ class KBVersionResponse(BaseModel):
 # ─── Query ───────────────────────────────────────────────────────────────────
 
 
+class TaxonomyOption(BaseModel):
+    """A single taxonomy-backed clarification chip.
+
+    Each chip has a stable ID (from the taxonomy DAG) and a human-readable
+    display label.  The kiosk renders these as tappable buttons; when the
+    user selects one, the ID is sent back via `selected_taxonomy_node_id`
+    in the retry request.
+    """
+    id: str      # stable taxonomy node ID (e.g. "rk.tax.health_medical.medical_services")
+    label: str   # human-readable display label (e.g. "Medical Services")
+
+
 class ClarificationContext(BaseModel):
     """Context included when the pipeline is paused for clarification.
 
@@ -125,7 +137,8 @@ class ClarificationContext(BaseModel):
     normalized_text: str                       # post-normalization text
     detected_intent: str                       # intent classifier result
     intent_confidence: float                   # intent classifier confidence
-    suggested_categories: List[str]            # category chips for the kiosk UI
+    suggested_categories: List[str]            # legacy category chips (backward compat)
+    clarification_options: Optional[List[TaxonomyOption]] = None  # taxonomy-backed chips
     kb_version: int                            # KB version at time of pause
     session_id: Optional[str] = None           # session for resumption
     pipeline_status: str = "paused"            # always "paused" for clarification
@@ -149,6 +162,10 @@ class QueryRequest(BaseModel):
     cloud_consent_mode: Optional[str] = None  # operator|session|disabled
     follow_up_token: Optional[str] = None
 
+
+class TaxonomyOption(BaseModel):
+    id: str
+    label: str
 
 
 class QueryResponse(BaseModel):

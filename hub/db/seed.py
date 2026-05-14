@@ -397,3 +397,6 @@ def _enrich_multilingual_tags(db: Session):
 
     db.commit()
     invalidate_corpus_cache()
+
+    from hub.retrieval.lexical import invalidate_lexical_index
+    invalidate_lexical_index()

@@ -121,12 +121,26 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
         # This skips LLM formatting and outbound translation (wasted work
         # for a response that just shows category chips on the kiosk).
         if pipeline_result.pipeline_status == "paused":
+            # Build typed taxonomy-backed chip options from the raw dicts
+            # returned by search.py's _deterministic_clarification_node_ids().
+            raw_opts = result.get("clarification_options") or []
+            taxonomy_options = None
+            if raw_opts:
+                taxonomy_options = [
+                    api_models.TaxonomyOption(id=opt["id"], label=opt["label"])
+                    for opt in raw_opts
+                    if isinstance(opt, dict) and opt.get("id") and opt.get("label")
+                ]
+                if not taxonomy_options:
+                    taxonomy_options = None
+
             clarification_ctx = api_models.ClarificationContext(
                 original_query=raw_text,
                 normalized_text=pipeline_result.normalized_text,
                 detected_intent=pipeline_result.intent,
                 intent_confidence=pipeline_result.intent_confidence,
                 suggested_categories=result.get("categories") or [],
+                clarification_options=taxonomy_options,
                 kb_version=query.kb_version,
                 session_id=query.session_id,
                 pipeline_status="paused",
@@ -138,6 +152,7 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                 f"[Query] PAUSED for clarification | intent={pipeline_result.intent} "
                 f"confidence={pipeline_result.intent_confidence:.4f} "
                 f"categories={clarification_ctx.suggested_categories} "
+                f"options={len(taxonomy_options) if taxonomy_options else 0} "
                 f"session={query.session_id}"
             )
 
@@ -171,6 +186,8 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                     clarification_trigger_reason=pipeline_result.clarification_trigger_reason,
                     clarification_options_shown=_clarification_options_shown,
                     pipeline_stage_log=json.dumps(pipeline_result.stage_log, ensure_ascii=False),
+                    intent_label=pipeline_result.intent,
+                    intent_confidence=pipeline_result.intent_confidence,
                     created_at=int(_time.time()),
                 )
                 db.add(log_entry)
@@ -188,6 +205,7 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                 kb_version=query.kb_version,
                 source_id=result.get("source_id"),
                 clarification_categories=result.get("categories"),
+                clarification_options=taxonomy_options,
                 query_log_id=pause_log_id,
                 clarification_context=clarification_ctx,
             )
@@ -296,6 +314,8 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                 clarification_trigger_reason=pipeline_result.clarification_trigger_reason,
                 clarification_options_shown=None,  # not triggered; no options were shown
                 pipeline_stage_log=json.dumps(pipeline_result.stage_log, ensure_ascii=False),
+                intent_label=pipeline_result.intent,
+                intent_confidence=pipeline_result.intent_confidence,
                 created_at=int(_time.time()),
             )
             db.add(log_entry)

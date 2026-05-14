@@ -69,6 +69,25 @@ def migrate():
             "clarification_trigger_reason": "ALTER TABLE query_logs ADD COLUMN clarification_trigger_reason TEXT",
             "clarification_options_shown": "ALTER TABLE query_logs ADD COLUMN clarification_options_shown TEXT",
             "pipeline_stage_log": "ALTER TABLE query_logs ADD COLUMN pipeline_stage_log TEXT",
+            # Slice 6A Story 1: structured query log schema additions
+            # Clarification options/selection columns are intentionally omitted —
+            # Sprint 2's `clarification_options_shown` and ClarificationResolution
+            # already cover those concerns.
+            "intent_label": "ALTER TABLE query_logs ADD COLUMN intent_label TEXT",
+            "intent_confidence": "ALTER TABLE query_logs ADD COLUMN intent_confidence REAL",
+            "lexical_top_k_ids": "ALTER TABLE query_logs ADD COLUMN lexical_top_k_ids TEXT",
+            "lexical_top_k_scores": "ALTER TABLE query_logs ADD COLUMN lexical_top_k_scores TEXT",
+            "lexical_top_k_ranks": "ALTER TABLE query_logs ADD COLUMN lexical_top_k_ranks TEXT",
+            "lexical_latency_ms": "ALTER TABLE query_logs ADD COLUMN lexical_latency_ms REAL",
+            "vector_top_k_ids": "ALTER TABLE query_logs ADD COLUMN vector_top_k_ids TEXT",
+            "vector_top_k_scores": "ALTER TABLE query_logs ADD COLUMN vector_top_k_scores TEXT",
+            "vector_top_k_ranks": "ALTER TABLE query_logs ADD COLUMN vector_top_k_ranks TEXT",
+            "fusion_strategy": "ALTER TABLE query_logs ADD COLUMN fusion_strategy TEXT",
+            "fusion_top_k_ids": "ALTER TABLE query_logs ADD COLUMN fusion_top_k_ids TEXT",
+            "fusion_top_k_scores": "ALTER TABLE query_logs ADD COLUMN fusion_top_k_scores TEXT",
+            "fusion_top_k_ranks": "ALTER TABLE query_logs ADD COLUMN fusion_top_k_ranks TEXT",
+            "fallback_reason": "ALTER TABLE query_logs ADD COLUMN fallback_reason TEXT",
+            "failed_stage": "ALTER TABLE query_logs ADD COLUMN failed_stage TEXT",
         }
         for col, sql in ql_migrations.items():
             if col not in cols:

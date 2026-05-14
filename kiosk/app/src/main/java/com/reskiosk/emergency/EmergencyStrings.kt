@@ -82,7 +82,11 @@ object EmergencyStrings {
         "err_connection_timeout" to "Connection timed out. Please try again.",
         "err_generic" to "Something went wrong. Please try again.",
         "err_system" to "A system error occurred. Please try again.",
-        "ja_tts_missing" to "Japanese voice package is missing. Please install Japanese Text-to-Speech voice data."
+        "ja_tts_missing" to "Japanese voice package is missing. Please install Japanese Text-to-Speech voice data.",
+        "say_that_differently" to "Say that differently",
+        "rephrase_prompt" to "Could you try saying that a different way?",
+        "clarification_no_options" to "I couldn't determine what to ask. Please try rephrasing your question.",
+        "searching" to "Searching..."
     )
 
     private val es = en + mapOf(
@@ -121,7 +125,10 @@ object EmergencyStrings {
         "sos_hold_button" to "Mantener para enviar SOS",
         "cancel_button" to "Cancelar",
         "err_system" to "Se produjo un error del sistema. Intentalo de nuevo.",
-        "ja_tts_missing" to "Falta el paquete de voz japonesa. Instala los datos de voz de texto a voz en japones."
+        "ja_tts_missing" to "Falta el paquete de voz japonesa. Instala los datos de voz de texto a voz en japones.",
+        "say_that_differently" to "Dilo de otra forma",
+        "rephrase_prompt" to "Puedes intentar decirlo de otra manera?",
+        "clarification_no_options" to "No pude determinar que preguntar. Intenta reformular tu pregunta."
     )
 
     private val de = en + mapOf(
@@ -212,7 +219,10 @@ object EmergencyStrings {
         "err_hub_unreachable" to "ハブに接続できません。Wi-Fi接続を確認してください。",
         "err_hub_timeout" to "ハブの応答に時間がかかっています。もう一度お試しください。",
         "err_connection_timeout" to "接続がタイムアウトしました。もう一度お試しください。",
-        "err_generic" to "問題が発生しました。もう一度お試しください。"
+        "err_generic" to "問題が発生しました。もう一度お試しください。",
+        "say_that_differently" to "別の言い方をする",
+        "rephrase_prompt" to "別の言い方で聞いてみてください。",
+        "clarification_no_options" to "質問の内容を特定できませんでした。質問を言い換えてください。"
     )
 
     private val strings = mapOf(
