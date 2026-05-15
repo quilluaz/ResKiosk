@@ -188,6 +188,10 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                     pipeline_stage_log=json.dumps(pipeline_result.stage_log, ensure_ascii=False),
                     intent_label=pipeline_result.intent,
                     intent_confidence=pipeline_result.intent_confidence,
+                    bias_enabled=result.get("bias_enabled"),
+                    bias_applied_count=result.get("bias_applied_count"),
+                    bias_top1_changed=result.get("bias_top1_changed"),
+                    bias_detail=json.dumps(result.get("bias_detail") or [], ensure_ascii=False),
                     created_at=int(_time.time()),
                 )
                 db.add(log_entry)
@@ -316,6 +320,10 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                 pipeline_stage_log=json.dumps(pipeline_result.stage_log, ensure_ascii=False),
                 intent_label=pipeline_result.intent,
                 intent_confidence=pipeline_result.intent_confidence,
+                bias_enabled=result.get("bias_enabled"),
+                bias_applied_count=result.get("bias_applied_count"),
+                bias_top1_changed=result.get("bias_top1_changed"),
+                bias_detail=json.dumps(result.get("bias_detail") or [], ensure_ascii=False),
                 created_at=int(_time.time()),
             )
             db.add(log_entry)
