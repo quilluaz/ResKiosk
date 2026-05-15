@@ -127,8 +127,8 @@ class QueryPipeline:
                 db,
                 normalized,
                 is_retry,
-                selected_category,
-                exclude_source_ids,
+                selected_category=selected_category,
+                exclude_source_ids=exclude_source_ids,
                 query_language=query_language,
             )
         except Exception as e:
@@ -186,8 +186,8 @@ class QueryPipeline:
                     db,
                     candidate,
                     False,
-                    None,
-                    exclude_source_ids,
+                    selected_category=None,
+                    exclude_source_ids=exclude_source_ids,
                     query_language=query_language,
                 )
                 logger.info(

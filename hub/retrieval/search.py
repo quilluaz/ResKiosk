@@ -9,6 +9,8 @@ from typing import List, Optional
 from hub.db import schema
 from hub.retrieval.embedder import load_embedder, deserialize_embedding
 from hub.retrieval import filter_policy
+from hub.retrieval.fusion import HYBRID_TOP_K, RankedCandidate, rrf_fuse
+from hub.retrieval.lexical import lexical_search
 from hub.retrieval.normalizer import normalize_query
 from hub.retrieval import inventory as inventory_module
 from sentence_transformers import util
@@ -207,10 +209,22 @@ def set_intent_classifier(classifier) -> None:
 
 class RetrievalResult:
     """Holds a cached article dict and its similarity score."""
-    def __init__(self, article_dict: dict, score: float):
+    def __init__(
+        self,
+        article_dict: dict,
+        score: float,
+        vector_rank: Optional[int] = None,
+        lexical_rank: Optional[int] = None,
+        fusion_score: Optional[float] = None,
+        confidence_source: str = "vector",
+    ):
         self.article = article_dict  # plain dict, not ORM object
         self.score = score
         self.category = article_dict.get("category")
+        self.vector_rank = vector_rank
+        self.lexical_rank = lexical_rank
+        self.fusion_score = fusion_score
+        self.confidence_source = confidence_source
 
 
 CLARIFICATION_REASON_UNCLEAR_LOW_SCORE = "unclear_low_score"
@@ -808,38 +822,163 @@ def retrieve(
             rlhf_top_source_id = raw_top1_id
             rlhf_top_score = float(raw_scores[int(np.argmax(raw_scores))])
 
-    # AC6: deterministic sort — primary key is score descending, tie-break is
-    # article_id ascending so ranking is reproducible for a fixed bias state.
-    indexed = sorted(
-        enumerate(scores),
-        key=lambda x: (-x[1], article_ids[x[0]]),
-    )
-    top_indices = [idx for idx, _ in indexed[:5]]
+    threshold, clarification_floor = _thresholds_for_language(query_language)
+    best_raw_score = float(raw_scores[int(np.argmax(raw_scores))]) if len(raw_scores) > 0 else 0.0
 
-    # Trim bias detail to top-k article IDs only (bounded log size).
+    exclude_set = set(exclude_source_ids or [])
+    # AC6: deterministic sort — score descending, tie-break article_id ascending.
+    ranked_indices = [
+        idx
+        for idx, _ in sorted(
+            enumerate(scores),
+            key=lambda x: (-float(x[1]), article_ids[x[0]]),
+        )
+    ]
+    pre_filter_top_ids = [corpus["articles"][idx]["id"] for idx in ranked_indices[:HYBRID_TOP_K]]
+    top_indices = [
+        idx
+        for idx in ranked_indices
+        if corpus["articles"][idx]["id"] not in exclude_set
+    ][:HYBRID_TOP_K]
+
+    if exclude_set:
+        post_filter_top_ids = [corpus["articles"][idx]["id"] for idx in top_indices]
+        logger.info(
+            f"[Filter] rule=exclude_ids before={len(pre_filter_top_ids)} after={len(post_filter_top_ids)} "
+            f"removed={len(set(pre_filter_top_ids) & exclude_set)} excluded_ids={list(exclude_set)}"
+        )
+
     top_k_ids_ordered = [article_ids[i] for i in top_indices]
     bias_detail = [_bias_detail_map[aid] for aid in top_k_ids_ordered if aid in _bias_detail_map]
-    top_k_results = []
-    for idx in top_indices:
+
+    vector_top_k_results = []
+    vector_candidates = []
+    for rank, idx in enumerate(top_indices, start=1):
         art_dict = corpus["articles"][idx]
         score = float(scores[idx])
-        top_k_results.append(RetrievalResult(art_dict, score))
+        vector_top_k_results.append(RetrievalResult(art_dict, score, vector_rank=rank))
+        vector_candidates.append(RankedCandidate(article_id=art_dict["id"], score=score, rank=rank))
+
+    lexical_results = []
+    lexical_latency_ms = 0.0
+    try:
+        lexical_output = lexical_search(
+            normalized_query,
+            db,
+            top_k=HYBRID_TOP_K,
+            exclude_ids=set(policy_excluded_ids),
+        )
+        lexical_results = lexical_output.results
+        lexical_latency_ms = float(lexical_output.latency_ms)
+    except Exception:
+        logger.exception("[Hybrid] Lexical retrieval failed; continuing with vector-only fusion")
+
+    lexical_candidates = [
+        RankedCandidate(article_id=r.article_id, score=float(r.bm25_score), rank=int(r.rank))
+        for r in lexical_results
+    ]
+    fusion_output = rrf_fuse(vector_candidates, lexical_candidates, top_k=HYBRID_TOP_K)
+
+    articles_by_id = {r.article["id"]: r.article for r in vector_top_k_results}
+    missing_article_ids = [
+        r.article_id for r in fusion_output.results if r.article_id not in articles_by_id
+    ]
+    if missing_article_ids:
+        try:
+            rows = (
+                db.query(schema.KBArticle)
+                .filter(schema.KBArticle.id.in_(missing_article_ids))
+                .filter(schema.KBArticle.enabled == 1)
+                .all()
+            )
+            for art in rows:
+                articles_by_id[art.id] = _snapshot_article(art)
+        except Exception:
+            logger.exception("[Hybrid] Failed to load lexical-only articles")
+
+    top_k_results = []
+    for fused in fusion_output.results:
+        art_dict = articles_by_id.get(fused.article_id)
+        if not art_dict:
+            continue
+
+        confidence = float(fused.vector_score) if fused.vector_score is not None else 0.0
+        confidence_source = "hybrid" if fused.lexical_rank is not None else "vector"
+        if fused.vector_rank is None:
+            confidence_source = "lexical_only"
+            if fused.lexical_rank == 1:
+                confidence = threshold
+                confidence_source = "lexical_rank1"
+
+        top_k_results.append(
+            RetrievalResult(
+                art_dict,
+                confidence,
+                vector_rank=fused.vector_rank,
+                lexical_rank=fused.lexical_rank,
+                fusion_score=fused.fusion_score,
+                confidence_source=confidence_source,
+            )
+        )
+
+    retrieval_metadata = {
+        "lexical_top_k_ids": [r.article_id for r in lexical_results],
+        "lexical_top_k_scores": [float(r.bm25_score) for r in lexical_results],
+        "lexical_top_k_ranks": [int(r.rank) for r in lexical_results],
+        "lexical_latency_ms": lexical_latency_ms,
+        "vector_top_k_ids": [c.article_id for c in vector_candidates],
+        "vector_top_k_scores": [round(float(c.score), 6) for c in vector_candidates],
+        "vector_top_k_ranks": [int(c.rank) for c in vector_candidates],
+        "fusion_strategy": fusion_output.strategy,
+        "fusion_parameters": fusion_output.parameters,
+        "fusion_top_k_ids": [r.article_id for r in fusion_output.results],
+        "fusion_top_k_scores": [float(r.fusion_score) for r in fusion_output.results],
+        "fusion_top_k_ranks": [int(r.rank) for r in fusion_output.results],
+        "fusion_tie_breaks": fusion_output.tie_breaks,
+        "bias_enabled": RLHF_ENABLED,
+        "bias_applied_count": bias_applied_count,
+        "bias_top1_changed": bias_top1_changed,
+        "bias_detail": bias_detail,
+    }
+
+    logger.info(
+        f"[Hybrid] strategy={fusion_output.strategy} params={fusion_output.parameters} "
+        f"vector_ids={retrieval_metadata['vector_top_k_ids']} "
+        f"lexical_ids={retrieval_metadata['lexical_top_k_ids']} "
+        f"fused_ids={retrieval_metadata['fusion_top_k_ids']} "
+        f"fused_scores={retrieval_metadata['fusion_top_k_scores']} "
+        f"tie_breaks={fusion_output.tie_breaks}"
+    )
 
     # AC4: total corpus candidates and how many scored into top-k
     candidates_total = len(corpus["articles"])
-    logger.info(f"[Filter] candidates_total={candidates_total} top_k_scored={len(top_k_results)}")
+    logger.info(f"[Filter] candidates_total={candidates_total} top_k_scored={len(vector_top_k_results)}")
     for i, r in enumerate(top_k_results[:3]):
-        logger.info(f"[Search] #{i+1} score={r.score:.4f} question='{r.article['question'][:60]}' cat={r.category}")
+        logger.info(
+            f"[Search] #{i+1} score={r.score:.4f} confidence_source={r.confidence_source} "
+            f"fusion_score={r.fusion_score} question='{r.article['question'][:60]}' cat={r.category}"
+        )
 
-    # Raw best score (for logging) uses raw cosine; gating may use adjusted scores.
-    if len(raw_scores) > 0:
-        try:
-            best_raw_score = float(raw_scores[int(np.argmax(raw_scores))])
-        except Exception:
-            best_raw_score = float(best.score)
-    else:
-        # Fallback: no scores (should not normally happen here)
-        best_raw_score = 0.0
+    if not top_k_results:
+        logger.info("[Filter] fallback=all_candidates_excluded outcome=NO_MATCH")
+        return {
+            "answer_text": "I am here to answer questions about registration, food, medical help, sleeping areas, transportation, safety, and other services in this shelter. Please ask about one of these topics or see a volunteer for more help.",
+            "answer_type": "NO_MATCH",
+            "confidence": best_raw_score,
+            "confidence_raw": best_raw_score,
+            "source_id": None,
+            "categories": None,
+            "article_data": None,
+            "ui_selection_source": ui_selection_source,
+            "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
+            "ui_selected_taxonomy_node_label": ui_selected_taxonomy_node_label,
+            "inferred_taxonomy_node_ids": inferred_taxonomy_node_ids,
+            "intent": intent,
+            "intent_confidence": intent_confidence,
+            "rlhf_top_source_id": rlhf_top_source_id,
+            "rlhf_top_score": rlhf_top_score,
+            **retrieval_metadata,
+        }
 
     # AC1 + AC4: hard rule — exclude_source_ids filter
     if exclude_source_ids:
@@ -870,10 +1009,7 @@ def retrieve(
                 "intent_confidence": intent_confidence,
                 "rlhf_top_source_id": rlhf_top_source_id,
                 "rlhf_top_score": rlhf_top_score,
-                "bias_enabled": RLHF_ENABLED,
-                "bias_applied_count": bias_applied_count,
-                "bias_top1_changed": bias_top1_changed,
-                "bias_detail": bias_detail,
+                **retrieval_metadata,
             }
 
     best = top_k_results[0]
@@ -890,7 +1026,6 @@ def retrieve(
             is_compound=is_compound,
         )
 
-    threshold, clarification_floor = _thresholds_for_language(query_language)
     # 6. Gating: >= threshold DIRECT_MATCH; clarify below floor; else NO_MATCH
     if best.score >= threshold:
         follow_up_intent = compound_secondary_intent if is_compound else None
@@ -916,13 +1051,11 @@ def retrieve(
             "intent_confidence": intent_confidence,
             "rlhf_top_source_id": rlhf_top_source_id,
             "rlhf_top_score": rlhf_top_score,
-            "bias_enabled": RLHF_ENABLED,
-            "bias_applied_count": bias_applied_count,
-            "bias_top1_changed": bias_top1_changed,
-            "bias_detail": bias_detail,
+            "confidence_source": best.confidence_source,
             "is_compound": is_compound,
             "follow_up_prompt": follow_up_prompt,
             "follow_up_intent": follow_up_intent,
+            **retrieval_metadata,
         }
 
     if best.score >= clarification_floor and clarify:
@@ -984,13 +1117,11 @@ def retrieve(
             "intent_confidence": intent_confidence,
             "rlhf_top_source_id": rlhf_top_source_id,
             "rlhf_top_score": rlhf_top_score,
-            "bias_enabled": RLHF_ENABLED,
-            "bias_applied_count": bias_applied_count,
-            "bias_top1_changed": bias_top1_changed,
-            "bias_detail": bias_detail,
+            "confidence_source": best.confidence_source,
             "is_compound": is_compound,
             "follow_up_prompt": None,
             "follow_up_intent": None,
+            **retrieval_metadata,
         }
 
     # 0.45-0.65: use best match; < 0.45 or no clarify: fixed fallback
@@ -1023,13 +1154,11 @@ def retrieve(
             "intent_confidence": intent_confidence,
             "rlhf_top_source_id": rlhf_top_source_id,
             "rlhf_top_score": rlhf_top_score,
-            "bias_enabled": RLHF_ENABLED,
-            "bias_applied_count": bias_applied_count,
-            "bias_top1_changed": bias_top1_changed,
-            "bias_detail": bias_detail,
+            "confidence_source": best.confidence_source,
             "is_compound": is_compound,
             "follow_up_prompt": follow_up_prompt,
             "follow_up_intent": follow_up_intent,
+            **retrieval_metadata,
         }
 
     # AC5: score below clarification floor — true NO_MATCH
@@ -1053,11 +1182,9 @@ def retrieve(
         "intent_confidence": intent_confidence,
         "rlhf_top_source_id": rlhf_top_source_id,
         "rlhf_top_score": rlhf_top_score,
-        "bias_enabled": RLHF_ENABLED,
-        "bias_applied_count": bias_applied_count,
-        "bias_top1_changed": bias_top1_changed,
-        "bias_detail": bias_detail,
+        "confidence_source": best.confidence_source,
         "is_compound": is_compound,
         "follow_up_prompt": None,
         "follow_up_intent": None,
+        **retrieval_metadata,
     }

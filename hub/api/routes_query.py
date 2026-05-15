@@ -18,6 +18,21 @@ router = APIRouter()
 session_history = {}
 
 
+def _json_result_field(value):
+    if value is None:
+        return None
+    if isinstance(value, (list, dict)):
+        return json.dumps(value, ensure_ascii=False)
+    return value
+
+
+def _retrieval_score_for_log(result: dict) -> float:
+    confidence_raw = result.get("confidence_raw")
+    if confidence_raw is not None:
+        return float(confidence_raw)
+    return float(result.get("confidence") or 0.0)
+
+
 # Pipeline: Kiosk sends user text -> Hub receives -> if not English translate to EN (NLLB)
 # -> semantic search -> top result -> LLM format -> if not English translate answer back (NLLB)
 # -> return to kiosk -> kiosk TTS.
@@ -176,7 +191,7 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                     normalized_transcript=pipeline_result.normalized_text,
                     language=user_language,
                     kb_version=query.kb_version,
-                    retrieval_score=float(result.get("confidence_raw") or result.get("confidence") or 0.0),
+                    retrieval_score=_retrieval_score_for_log(result),
                     answer_type=answer_type,
                     source_id=result.get("source_id"),
                     rewrite_attempted=False,
@@ -188,6 +203,17 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                     pipeline_stage_log=json.dumps(pipeline_result.stage_log, ensure_ascii=False),
                     intent_label=pipeline_result.intent,
                     intent_confidence=pipeline_result.intent_confidence,
+                    lexical_top_k_ids=_json_result_field(result.get("lexical_top_k_ids")),
+                    lexical_top_k_scores=_json_result_field(result.get("lexical_top_k_scores")),
+                    lexical_top_k_ranks=_json_result_field(result.get("lexical_top_k_ranks")),
+                    lexical_latency_ms=result.get("lexical_latency_ms"),
+                    vector_top_k_ids=_json_result_field(result.get("vector_top_k_ids")),
+                    vector_top_k_scores=_json_result_field(result.get("vector_top_k_scores")),
+                    vector_top_k_ranks=_json_result_field(result.get("vector_top_k_ranks")),
+                    fusion_strategy=result.get("fusion_strategy"),
+                    fusion_top_k_ids=_json_result_field(result.get("fusion_top_k_ids")),
+                    fusion_top_k_scores=_json_result_field(result.get("fusion_top_k_scores")),
+                    fusion_top_k_ranks=_json_result_field(result.get("fusion_top_k_ranks")),
                     bias_enabled=result.get("bias_enabled"),
                     bias_applied_count=result.get("bias_applied_count"),
                     bias_top1_changed=result.get("bias_top1_changed"),
@@ -302,7 +328,7 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                 normalized_transcript=text,
                 language=user_language,
                 kb_version=query.kb_version,
-                retrieval_score=float(result.get("confidence_raw") or result.get("confidence") or 0.0),
+                retrieval_score=_retrieval_score_for_log(result),
                 answer_type=answer_type,
                 source_id=result.get("source_id"),
                 rewrite_attempted=True if rewrite_happened else False,
@@ -320,6 +346,17 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                 pipeline_stage_log=json.dumps(pipeline_result.stage_log, ensure_ascii=False),
                 intent_label=pipeline_result.intent,
                 intent_confidence=pipeline_result.intent_confidence,
+                lexical_top_k_ids=_json_result_field(result.get("lexical_top_k_ids")),
+                lexical_top_k_scores=_json_result_field(result.get("lexical_top_k_scores")),
+                lexical_top_k_ranks=_json_result_field(result.get("lexical_top_k_ranks")),
+                lexical_latency_ms=result.get("lexical_latency_ms"),
+                vector_top_k_ids=_json_result_field(result.get("vector_top_k_ids")),
+                vector_top_k_scores=_json_result_field(result.get("vector_top_k_scores")),
+                vector_top_k_ranks=_json_result_field(result.get("vector_top_k_ranks")),
+                fusion_strategy=result.get("fusion_strategy"),
+                fusion_top_k_ids=_json_result_field(result.get("fusion_top_k_ids")),
+                fusion_top_k_scores=_json_result_field(result.get("fusion_top_k_scores")),
+                fusion_top_k_ranks=_json_result_field(result.get("fusion_top_k_ranks")),
                 bias_enabled=result.get("bias_enabled"),
                 bias_applied_count=result.get("bias_applied_count"),
                 bias_top1_changed=result.get("bias_top1_changed"),

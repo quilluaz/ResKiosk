@@ -18,7 +18,8 @@ kiosk/app/build/
 *.env
 .env
 dist.zip
-
+slice0_userstory_running_context
+slicex_goalx_context
 
 # Node modules
 node_modules/
