@@ -8,15 +8,10 @@ from hub.db.session import get_db
 from hub.db import schema
 from hub.models import api_models
 from hub.retrieval.embedder import load_embedder, serialize_embedding, get_embeddable_text
-from hub.retrieval.search import invalidate_corpus_cache, invalidate_shelter_config_cache
-from hub.retrieval.lexical import invalidate_lexical_index
-from hub.api.routes_auth import get_optional_user, get_current_user
-from hub.validation.metadata import (
-    load_validation_targets,
-    load_taxonomy_reference,
-    validate_metadata,
-    build_publish_gate_handoff,
-    PUBLISH_STATUS_BLOCKED,
+from hub.retrieval.search import (
+    invalidate_corpus_cache,
+    invalidate_shelter_config_cache,
+    invalidate_validation_quarantine_cache,
 )
 
 router = APIRouter()
@@ -582,6 +577,112 @@ async def import_articles(
         "errors": errors_list,
         "total_in_payload": len(articles_data),
     }
+
+
+# ─── Goal 8 / Slice 3 Story 4 — Metadata review workflow ─────────────────────
+
+
+@router.get(
+    "/admin/validation/review-queue",
+    response_model=api_models.MetadataReviewQueueResponse,
+)
+async def get_metadata_review_queue(
+    db: Session = Depends(get_db),
+    current_user: schema.User = Depends(get_current_user),
+):
+    """List KB items whose live validation status is quarantined or needs_review,
+    excluding items already marked approved in the latest persisted status row."""
+    items_raw, kb_version = metadata_review.build_review_queue(db)
+    items = [
+        api_models.MetadataReviewQueueItem(
+            kb_item_id=row["kb_item_id"],
+            live_status=row["live_status"],
+            kb_version=row["kb_version"],
+            latest_db_status=row.get("latest_db_status"),
+            failed_rules=[
+                api_models.MetadataRuleResultPublic(**fr) for fr in row.get("failed_rules", [])
+            ],
+        )
+        for row in items_raw
+    ]
+    return api_models.MetadataReviewQueueResponse(items=items, kb_version=kb_version)
+
+
+@router.get(
+    "/admin/validation/articles/{kb_item_id}",
+    response_model=api_models.MetadataValidationArticleDetail,
+)
+async def get_metadata_validation_article_detail(
+    kb_item_id: int,
+    db: Session = Depends(get_db),
+    current_user: schema.User = Depends(get_current_user),
+):
+    """Live rule results plus persisted validation results and review audit trail."""
+    detail = metadata_review.build_article_validation_detail(db, kb_item_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="KB article not found")
+    art = detail["article"]
+    return api_models.MetadataValidationArticleDetail(
+        kb_item_id=detail["kb_item_id"],
+        kb_version=detail["kb_version"],
+        article=api_models.MetadataArticleSnapshot(**art),
+        live_status=detail["live_status"],
+        live_rule_results=[
+            api_models.MetadataRuleResultPublic(**r) for r in detail["live_rule_results"]
+        ],
+        persisted_validation_results=detail["persisted_validation_results"],
+        review_decisions=detail["review_decisions"],
+    )
+
+
+@router.post(
+    "/admin/validation/review",
+    response_model=api_models.MetadataReviewApplyResponse,
+)
+async def submit_metadata_review(
+    payload: api_models.KBReviewDecisionCreate,
+    db: Session = Depends(get_db),
+    current_user: schema.User = Depends(get_current_user),
+):
+    """Apply approve / reject / override. Override requires reason_code.
+    Writes kb_item_validation_status + kb_review_decisions (audit trail).
+    """
+    try:
+        validation_after, _status_row, decision_row = metadata_review.apply_metadata_review(
+            db,
+            reviewer=current_user,
+            kb_item_id=payload.kb_item_id,
+            kb_version=payload.kb_version,
+            decision=payload.decision,
+            reason_code=payload.reason_code,
+            notes=payload.notes,
+            publish_attempt_id=payload.publish_attempt_id,
+        )
+        db.flush()
+        rid = decision_row.id
+    except ValueError as e:
+        msg = str(e)
+        if "not found" in msg.lower():
+            raise HTTPException(status_code=404, detail=msg) from e
+        raise HTTPException(status_code=400, detail=msg) from e
+    except Exception:
+        logger.exception("[Validation] Review apply failed")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to apply review")
+
+    try:
+        db.commit()
+    except Exception:
+        logger.exception("[Validation] Review commit failed")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to commit review")
+
+    invalidate_validation_quarantine_cache()
+    return api_models.MetadataReviewApplyResponse(
+        kb_item_id=payload.kb_item_id,
+        validation_status_after=validation_after,
+        review_decision_id=rid,
+    )
 
 
 # ─── FAQ Tracker ─────────────────────────────────────────────────────────────

@@ -460,6 +460,58 @@ class KBReviewDecisionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# ─── Goal 8 / Slice 3 Story 4 — Metadata review queue (admin API) ────────────
+
+
+class MetadataRuleResultPublic(BaseModel):
+    rule_id: str
+    severity: str
+    passed: bool
+    message: str
+
+
+class MetadataReviewQueueItem(BaseModel):
+    kb_item_id: int
+    live_status: str
+    kb_version: int
+    latest_db_status: Optional[str] = None
+    failed_rules: List[MetadataRuleResultPublic] = Field(default_factory=list)
+
+
+class MetadataReviewQueueResponse(BaseModel):
+    items: List[MetadataReviewQueueItem]
+    kb_version: int
+
+
+class MetadataArticleSnapshot(BaseModel):
+    id: int
+    question: Optional[str] = None
+    answer: Optional[str] = None
+    category: Optional[str] = None
+    tags: Optional[str] = None
+    enabled: bool = True
+    authority: Optional[str] = None
+    scope: Optional[str] = None
+    status: Optional[str] = None
+
+
+class MetadataValidationArticleDetail(BaseModel):
+    kb_item_id: int
+    kb_version: int
+    article: MetadataArticleSnapshot
+    live_status: str
+    live_rule_results: List[MetadataRuleResultPublic] = Field(default_factory=list)
+    persisted_validation_results: List[Dict[str, Any]] = Field(default_factory=list)
+    review_decisions: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class MetadataReviewApplyResponse(BaseModel):
+    status: str = "ok"
+    kb_item_id: int
+    validation_status_after: str
+    review_decision_id: int
+
+
 # ─── Auth ────────────────────────────────────────────────────────────────────
 
 class LoginRequest(BaseModel):

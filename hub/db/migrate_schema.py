@@ -88,6 +88,11 @@ def migrate():
             "fusion_top_k_ranks": "ALTER TABLE query_logs ADD COLUMN fusion_top_k_ranks TEXT",
             "fallback_reason": "ALTER TABLE query_logs ADD COLUMN fallback_reason TEXT",
             "failed_stage": "ALTER TABLE query_logs ADD COLUMN failed_stage TEXT",
+            # Goal 9 / Story 7 — feedback-adjusted ranking layer logging
+            "bias_enabled": "ALTER TABLE query_logs ADD COLUMN bias_enabled INTEGER",
+            "bias_applied_count": "ALTER TABLE query_logs ADD COLUMN bias_applied_count INTEGER",
+            "bias_top1_changed": "ALTER TABLE query_logs ADD COLUMN bias_top1_changed INTEGER",
+            "bias_detail": "ALTER TABLE query_logs ADD COLUMN bias_detail TEXT",
         }
         for col, sql in ql_migrations.items():
             if col not in cols:
