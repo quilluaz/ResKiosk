@@ -66,6 +66,11 @@ class QueryLog(Base):
     # Failure / fallback fields (populated by Slice 6A Story 8)
     fallback_reason = Column(String, nullable=True)      # no_results|low_confidence|validation_blocked|retrieval_error|rewrite_error
     failed_stage = Column(String, nullable=True)         # normalize|intent|retrieve|clarification_gate|rewrite|retrieve_retry
+    # Goal 9 / Story 7 — feedback-adjusted ranking layer logging
+    bias_enabled = Column(Boolean, nullable=True)        # was bias layer active for this request
+    bias_applied_count = Column(Integer, nullable=True)  # candidates with non-zero bias applied
+    bias_top1_changed = Column(Boolean, nullable=True)   # did bias change top-1 vs raw cosine
+    bias_detail = Column(Text, nullable=True)            # JSON: [{id, baseline, bias_value, delta, final}]
     created_at = Column(Integer)  # Unix timestamp
 
 

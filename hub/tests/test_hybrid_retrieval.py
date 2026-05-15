@@ -78,6 +78,10 @@ class TestHybridRetrieval(unittest.TestCase):
         db = db or _FakeDb()
         with (
             patch("hub.retrieval.search._intent_classifier", None),
+            patch(
+                "hub.retrieval.search.filter_policy.compute_excluded_article_ids",
+                return_value=frozenset(),
+            ),
             patch("hub.retrieval.search.get_shelter_config", return_value={}),
             patch("hub.retrieval.search.inventory_module.check_inventory", return_value=None),
             patch("hub.retrieval.search.load_embedder", return_value=_FakeEmbedder()),

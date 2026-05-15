@@ -134,11 +134,12 @@ def _retrieve_with_mode(
             f"Query {query_spec['id']}: expected {len(corpus['articles'])} vector_cosine_scores, got {len(scores)}"
         )
 
-    def fake_load_corpus(_db):
+    def fake_load_corpus(_db, excluded_ids=None):
         return corpus
 
     patches = [
         patch("hub.retrieval.search._intent_classifier", None),
+        patch("hub.retrieval.search.filter_policy.compute_excluded_article_ids", return_value=frozenset()),
         patch("hub.retrieval.search.get_shelter_config", return_value={}),
         patch("hub.retrieval.search.inventory_module.check_inventory", return_value=None),
         patch("hub.retrieval.search.load_embedder", return_value=_FakeEmbedder()),
