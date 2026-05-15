@@ -9,6 +9,7 @@ from typing import List, Optional, Set
 from sqlalchemy.orm import Session
 
 from hub.db import schema
+from hub.retrieval import filter_policy as retrieval_filter_policy
 
 logger = logging.getLogger(__name__)
 
@@ -78,10 +79,12 @@ class LexicalIndex:
         self.num_docs: int = 0
         self.kb_version: Optional[int] = None      # version-awareness
 
-    def build(self, db: Session) -> None:
+    def build(self, db: Session, excluded_ids: frozenset[int] | None = None) -> None:
         """Build the index from all enabled KB articles.
 
         Uses the same filter as the vector corpus: enabled == 1.
+        Articles in *excluded_ids* (quarantined, rejected, disabled) are
+        skipped (Person 2 filter policy).
         """
         t0 = time.time()
 
@@ -92,7 +95,12 @@ class LexicalIndex:
         self.docs.clear()
         self.doc_freq.clear()
 
+        skipped_by_policy = 0
         for art in articles:
+            # Person 2: skip articles excluded by filter policy
+            if excluded_ids and art.id in excluded_ids:
+                skipped_by_policy += 1
+                continue
             doc = _DocEntry(article_id=art.id)
             all_terms: dict[str, float] = {}
 
@@ -128,7 +136,8 @@ class LexicalIndex:
 
         build_ms = (time.time() - t0) * 1000
         logger.info(
-            f"[LexicalIndex] Built index: {self.num_docs} articles, "
+            f"[LexicalIndex] Built index: {self.num_docs} articles "
+            f"(skipped {skipped_by_policy} by filter policy), "
             f"fields={list(self.FIELD_WEIGHTS.keys())}, "
             f"unique_terms={len(self.doc_freq)}, "
             f"kb_version={self.kb_version}, "
@@ -189,24 +198,31 @@ def invalidate_lexical_index() -> None:
     logger.info("[LexicalIndex] Index invalidated.")
 
 
-def _ensure_index(db: Session) -> Optional[LexicalIndex]:
+def _ensure_index(db: Session, excluded_ids: frozenset[int] | None = None) -> Optional[LexicalIndex]:
     """Lazily build or return the cached lexical index.
 
+    When *excluded_ids* is provided the cache is bypassed so that
+    per-query validation-status exclusions are always respected.
     Returns None only if the KB has zero articles — safe for callers to handle.
     """
     global _lexical_index_cache
-    if _lexical_index_cache is not None:
+
+    # If no exclusion set, use cache.
+    if (excluded_ids is None or len(excluded_ids) == 0) and _lexical_index_cache is not None:
         return _lexical_index_cache
 
     idx = LexicalIndex()
-    idx.build(db)
+    idx.build(db, excluded_ids=excluded_ids)
 
     if idx.num_docs == 0:
         logger.warning("[LexicalIndex] No articles indexed — lexical search will be skipped.")
         return None
 
-    _lexical_index_cache = idx
-    return _lexical_index_cache
+    # Only cache when there are no per-query exclusions.
+    if excluded_ids is None or len(excluded_ids) == 0:
+        _lexical_index_cache = idx
+
+    return idx
 
 
 # ─── Public Search API ────────────────────────────────────────────────────────
@@ -247,8 +263,15 @@ def lexical_search(
     """
     t0 = time.time()
 
+    # Person 2: compute validation-aware exclusion set for lexical path
+    policy_excluded = retrieval_filter_policy.compute_excluded_article_ids(db)
+    all_excludes = set(policy_excluded)
+    if exclude_ids:
+        all_excludes |= exclude_ids
+    all_excludes_frozen = frozenset(all_excludes) if all_excludes else None
+
     # Safe fallback: if index can't be built, return empty
-    idx = _ensure_index(db)
+    idx = _ensure_index(db, excluded_ids=all_excludes_frozen)
     if idx is None:
         latency = (time.time() - t0) * 1000
         logger.warning("[LexicalSearch] No index available — falling back to vector-only.")
@@ -263,9 +286,9 @@ def lexical_search(
     # Score all documents
     raw_scores = idx.score(query_tokens)
 
-    # Apply exclusion filter (Person 2: quarantined, rejected, filter policy)
-    if exclude_ids:
-        raw_scores = {aid: s for aid, s in raw_scores.items() if aid not in exclude_ids}
+    # Apply any remaining exclusion filter (defense-in-depth)
+    if all_excludes:
+        raw_scores = {aid: s for aid, s in raw_scores.items() if aid not in all_excludes}
 
     if not raw_scores:
         latency = (time.time() - t0) * 1000
