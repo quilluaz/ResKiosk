@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from hub.db import schema
 from hub.retrieval.embedder import load_embedder, deserialize_embedding
+from hub.retrieval import filter_policy
 from hub.retrieval.normalizer import normalize_query
 from hub.retrieval import inventory as inventory_module
 from sentence_transformers import util
@@ -348,31 +349,55 @@ def _snapshot_article(art: schema.KBArticle) -> dict:
     }
 
 
-def _load_corpus(db: Session) -> dict:
+def _load_corpus(db: Session, excluded_ids: frozenset[int] | None = None) -> dict:
     """Load and cache all enabled article embeddings as a numpy matrix.
     Articles are stored as plain dicts (not ORM objects) so the cache
-    survives across different SQLAlchemy sessions."""
+    survives across different SQLAlchemy sessions.
+
+    When *excluded_ids* is provided the cache is bypassed so that
+    per-query validation-status exclusions are always respected.
+    """
     global _corpus_cache
-    if _corpus_cache is not None:
-        return _corpus_cache
-    
+
+    # If no exclusion set is active, use the cache as before.
+    if excluded_ids is None or len(excluded_ids) == 0:
+        if _corpus_cache is not None:
+            return _corpus_cache
+
     articles = db.query(schema.KBArticle).filter(schema.KBArticle.enabled == 1).all()
     embeddings = []
     meta = []
+    skipped_by_policy = 0
     for art in articles:
+        # Person 2: skip articles excluded by filter policy
+        if excluded_ids and art.id in excluded_ids:
+            skipped_by_policy += 1
+            continue
         if art.embedding:
             vec = deserialize_embedding(art.embedding)
             if vec is not None:
                 embeddings.append(vec)
                 # Snapshot to plain dict while session is still open
                 meta.append(_snapshot_article(art))
-    
-    _corpus_cache = {
+
+    corpus = {
         "matrix": np.stack(embeddings) if embeddings else None,
         "articles": meta
     }
-    logger.info(f"[Cache] Loaded {len(meta)} articles into corpus cache.")
-    return _corpus_cache
+
+    if skipped_by_policy > 0:
+        logger.info(
+            "[Cache] Loaded %d articles into corpus (skipped %d by filter policy).",
+            len(meta), skipped_by_policy,
+        )
+    else:
+        logger.info(f"[Cache] Loaded {len(meta)} articles into corpus cache.")
+
+    # Only populate the long-lived cache when there are no per-query exclusions.
+    if excluded_ids is None or len(excluded_ids) == 0:
+        _corpus_cache = corpus
+
+    return corpus
 
 
 def _thresholds_for_language(lang: str) -> tuple[float, float]:
@@ -392,6 +417,13 @@ def retrieve(
 ) -> dict:
     normalized_query = normalize_query(query_english, query_language)
     logger.info(f"[Retrieve] query='{normalized_query}' exclude_source_ids={exclude_source_ids}")
+
+    # ── Person 2: compute validation-aware exclusion set ──────────────
+    caller_exclude = set(exclude_source_ids) if exclude_source_ids else None
+    policy_excluded_ids = filter_policy.compute_excluded_article_ids(
+        db, extra_exclude_ids=caller_exclude,
+    )
+
     # AC2: log UI-selected taxonomy node when present
     if selected_category:
         logger.info(f"[Filter] ui_category='{selected_category}'")
@@ -609,7 +641,7 @@ def retrieve(
     try:
         embedder = load_embedder()
         query_vec = embedder.embed_text(search_query)
-        corpus = _load_corpus(db)
+        corpus = _load_corpus(db, excluded_ids=policy_excluded_ids)
     except Exception as e:
         logger.exception("[Retrieve] Embedder or corpus failed")
         return {
