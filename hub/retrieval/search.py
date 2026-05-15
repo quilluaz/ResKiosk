@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from hub.db import schema
 from hub.retrieval.embedder import load_embedder, deserialize_embedding
+from hub.retrieval import filter_policy
 from hub.retrieval.normalizer import normalize_query
 from hub.retrieval import inventory as inventory_module
 from sentence_transformers import util
@@ -188,10 +189,13 @@ CLARIFICATION_CATEGORY_TO_INTENT = {
     "special needs": "special_needs",
 }
 
-# RLHF / bias settings (env-gated)
+# Feedback-adjusted ranking settings (env-gated)
 RLHF_ENABLED = os.environ.get("RESKIOSK_RLHF_ENABLED", "false").lower() == "true"
 RLHF_ALPHA = float(os.environ.get("RESKIOSK_RLHF_ALPHA", 0.10))
 RLHF_BIAS_TTL_SECS = int(os.environ.get("RESKIOSK_RLHF_BIAS_TTL_SECS", 1800))
+# Explicit max delta cap (AC3): bias cannot move any single score by more than this,
+# regardless of RLHF_ALPHA or the raw bias value.
+RLHF_BIAS_MAX_DELTA = float(os.environ.get("RESKIOSK_RLHF_MAX_DELTA", 0.15))
 
 # Intent classifier singleton, set by main.py at startup
 _intent_classifier = None
@@ -334,6 +338,48 @@ def _get_article_biases(db: Session) -> dict:
     return _article_biases_cache or {}
 
 
+# --- Quarantine guard cache (TTL-based, same interval as bias cache) ---
+_quarantined_ids_cache: Optional[set] = None
+_quarantined_ids_loaded_at: float = 0.0
+
+
+def _get_quarantined_item_ids(db: Session) -> set:
+    """Return set of kb_article IDs currently quarantined or rejected.
+
+    Bias must not be applied to these items (AC4). Cache is invalidated on
+    the same TTL as the bias cache so both reflect the same operational state.
+    """
+    global _quarantined_ids_cache, _quarantined_ids_loaded_at
+    now = time.time()
+    if (
+        _quarantined_ids_cache is None
+        or _quarantined_ids_loaded_at == 0.0
+        or now - _quarantined_ids_loaded_at > RLHF_BIAS_TTL_SECS
+    ):
+        try:
+            rows = (
+                db.query(schema.KBItemValidationStatus.kb_item_id)
+                .filter(
+                    schema.KBItemValidationStatus.status.in_(["quarantined", "rejected"])
+                )
+                .all()
+            )
+            _quarantined_ids_cache = {r[0] for r in rows}
+            logger.info(f"[Bias] Quarantine guard loaded: {len(_quarantined_ids_cache)} blocked item(s).")
+        except Exception:
+            _quarantined_ids_cache = set()
+        _quarantined_ids_loaded_at = now
+    return _quarantined_ids_cache or set()
+
+
+def invalidate_validation_quarantine_cache() -> None:
+    """Clear TTL cache used for bias quarantine guard after validation status changes."""
+    global _quarantined_ids_cache, _quarantined_ids_loaded_at
+    _quarantined_ids_cache = None
+    _quarantined_ids_loaded_at = 0.0
+    logger.info("[Cache] Validation quarantine cache invalidated.")
+
+
 def _snapshot_article(art: schema.KBArticle) -> dict:
     """Eagerly copy all needed fields from an ORM object into a plain dict.
     Prevents DetachedInstanceError when the cache outlives the session."""
@@ -348,31 +394,55 @@ def _snapshot_article(art: schema.KBArticle) -> dict:
     }
 
 
-def _load_corpus(db: Session) -> dict:
+def _load_corpus(db: Session, excluded_ids: frozenset[int] | None = None) -> dict:
     """Load and cache all enabled article embeddings as a numpy matrix.
     Articles are stored as plain dicts (not ORM objects) so the cache
-    survives across different SQLAlchemy sessions."""
+    survives across different SQLAlchemy sessions.
+
+    When *excluded_ids* is provided the cache is bypassed so that
+    per-query validation-status exclusions are always respected.
+    """
     global _corpus_cache
-    if _corpus_cache is not None:
-        return _corpus_cache
-    
+
+    # If no exclusion set is active, use the cache as before.
+    if excluded_ids is None or len(excluded_ids) == 0:
+        if _corpus_cache is not None:
+            return _corpus_cache
+
     articles = db.query(schema.KBArticle).filter(schema.KBArticle.enabled == 1).all()
     embeddings = []
     meta = []
+    skipped_by_policy = 0
     for art in articles:
+        # Person 2: skip articles excluded by filter policy
+        if excluded_ids and art.id in excluded_ids:
+            skipped_by_policy += 1
+            continue
         if art.embedding:
             vec = deserialize_embedding(art.embedding)
             if vec is not None:
                 embeddings.append(vec)
                 # Snapshot to plain dict while session is still open
                 meta.append(_snapshot_article(art))
-    
-    _corpus_cache = {
+
+    corpus = {
         "matrix": np.stack(embeddings) if embeddings else None,
         "articles": meta
     }
-    logger.info(f"[Cache] Loaded {len(meta)} articles into corpus cache.")
-    return _corpus_cache
+
+    if skipped_by_policy > 0:
+        logger.info(
+            "[Cache] Loaded %d articles into corpus (skipped %d by filter policy).",
+            len(meta), skipped_by_policy,
+        )
+    else:
+        logger.info(f"[Cache] Loaded {len(meta)} articles into corpus cache.")
+
+    # Only populate the long-lived cache when there are no per-query exclusions.
+    if excluded_ids is None or len(excluded_ids) == 0:
+        _corpus_cache = corpus
+
+    return corpus
 
 
 def _thresholds_for_language(lang: str) -> tuple[float, float]:
@@ -392,6 +462,13 @@ def retrieve(
 ) -> dict:
     normalized_query = normalize_query(query_english, query_language)
     logger.info(f"[Retrieve] query='{normalized_query}' exclude_source_ids={exclude_source_ids}")
+
+    # ── Person 2: compute validation-aware exclusion set ──────────────
+    caller_exclude = set(exclude_source_ids) if exclude_source_ids else None
+    policy_excluded_ids = filter_policy.compute_excluded_article_ids(
+        db, extra_exclude_ids=caller_exclude,
+    )
+
     # AC2: log UI-selected taxonomy node when present
     if selected_category:
         logger.info(f"[Filter] ui_category='{selected_category}'")
@@ -609,7 +686,7 @@ def retrieve(
     try:
         embedder = load_embedder()
         query_vec = embedder.embed_text(search_query)
-        corpus = _load_corpus(db)
+        corpus = _load_corpus(db, excluded_ids=policy_excluded_ids)
     except Exception as e:
         logger.exception("[Retrieve] Embedder or corpus failed")
         return {
@@ -667,32 +744,81 @@ def retrieve(
     rlhf_top_source_id = None
     rlhf_top_score = None
 
-    # Apply RLHF bias adjustment when enabled; otherwise leave scores unchanged.
+    # Pre-compute article IDs aligned with corpus order (needed for bias + sort).
+    article_ids = [art["id"] for art in corpus["articles"]]
+
+    # Raw-cosine top-1 (always computed; used for bias_top1_changed and fallback).
+    raw_top1_id = None
+    if len(raw_scores) > 0:
+        raw_best_idx = int(np.argmax(raw_scores))
+        raw_top1_id = article_ids[raw_best_idx]
+
+    # ── Feedback-adjusted ranking (separate bounded layer) ────────────────────
+    # AC1: gated by RLHF_ENABLED env flag.
+    # AC2: applied here, after baseline candidate scores are available.
+    # AC3: bias delta is capped at RLHF_BIAS_MAX_DELTA before clamping to [0,1].
+    # AC4: bias is zeroed for items with quarantined/rejected validation status.
+    # AC5: per-item detail collected for logging.
+    bias_applied_count = 0
+    bias_top1_changed = False
+    bias_detail: list = []      # [{id, baseline, bias_value, delta, final}] for top-k
+    _bias_detail_map: dict = {} # keyed by article_id; trimmed to top-k after sort
+
     if RLHF_ENABLED:
         try:
             biases = _get_article_biases(db)
-            article_ids = [art["id"] for art in corpus["articles"]]
+            quarantined = _get_quarantined_item_ids(db)
+
             for i, art_id in enumerate(article_ids):
-                b = biases.get(art_id, 0.0)
-                adj = float(raw_scores[i]) + RLHF_ALPHA * b
-                # Clamp to cosine range [0, 1]
-                scores[i] = max(0.0, min(1.0, adj))
+                raw_b = biases.get(art_id, 0.0)
+                # AC4: no bias for quarantined/rejected items.
+                if art_id in quarantined:
+                    raw_b = 0.0
+                baseline = float(raw_scores[i])
+                # AC3: clamp delta to [-RLHF_BIAS_MAX_DELTA, +RLHF_BIAS_MAX_DELTA].
+                delta = max(-RLHF_BIAS_MAX_DELTA, min(RLHF_BIAS_MAX_DELTA, RLHF_ALPHA * raw_b))
+                adj = max(0.0, min(1.0, baseline + delta))
+                scores[i] = adj
+                if raw_b != 0.0:
+                    bias_applied_count += 1
+                    _bias_detail_map[art_id] = {
+                        "id": art_id,
+                        "baseline": round(baseline, 6),
+                        "bias_value": round(raw_b, 6),
+                        "delta": round(delta, 6),
+                        "final": round(adj, 6),
+                    }
+
             if len(scores) > 0:
                 best_idx = int(np.argmax(scores))
                 rlhf_top_source_id = article_ids[best_idx]
                 rlhf_top_score = float(scores[best_idx])
-        except Exception as e:
-            logger.exception("[RLHF] Bias application failed; falling back to raw cosine scores")
+                bias_top1_changed = (raw_top1_id is not None and rlhf_top_source_id != raw_top1_id)
+                logger.info(
+                    f"[Bias] applied={RLHF_ENABLED} alpha={RLHF_ALPHA} max_delta={RLHF_BIAS_MAX_DELTA} "
+                    f"applied_count={bias_applied_count} top1_changed={bias_top1_changed}"
+                )
+        except Exception:
+            logger.exception("[Bias] Application failed; falling back to raw cosine scores")
             scores = raw_scores
 
     if not RLHF_ENABLED or rlhf_top_source_id is None:
-        # RLHF disabled or failed: default RLHF shadow fields to raw-cosine top-1.
-        if len(raw_scores) > 0:
-            raw_best_idx = int(np.argmax(raw_scores))
-            rlhf_top_source_id = corpus["articles"][raw_best_idx]["id"]
-            rlhf_top_score = float(raw_scores[raw_best_idx])
+        # Bias disabled or failed: shadow fields default to raw-cosine top-1.
+        if raw_top1_id is not None:
+            rlhf_top_source_id = raw_top1_id
+            rlhf_top_score = float(raw_scores[int(np.argmax(raw_scores))])
 
-    top_indices = np.argsort(scores)[::-1][:5]
+    # AC6: deterministic sort — primary key is score descending, tie-break is
+    # article_id ascending so ranking is reproducible for a fixed bias state.
+    indexed = sorted(
+        enumerate(scores),
+        key=lambda x: (-x[1], article_ids[x[0]]),
+    )
+    top_indices = [idx for idx, _ in indexed[:5]]
+
+    # Trim bias detail to top-k article IDs only (bounded log size).
+    top_k_ids_ordered = [article_ids[i] for i in top_indices]
+    bias_detail = [_bias_detail_map[aid] for aid in top_k_ids_ordered if aid in _bias_detail_map]
     top_k_results = []
     for idx in top_indices:
         art_dict = corpus["articles"][idx]
@@ -744,6 +870,10 @@ def retrieve(
                 "intent_confidence": intent_confidence,
                 "rlhf_top_source_id": rlhf_top_source_id,
                 "rlhf_top_score": rlhf_top_score,
+                "bias_enabled": RLHF_ENABLED,
+                "bias_applied_count": bias_applied_count,
+                "bias_top1_changed": bias_top1_changed,
+                "bias_detail": bias_detail,
             }
 
     best = top_k_results[0]
@@ -786,6 +916,10 @@ def retrieve(
             "intent_confidence": intent_confidence,
             "rlhf_top_source_id": rlhf_top_source_id,
             "rlhf_top_score": rlhf_top_score,
+            "bias_enabled": RLHF_ENABLED,
+            "bias_applied_count": bias_applied_count,
+            "bias_top1_changed": bias_top1_changed,
+            "bias_detail": bias_detail,
             "is_compound": is_compound,
             "follow_up_prompt": follow_up_prompt,
             "follow_up_intent": follow_up_intent,
@@ -850,6 +984,10 @@ def retrieve(
             "intent_confidence": intent_confidence,
             "rlhf_top_source_id": rlhf_top_source_id,
             "rlhf_top_score": rlhf_top_score,
+            "bias_enabled": RLHF_ENABLED,
+            "bias_applied_count": bias_applied_count,
+            "bias_top1_changed": bias_top1_changed,
+            "bias_detail": bias_detail,
             "is_compound": is_compound,
             "follow_up_prompt": None,
             "follow_up_intent": None,
@@ -885,6 +1023,10 @@ def retrieve(
             "intent_confidence": intent_confidence,
             "rlhf_top_source_id": rlhf_top_source_id,
             "rlhf_top_score": rlhf_top_score,
+            "bias_enabled": RLHF_ENABLED,
+            "bias_applied_count": bias_applied_count,
+            "bias_top1_changed": bias_top1_changed,
+            "bias_detail": bias_detail,
             "is_compound": is_compound,
             "follow_up_prompt": follow_up_prompt,
             "follow_up_intent": follow_up_intent,
@@ -911,6 +1053,10 @@ def retrieve(
         "intent_confidence": intent_confidence,
         "rlhf_top_source_id": rlhf_top_source_id,
         "rlhf_top_score": rlhf_top_score,
+        "bias_enabled": RLHF_ENABLED,
+        "bias_applied_count": bias_applied_count,
+        "bias_top1_changed": bias_top1_changed,
+        "bias_detail": bias_detail,
         "is_compound": is_compound,
         "follow_up_prompt": None,
         "follow_up_intent": None,
