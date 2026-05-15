@@ -1,0 +1,113 @@
+{
+  "eval_version": 1,
+  "snapshot_id": "exact_term_retrieval_eval_v1",
+  "kb_version": 9001,
+  "description": "Fixed mini knowledge base and synthetic cosine scores for Sprint 3 Slice 4 Story 6 (Person 4): exact-term vs hybrid retrieval evaluation. Vector scores are keyed in corpus row order; lexical scores come from the same article text loaded into SQLite. Queries are passed through normalize_query inside search.retrieve(); BM25 uses that normalized string.",
+  "corpus_article_order": [1, 2, 3, 4, 5, 6],
+  "articles": [
+    {
+      "id": 1,
+      "question": "Medical clinic and nurse station hours",
+      "answer": "The nurse station is open daily from 8am to 8pm in the main hall.",
+      "category": "medical",
+      "tags": "clinic,nurse,medical"
+    },
+    {
+      "id": 2,
+      "question": "Code Gray internal emergency response",
+      "answer": "Code Gray means a combative or violent internal situation. Staff will call security and move residents away from the area.",
+      "category": "safety",
+      "tags": "code gray,security,procedure"
+    },
+    {
+      "id": 3,
+      "question": "MediQuon Field Clinic triage tent",
+      "answer": "MediQuon triage is in the east parking lot under the white MediQuon canopy. Bring your wristband.",
+      "category": "medical",
+      "tags": "MediQuon,triage,field clinic"
+    },
+    {
+      "id": 4,
+      "question": "Building C North Wing room map",
+      "answer": "North Wing rooms C-201 through C-240 are on level 2. Follow the blue corridor signs past the elevators.",
+      "category": "location",
+      "tags": "building c,north wing,map"
+    },
+    {
+      "id": 5,
+      "question": "Registration desk wristband pickup",
+      "answer": "Pick up your wristband at the registration desk in Building A lobby after intake is complete.",
+      "category": "registration",
+      "tags": "wristband,registration,intake"
+    },
+    {
+      "id": 6,
+      "question": "Mental health counseling and emotional support",
+      "answer": "Counselors are available in the wellness room daily. Ask for a private conversation if you feel anxious or overwhelmed.",
+      "category": "mental_health",
+      "tags": "counseling,anxiety,support"
+    }
+  ],
+  "queries": [
+    {
+      "id": "proper_noun_mediquon",
+      "eval_class": "proper_noun",
+      "query": "where is the MediQuon triage tent",
+      "evidence_ids": [3],
+      "eval_top_k": 5,
+      "stability_check": false,
+      "vector_cosine_scores": [0.91, 0.42, 0.52, 0.35, 0.33, 0.31],
+      "note": "Vector favors generic clinic (1); lexical should surface MediQuon (3) so hybrid fixes top ranking."
+    },
+    {
+      "id": "procedure_code_gray",
+      "eval_class": "procedure",
+      "query": "what does Code Gray mean here",
+      "evidence_ids": [2],
+      "eval_top_k": 5,
+      "stability_check": false,
+      "vector_cosine_scores": [0.88, 0.48, 0.5, 0.32, 0.3, 0.29],
+      "note": "Procedure phrase is exact in article 2; vector is biased toward generic medical (1)."
+    },
+    {
+      "id": "location_building_c",
+      "eval_class": "location",
+      "query": "where are rooms in Building C North Wing",
+      "evidence_ids": [4],
+      "eval_top_k": 5,
+      "stability_check": false,
+      "vector_cosine_scores": [0.87, 0.44, 0.46, 0.51, 0.28, 0.27],
+      "note": "Location tokens match article 4; synthetic vector still prefers clinic (1)."
+    },
+    {
+      "id": "mixed_registration_wristband",
+      "eval_class": "mixed",
+      "query": "when do I get my wristband at registration",
+      "evidence_ids": [5],
+      "eval_top_k": 5,
+      "stability_check": false,
+      "vector_cosine_scores": [0.9, 0.4, 0.41, 0.39, 0.53, 0.3],
+      "note": "Mixed semantic + exact term; vector top is generic medical while wristband/registration text matches 5."
+    },
+    {
+      "id": "semantic_anxiety_counseling",
+      "eval_class": "semantic",
+      "query": "I feel anxious and want to talk to a counselor",
+      "evidence_ids": [6],
+      "eval_top_k": 5,
+      "stability_check": true,
+      "vector_cosine_scores": [0.45, 0.32, 0.33, 0.3, 0.31, 0.89],
+      "note": "Semantic match on article 6; hybrid should not displace the correct article from rank 1."
+    },
+    {
+      "id": "semantic_medical_area_stability",
+      "eval_class": "semantic",
+      "query": "where is the medical area",
+      "evidence_ids": [1],
+      "eval_top_k": 5,
+      "stability_check": true,
+      "vector_cosine_scores": [0.92, 0.35, 0.5, 0.33, 0.32, 0.3],
+      "note": "Clear semantic winner (1); lexical aligns; vector-only and hybrid should share the same top-1."
+    }
+  ]
+}

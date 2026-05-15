@@ -185,5 +185,34 @@ class TestQueryLogMigrations(unittest.TestCase):
         )
 
 
+class TestHybridQueryLogRouteWiring(unittest.TestCase):
+    """Verify /query persists hybrid retrieval contribution fields."""
+
+    EXPECTED_ROUTE_WRITES = {
+        "lexical_top_k_ids",
+        "lexical_top_k_scores",
+        "lexical_top_k_ranks",
+        "lexical_latency_ms",
+        "vector_top_k_ids",
+        "vector_top_k_scores",
+        "vector_top_k_ranks",
+        "fusion_strategy",
+        "fusion_top_k_ids",
+        "fusion_top_k_scores",
+        "fusion_top_k_ranks",
+    }
+
+    def test_routes_query_writes_hybrid_fields(self):
+        from pathlib import Path
+
+        routes_path = Path(schema.__file__).parents[1] / "api" / "routes_query.py"
+        source = routes_path.read_text(encoding="utf-8")
+        missing = [field for field in self.EXPECTED_ROUTE_WRITES if f"{field}=" not in source]
+        self.assertFalse(
+            missing,
+            f"routes_query.py is not wiring hybrid QueryLog fields: {missing}",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
