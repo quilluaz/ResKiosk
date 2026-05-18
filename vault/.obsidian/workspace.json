@@ -1,0 +1,238 @@
+{
+  "main": {
+    "id": "7d413847e45acb74",
+    "type": "split",
+    "children": [
+      {
+        "id": "a7a60b5461308242",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "bf645b3cfba59a9b",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "copilot/copilot-custom-prompts/Summarize.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Summarize"
+            }
+          },
+          {
+            "id": "01c4d812b7536992",
+            "type": "leaf",
+            "state": {
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Graph view"
+            }
+          }
+        ],
+        "currentTab": 1
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "c38ab89eaa9690a9",
+    "type": "split",
+    "children": [
+      {
+        "id": "d6b46d1471216032",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "7cf52d59ba68f1d0",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "45c71e9c258aa116",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "2556dad11f56e8a3",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "86bc291c0c43f9de",
+    "type": "split",
+    "children": [
+      {
+        "id": "552fc6d06df0429a",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "c126a179ff75b884",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks"
+            }
+          },
+          {
+            "id": "9ce001b8f8efa50d",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "20-sprints/sprint-2/decisions.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from decisions"
+            }
+          },
+          {
+            "id": "071fc4e8a0c7eea9",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "19a02cd1144bc4c8",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "5c3ea42f17815917",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline"
+            }
+          }
+        ],
+        "currentTab": 4
+      }
+    ],
+    "direction": "horizontal",
+    "width": 433,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false,
+      "audio-recorder:Start/stop recording": false
+    }
+  },
+  "active": "01c4d812b7536992",
+  "lastOpenFiles": [
+    "30-decisions/slice-6a.md",
+    "Untitled.canvas",
+    "Untitled 1.base",
+    "Untitled.base",
+    "Recording 20260512013655.m4a",
+    "Recording 20260512013643.m4a",
+    "Daily Notes/2026-05-11.md",
+    "Untitled 1.canvas",
+    "20-sprints/sprint-3/_index.md",
+    "copilot/copilot-conversations/hello@20260512_013534.md",
+    "copilot/copilot-custom-prompts/Summarize.md",
+    "copilot/copilot-conversations/what_sprint_are_finished_and_what_are_we_currently_on@20260512_013319.md",
+    "copilot/copilot-conversations",
+    "copilot/copilot-custom-prompts/Clip Web Page.md",
+    "copilot/copilot-custom-prompts/Clip YouTube Transcript.md",
+    "copilot/copilot-custom-prompts/Rewrite as tweet thread.md",
+    "copilot/copilot-custom-prompts/Rewrite as tweet.md",
+    "copilot/copilot-custom-prompts/Remove URLs.md",
+    "copilot/copilot-custom-prompts/Generate glossary.md",
+    "copilot/copilot-custom-prompts/Generate table of contents.md",
+    "copilot/copilot-custom-prompts/Make longer.md",
+    "copilot/copilot-custom-prompts/Make shorter.md",
+    "copilot/copilot-custom-prompts/Emojify.md",
+    "copilot/copilot-custom-prompts/Explain like I am 5.md",
+    "copilot/copilot-custom-prompts/Simplify.md",
+    "copilot/copilot-custom-prompts/Translate to Chinese.md",
+    "copilot/copilot-custom-prompts/Fix grammar and spelling.md",
+    "copilot/copilot-custom-prompts",
+    "copilot",
+    "40-open-questions/kiosk-provisioning-consistency.md",
+    "_meta/logs/run-2026-05-11T144201Z.log",
+    "40-open-questions/console-page-deployment-readiness.md",
+    "40-open-questions/rlhf-feedback-rebuild-cadence.md",
+    "40-open-questions/language-validation-coverage.md",
+    "40-open-questions/lora-relay-hardware-validation.md",
+    "40-open-questions/lora-relay-hardware-validation.md.tmp.28888.718393bdaf84",
+    "40-open-questions/production-readiness-by-feature.md",
+    "20-sprints/sprint-8"
+  ]
+}
