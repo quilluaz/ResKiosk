@@ -5,17 +5,106 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ResKiosk Preview</title>
     <style>
-        html, body, #compose-target {
+        html, body {
             width: 100%;
             height: 100%;
             margin: 0;
             overflow: hidden;
+            background: radial-gradient(circle at center, #1e1e1e 0%, #0a0a0a 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: sans-serif;
+        }
+
+        /* The Tablet Bezel */
+        .device-wrapper {
+            width: 90vw;
+            max-width: 1280px;
+            aspect-ratio: 16 / 10;
+            background-color: #0d0d0d;
+            border-radius: 32px;
+            padding: 24px;
+            box-shadow: 
+                0 0 0 2px #333,
+                0 24px 64px rgba(0,0,0,0.8),
+                inset 0 0 4px 2px rgba(255,255,255,0.05);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+        }
+
+        /* Front Camera */
+        .device-wrapper::before {
+            content: '';
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #000;
+            box-shadow: inset 0 0 2px rgba(255,255,255,0.2), 0 0 2px rgba(255,255,255,0.05);
+            z-index: 20;
+        }
+
+        /* Screen Container */
+        .screen-container {
+            width: 100%;
+            height: 100%;
             background: #121212;
+            border-radius: 16px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 0 8px rgba(0,0,0,0.5);
+        }
+
+        /* The Compose Canvas Target */
+        #compose-target {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            display: block;
+        }
+
+        /* Screen Glass Reflection */
+        .screen-container::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 30%, rgba(255,255,255,0) 100%);
+            pointer-events: none; /* Crucial: Allows click/drag events to reach Compose */
+            z-index: 10;
+        }
+
+        @media (max-width: 800px) {
+            .device-wrapper {
+                padding: 16px;
+                border-radius: 24px;
+            }
+            .screen-container {
+                border-radius: 12px;
+            }
+            .device-wrapper::before {
+                top: 6px;
+                width: 6px;
+                height: 6px;
+            }
         }
     </style>
 </head>
 <body>
-<div id="compose-target"></div>
-<script src="reskiosk-preview.js"></script>
+    <div class="device-wrapper">
+        <div class="screen-container">
+            <div id="compose-target"></div>
+        </div>
+    </div>
+    <script src="reskiosk-preview.js"></script>
 </body>
 </html>
