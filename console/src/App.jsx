@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, FileText, Settings, Wifi, WifiOff, Terminal, Phone, MessageSquare, Moon, Sun, AlertTriangle, X, HelpCircle, LogOut, User } from 'lucide-react';
 import hubClient from './api/hubClient';
+import { hubRealtimeUrl } from './api/endpoints';
 import logoSvg from './assets/reskiosk-logo.svg';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { isMockingEnabled } from './mocks/enabled';
@@ -42,12 +43,7 @@ function AppShell() {
     useEffect(() => {
         if (isMockingEnabled) return;
 
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        let hostUrl = window.location.host;
-        if (window.location.port === '5173') {
-            hostUrl = window.location.hostname + ':8000';
-        }
-        const wsUrl = `${protocol}//${hostUrl}/lora/ws/lora`;
+        const wsUrl = hubRealtimeUrl('/lora/ws/lora');
 
         let ws;
         let reconnectTimer;

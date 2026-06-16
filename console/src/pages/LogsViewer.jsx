@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useModal } from '../components/ModalProvider';
 import { isMockingEnabled } from '../mocks/enabled';
+import { hubRealtimeUrl, hubUrl } from '../api/endpoints';
 
 const LogsViewer = () => {
     const modal = useModal();
@@ -22,16 +23,7 @@ const LogsViewer = () => {
             return;
         }
 
-        // Use the same host/port the console uses
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        let hostUrl = window.location.host;
-
-        // If we are in dev (vite on 5173), connect to FastAPI backend on 8000
-        if (window.location.port === '5173') {
-            hostUrl = window.location.hostname + ':8000';
-        }
-
-        const wsUrl = `${protocol}//${hostUrl}/ws/logs`;
+        const wsUrl = hubRealtimeUrl('/ws/logs');
         const ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
@@ -65,13 +57,6 @@ const LogsViewer = () => {
 
     // Intentionally no auto-scroll: keep user position stable while logs stream in.
 
-    const getBaseUrl = () => {
-        if (window.location.port === '5173') {
-            return `${window.location.protocol}//${window.location.hostname}:8000`;
-        }
-        return '';
-    };
-
     const handleShutdown = async () => {
         if (!(await modal.confirm('Are you sure you want to turn off ResKiosk Hub? All connected kiosks will lose connectivity.'))) {
             return;
@@ -79,7 +64,7 @@ const LogsViewer = () => {
 
         setIsShuttingDown(true);
         try {
-            await fetch(`${getBaseUrl()}/admin/shutdown`, { method: 'POST' });
+            await fetch(hubUrl('/admin/shutdown'), { method: 'POST' });
         } catch (e) {
             // Expected — server dies before response completes
         }
@@ -92,7 +77,7 @@ const LogsViewer = () => {
 
         setIsRestarting(true);
         try {
-            const res = await fetch(`${getBaseUrl()}/admin/restart`, { method: 'POST' });
+            const res = await fetch(hubUrl('/admin/restart'), { method: 'POST' });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
                 await modal.alert(data.message || 'Restart not available.');

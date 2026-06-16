@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import hubClient from '../api/hubClient';
+import { hubUrl } from '../api/endpoints';
 import { RefreshCw } from 'lucide-react';
 import { useModal } from '../components/ModalProvider';
 import { isMockingEnabled } from '../mocks/enabled';
@@ -157,7 +158,7 @@ function EmergencyCalls() {
 
         const connect = () => {
             if (stopped) return;
-            evtSource = new EventSource('/emergency/stream');
+            evtSource = new EventSource(hubUrl('/emergency/stream'));
             evtSource.onopen = () => {
                 setSseDisconnected(false);
                 retry = 1000;

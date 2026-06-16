@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import hubClient from '../api/hubClient';
+import { hubRealtimeUrl } from '../api/endpoints';
 import { useModal } from '../components/ModalProvider';
 import { isMockingEnabled } from '../mocks/enabled';
 import {
@@ -961,12 +962,7 @@ function LoraMonitorTab({ hubs }) {
     useEffect(() => {
         if (isMockingEnabled) return;
 
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        let hostUrl = window.location.host;
-        if (window.location.port === '5173') {
-            hostUrl = window.location.hostname + ':8000';
-        }
-        const wsUrl = `${protocol}//${hostUrl}/lora/ws/lora`;
+        const wsUrl = hubRealtimeUrl('/lora/ws/lora');
         const ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
@@ -1769,12 +1765,7 @@ function HubMessages() {
     useEffect(() => {
         if (isMockingEnabled) return;
 
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        let hostUrl = window.location.host;
-        if (window.location.port === '5173') {
-            hostUrl = window.location.hostname + ':8000';
-        }
-        const wsUrl = `${protocol}//${hostUrl}/lora/ws/lora`;
+        const wsUrl = hubRealtimeUrl('/lora/ws/lora');
 
         let ws;
         let reconnectTimer;

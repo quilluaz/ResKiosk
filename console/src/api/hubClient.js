@@ -1,9 +1,10 @@
 import axios from 'axios';
+import { hubHttpBaseUrl } from './endpoints';
 
-// Determine base URL: when served by the hub itself '/' works.
-// In Vite dev mode (port 5173), proxy is configured in vite.config.js.
+// Use VITE_HUB_API_URL when the static console is hosted separately from the hub.
+// Default '/' still supports serving the console from the hub itself.
 const hubClient = axios.create({
-    baseURL: '/',
+    baseURL: hubHttpBaseUrl,
     timeout: 5000,
     headers: {
         'Content-Type': 'application/json',
