@@ -8,6 +8,13 @@ plugins {
     id 'org.jetbrains.compose' version '1.7.0' apply false
 }
 
-task clean(type: Delete) {
-    delete rootProject.buildDir
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        flatDir {
+            dirs "${rootProject.projectDir}/app/libs"
+        }
+    }
 }
+
