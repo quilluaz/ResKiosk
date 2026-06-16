@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useModal } from '../components/ModalProvider';
+import { isMockingEnabled } from '../mocks/enabled';
 
 const LogsViewer = () => {
     const modal = useModal();
@@ -10,6 +11,17 @@ const LogsViewer = () => {
     const bottomRef = useRef(null);
 
     useEffect(() => {
+        if (isMockingEnabled) {
+            setIsConnected(true);
+            setLogs([
+                'INFO: ResKiosk Hub portfolio demo started with Mock Service Worker.',
+                'INFO: Knowledge base snapshot loaded from local mock data.',
+                'WARNING: LoRa radio is simulated for static deployment.',
+                'INFO: Emergency alert monitor ready.',
+            ]);
+            return;
+        }
+
         // Use the same host/port the console uses
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         let hostUrl = window.location.host;

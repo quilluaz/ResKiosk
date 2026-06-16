@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import hubClient from '../api/hubClient';
 import { RefreshCw } from 'lucide-react';
 import { useModal } from '../components/ModalProvider';
+import { isMockingEnabled } from '../mocks/enabled';
 
 function EmergencyCalls() {
     const modal = useModal();
@@ -148,6 +149,8 @@ function EmergencyCalls() {
 
     // SSE for new alerts (auto-reconnect with backoff)
     useEffect(() => {
+        if (isMockingEnabled) return;
+
         let evtSource;
         let retry = 1000;
         let stopped = false;

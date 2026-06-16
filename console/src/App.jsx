@@ -4,6 +4,7 @@ import { LayoutDashboard, FileText, Settings, Wifi, WifiOff, Terminal, Phone, Me
 import hubClient from './api/hubClient';
 import logoSvg from './assets/reskiosk-logo.svg';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { isMockingEnabled } from './mocks/enabled';
 
 // Pages
 import Dashboard from './pages/Dashboard';
@@ -39,6 +40,8 @@ function AppShell() {
 
     // ── Global LoRa WebSocket Listener for new_message ──────────────────
     useEffect(() => {
+        if (isMockingEnabled) return;
+
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         let hostUrl = window.location.host;
         if (window.location.port === '5173') {

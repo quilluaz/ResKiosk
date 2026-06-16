@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom';
 import hubClient from '../api/hubClient';
 import { useModal } from '../components/ModalProvider';
+import { isMockingEnabled } from '../mocks/enabled';
 import {
     Send, Trash2, Eye, X, Radio, MessageSquare,
     Wifi, WifiOff, Usb, Bluetooth, RefreshCw, TerminalSquare, ArrowUp, ArrowDown,
@@ -958,6 +959,8 @@ function LoraMonitorTab({ hubs }) {
 
     // WebSocket for real-time serial monitor
     useEffect(() => {
+        if (isMockingEnabled) return;
+
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         let hostUrl = window.location.host;
         if (window.location.port === '5173') {
@@ -1764,6 +1767,8 @@ function HubMessages() {
 
     // Real-time: subscribe to LoRa WS for instant new-message push
     useEffect(() => {
+        if (isMockingEnabled) return;
+
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         let hostUrl = window.location.host;
         if (window.location.port === '5173') {
